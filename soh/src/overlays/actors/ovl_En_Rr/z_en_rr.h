@@ -8,6 +8,13 @@ struct EnRr;
 
 typedef void (*EnRrActionFunc)(struct EnRr*, PlayState*);
 
+typedef enum {
+    /* 0 */ LIKE_LIKE_PARAM_0, //standard
+    /* 1 */ LIKE_LIKE_PARAM_1, //child
+    /* 2 */ LIKE_LIKE_PARAM_2, //large
+    /* 3 */ LIKE_LIKE_PARAM_3 //inverted
+} LikeLikeParam;
+
 typedef struct {
     /* 0x00 */ f32 height;
     /* 0x04 */ f32 heightTarget;
@@ -30,6 +37,8 @@ typedef struct EnRr {
     /* 0x01F0 */ s16 invincibilityTimer;
     /* 0x01F2 */ s16 effectTimer;
     /* 0x01F4 */ s16 ocTimer;
+                 s16 colPlayerTimer;
+                 s16 grabDamagePlayer;
     /* 0x01F6 */ s16 segMovePhase; // phase angle for wobble and pulsing motion
     /* 0x01F8 */ f32 segPhaseVel; // rate at which motion phase changes
     /* 0x01FC */ f32 segPhaseVelTarget;
