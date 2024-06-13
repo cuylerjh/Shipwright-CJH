@@ -74,7 +74,6 @@ void EnRr_Death(EnRr* this, PlayState* play);
 void EnRr_Retreat(EnRr* this, PlayState* play);
 void EnRr_Stunned(EnRr* this, PlayState* play);
 
-//All set
 const ActorInit En_Rr_InitVars = {
     ACTOR_EN_RR,
     ACTORCAT_ENEMY,
@@ -93,7 +92,7 @@ static char* sDropNames[] = {
     "タイプ７  ", "魔法の壷小", "矢        ", "妖精      ", "20ルピー  ", "50ルピー  ",
 };
 
-//base values
+//Base collider values
 static ColliderCylinderInitType1 sCylinderInit1 = {
     {
         COLTYPE_NONE,
@@ -113,7 +112,7 @@ static ColliderCylinderInitType1 sCylinderInit1 = {
     { 30, 55, 0, { 0, 0, 0 } },
 };
 
-//base values
+//Base collider values
 static ColliderCylinderInitType1 sCylinderInit2 = {
     {
         COLTYPE_NONE,
@@ -133,7 +132,27 @@ static ColliderCylinderInitType1 sCylinderInit2 = {
     { 27, 10, -5, { 0, 0, 0 } },
 };
 
-//All set
+/* May change top collider to a quad
+static ColliderQuadInit sQuadInit = {
+    {
+        COLTYPE_NONE,
+        AT_NONE,
+        AC_ON | AC_HARD | AC_TYPE_PLAYER,
+        OC1_ON | OC1_NO_PUSH | OC1_TYPE_PLAYER,
+        COLSHAPE_QUAD,
+    },
+    {
+        ELEMTYPE_UNK0,
+        { 0xFFCFFFFF, 0x00, 0x08 },
+        { 0xFFCFFFFF, 0x00, 0x00 },
+        TOUCH_ON | TOUCH_SFX_NORMAL,
+        BUMP_ON,
+        OCELEM_ON,
+    },
+    { { { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } } },
+};
+*/
+
 static DamageTable sDamageTable = {
     /* Deku nut      */ DMG_ENTRY(0, RR_DMG_NONE),
     /* Deku stick    */ DMG_ENTRY(2, RR_DMG_NORMAL),
@@ -169,14 +188,12 @@ static DamageTable sDamageTable = {
     /* Unknown 2     */ DMG_ENTRY(0, RR_DMG_NONE),
 };
 
-//All set
 static InitChainEntry sInitChain[] = {
     ICHAIN_S8(naviEnemyId, 0x37, ICHAIN_CONTINUE),
     ICHAIN_U8(targetMode, 2, ICHAIN_CONTINUE),
     ICHAIN_F32(targetArrowOffset, 30, ICHAIN_STOP),
 };
 
-//All set
 void EnRr_Init(Actor* thisx, PlayState* play2) {
     PlayState* play = play2;
     EnRr* this = (EnRr*)thisx;
@@ -241,7 +258,7 @@ void EnRr_Init(Actor* thisx, PlayState* play2) {
     this->stopScroll = false;
     this->ocTimer = 0;
     this->colPlayerTimer = 0;
-    this->reachState = this->grabState = this->isDead = false;
+    this->reachState = this->reachUp = this->grabState = this->isDead = false;
     this->actionFunc = EnRr_Approach;
     for (i = 0; i < 5; i++) {
         this->bodySegs[i].height = this->bodySegs[i].heightTarget = this->bodySegs[i].scaleMod.x =
@@ -250,7 +267,6 @@ void EnRr_Init(Actor* thisx, PlayState* play2) {
     EnRr_InitBodySegments(this, play);
 }
 
-//All set
 void EnRr_Destroy(Actor* thisx, PlayState* play) {
     s32 pad;
     EnRr* this = (EnRr*)thisx;
@@ -259,57 +275,46 @@ void EnRr_Destroy(Actor* thisx, PlayState* play) {
     Collider_DestroyCylinder(play, &this->collider2);
 }
 
-//All set
 void EnRr_SetSpeed(EnRr* this, f32 speed) {
     this->actor.speedXZ = speed;
     Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_WALK);
 }
 
-//All set
-void EnRr_SetupReach(EnRr* this) {
-    static f32 segmentHeightsA[] = { 0.0f, 500.0f, 750.0f, 1000.0f, 1250.0f };
+void EnRr_SetupReach(EnRr* this) { //Additional functionality for reaching above
     s32 i;
-
     this->reachState = 1;
     this->actionTimer = 0; //skips to next case at start of function
-    this->segPhaseVelTarget = 2621.33f;
+    this->segPhaseVelTarget = 2621.23f;
     this->segMoveRate = 0.0f;
-    for (i = 1; i < 5; i++) { //skips updating bottom seg
-        this->bodySegs[i].heightTarget = segmentHeightsA[i];
-        this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.75f;
-        this->bodySegs[i].rotTarget.x = 4096.0f + (this->collider1.dim.radius * 150.0f); //angle modified by size
-        this->bodySegs[i].rotTarget.z = 0.0f;
+
+    if (!this->reachUp) {
+        static f32 segmentHeightsA[] = { 0.0f, 500.0f, 750.0f, 1000.0f, 1250.0f };
+        for (i = 1; i < 5; i++) { //skips updating bottom seg
+            this->bodySegs[i].heightTarget = segmentHeightsA[i];
+            this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.75f;
+            this->bodySegs[i].rotTarget.x = 4096.0f + (this->collider1.dim.radius * 150.0f); //angle modified by size
+            this->bodySegs[i].rotTarget.z = 0.0f;
+        }
+    } else {
+        static f32 segmentHeightsB[] = { 0.0f, 750.0f, 1000.0f, 1250.0f, 1500.0f };
+        for (i = 1; i < 5; i++) { //skips updating bottom seg
+            this->bodySegs[i].heightTarget = segmentHeightsB[i];
+            this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.75f;
+            this->bodySegs[i].rotTarget.x = 0.0f; 
+            this->bodySegs[i].rotTarget.z = 0.0f;
+        }
+        this->reachUp = false;
     }
     this->actionFunc = EnRr_Reach;
     Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_UNARI); //unari = moan, groan, or loud noise
 }
 
-//All set
-void EnRr_SetupReachUp(EnRr* this) {
-    static f32 segmentHeightsB[] = { 0.0f, 750.0f, 1000.0f, 1250.0f, 1500.0f };
-    s32 i;
-
-    this->reachState = 1;
-    this->actionTimer = 0; //skips to next case at start of function
-    this->segPhaseVelTarget = 2621.33f;
-    this->segMoveRate = 0.0f;
-    for (i = 1; i < 5; i++) { //skips updating bottom seg
-        this->bodySegs[i].heightTarget = segmentHeightsB[i];
-        this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.75f;
-        this->bodySegs[i].rotTarget.x = 0.0f; 
-        this->bodySegs[i].rotTarget.z = 0.0f;
-    }
-    this->actionFunc = EnRr_Reach;
-    Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_UNARI); //unari = moan, groan, or loud noise
-}
-
-//All set
 void EnRr_SetupNeutral(EnRr* this) {
     s32 i;
 
     this->reachState = 0;
     this->segMoveRate = 0.0f;
-    this->segPhaseVelTarget = 2621.33f;
+    this->segPhaseVelTarget = 2621.23f;
     for (i = 1; i < 5; i++) { //skips updating bottom seg
         this->bodySegs[i].heightTarget = 0.0f;
         this->bodySegs[i].rotTarget.x = this->bodySegs[i].rotTarget.z = 0.0f;
@@ -324,7 +329,6 @@ void EnRr_SetupNeutral(EnRr* this) {
     }
 }
 
-//All set
 void EnRr_SetupGrabPlayer(EnRr* this, Player* player) {
     s32 i;
 
@@ -351,7 +355,6 @@ void EnRr_SetupGrabPlayer(EnRr* this, Player* player) {
     Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_DRINK);
 }
 
-//All set
 u8 EnRr_GetMessage(u8 shield, u8 tunic) {
     u8 messageIndex = 0;
 
@@ -371,7 +374,7 @@ void EnRr_SetupThrowPlayer(EnRr* this) {
 
     this->reachState = 1;
     this->actionTimer = 12; 
-    this->segPhaseVelTarget = 2621.33f;
+    this->segPhaseVelTarget = 2621.23f;
     this->segMoveRate = 0.0f;
     for (i = 1; i < 5; i++) { //skips updating bottom seg
         this->bodySegs[i].heightTarget = segmentHeightsC[i];
@@ -382,17 +385,14 @@ void EnRr_SetupThrowPlayer(EnRr* this) {
     this->actionFunc = EnRr_ThrowPlayer;
 }
 
-//All set
 void EnRr_SetupReleasePlayer(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
-    u8 shield;
-    u8 tunic;
 
     this->actor.flags |= ACTOR_FLAG_TARGETABLE;
     this->hasPlayer = false;
     this->ocTimer = 50; 
     this->segMoveRate = 0.0f;
-    this->segPhaseVelTarget = 2621.33f;
+    this->segPhaseVelTarget = 2621.23f;
     this->wobbleSizeTarget = 2816.0f;
     this->pulseSizeTarget = 0.15f;
     player->actor.parent = NULL;
@@ -408,14 +408,13 @@ void EnRr_SetupReleasePlayer(EnRr* this, PlayState* play) {
     }
 }
 
-//All set
 void EnRr_SetupDamage(EnRr* this) {
     s32 i;
 
     this->reachState = 0;
     this->actionTimer = 0;
     this->segMoveRate = 0.0f;
-    this->segPhaseVelTarget = 2621.33f;
+    this->segPhaseVelTarget = 2621.23f;
     this->pulseSizeTarget = 0.0f;
     this->wobbleSizeTarget = 0.0f;
     for (i = 1; i < 5; i++) { //skips updating bottom seg
@@ -427,13 +426,12 @@ void EnRr_SetupDamage(EnRr* this) {
     Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_DAMAGE);
 }
 
-//All set
 void EnRr_SetupApproach(EnRr* this) {
     s32 i;
 
     this->segMoveRate = 0.0f;
     this->pulseSizeTarget = 0.15f;
-    this->segPhaseVelTarget = 2621.33f;
+    this->segPhaseVelTarget = 2621.23f;
     this->wobbleSizeTarget = 2816.0f;
     for (i = 1; i < 5; i++) { //skips updating bottom seg
         this->bodySegs[i].heightTarget = 0.0f;
@@ -443,7 +441,6 @@ void EnRr_SetupApproach(EnRr* this) {
     this->actionFunc = EnRr_Approach;
 }
 
-//All set
 void EnRr_SetupDeath(EnRr* this) {
     s32 i;
 
@@ -461,14 +458,13 @@ void EnRr_SetupDeath(EnRr* this) {
     GameInteractor_ExecuteOnEnemyDefeat(&this->actor);
 }
 
-//All set
 void EnRr_SetupStunned(EnRr* this) {
     s32 i;
 
     this->stopScroll = true;
     this->segMovePhase = 0;
     this->segPhaseVel = 0.0f;
-    this->segPhaseVelTarget = 2621.33f;
+    this->segPhaseVelTarget = 2621.23f;
     this->segPulsePhaseDiff = 0.0f;
     this->segWobblePhaseDiffX = 0.0f;
     this->segWobbleXTarget = 4.0f;
@@ -489,7 +485,7 @@ void EnRr_SetupStunned(EnRr* this) {
     this->actionFunc = EnRr_Stunned;
 }
 
-//All set
+//Marked for review
 void EnRr_CollisionCheck(EnRr* this, PlayState* play) {
     Vec3f hitPos;
     Player* player = GET_PLAYER(play);
@@ -591,13 +587,12 @@ void EnRr_CollisionCheck(EnRr* this, PlayState* play) {
     }
 }
 
-//All set
 void EnRr_InitBodySegments(EnRr* this, PlayState* play) {
     s32 i;
 
     this->segMovePhase = 0;
     this->segPhaseVel = 0.0f;
-    this->segPhaseVelTarget = 2621.33f;
+    this->segPhaseVelTarget = 2621.23f;
     this->segPulsePhaseDiff = 0.0f;
     this->segWobblePhaseDiffX = 0.0f;
     this->segWobbleXTarget = 4.0f;
@@ -626,7 +621,6 @@ void EnRr_InitBodySegments(EnRr* this, PlayState* play) {
     }
 }
 
-//All set
 void EnRr_UpdateBodySegments(EnRr* this, PlayState* play) {
     s32 i;
     s16 phase = this->segMovePhase;
@@ -691,17 +685,18 @@ void EnStream_WaitForPlayer(EnStream* this, PlayState* play) {
 }
 */
 
-//All set
+//Marked to modify, changing SetupReach logic
 void EnRr_Approach(EnRr* this, PlayState* play) {
-    Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0xA, 0x5DC, 0); //yaw speed increased
+    Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0xA, 0x400, 0); //yaw speed increased
     this->actor.world.rot.y = this->actor.shape.rot.y;
     Player* player = GET_PLAYER(play);
     if ((this->actionTimer == 0) && !(player->stateFlags2 & PLAYER_STATE2_GRABBED_BY_ENEMY)) {
         if ((this->actor.yDistToPlayer < this->collider1.dim.height * 1.5f) && (this->actor.xyzDistToPlayerSq < this->collider1.dim.radius * 7.0f)) { //reach trigger if within range and at same level; also checks if grabbed like MM
             EnRr_SetupReach(this); 
         } else if ((this->actor.yDistToPlayer > this->collider1.dim.height * 1.5f) && (this->actor.xyzDistToPlayerSq < this->collider1.dim.height * 3.0f)) {
-            EnRr_SetupReachUp(this); //reachUp trigger if within range and above actor
-        } 
+            this->reachUp = true; //reachUp trigger if within range and above actor
+            EnRr_SetupReach(this); 
+        }
     }
     if ((this->actor.xzDistToPlayer < (350.0f + (this->collider1.dim.radius * 7))) && (this->actor.speedXZ == 0.0f)) { //Approach trigger scales with size
         EnRr_SetSpeed(this, 2.5f); 
@@ -710,7 +705,7 @@ void EnRr_Approach(EnRr* this, PlayState* play) {
 
 //marked to modify
 void EnRr_Reach(EnRr* this, PlayState* play) {
-    Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0xA, 0x5DC, 0); //yaw speed increased
+    Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0xA, 0x400, 0); //yaw speed increased
     this->actor.world.rot.y = this->actor.shape.rot.y;
     switch (this->reachState) {
         case REACH_EXTEND:
@@ -760,16 +755,16 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
     player->actor.velocity.y = 0.0f;
     this->grabDamagePlayer--;
     func_800AA000(this->actor.xyzDistToPlayerSq, 120, 2, 120);
-    if ((this->frameCount % (32768 / 4096)) == 0) { //sound play frequency modified by segPhaseVel; need to convert segPhaseVel to int
+    if ((this->frameCount % (32768 / (s16)segPhaseVel))) == 0) { //sound play frequency modified by segPhaseVel
         Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_EAT);
     }
     this->ocTimer = 8;
 
     switch (this->grabState) {
         case GRAB_TRY:
-            if(this->actor.params == LIKE_LIKE_PARAM_3) { //Ceiling variant guarantees steal attempt
+            if (this->actor.params == LIKE_LIKE_PARAM_3) { //Ceiling variant guarantees steal attempt
                 player->av2.actionVar2 = 0;
-            } else if(this->actor.params != LIKE_LIKE_PARAM_2) {
+            } else if (this->actor.params != LIKE_LIKE_PARAM_2) {
                 player->av2.actionVar2 -= 5;
             } else {
                 player->av2.actionVar2 -= 4;
@@ -860,9 +855,9 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
     if ((this->grabTimer == 0) || !(player->stateFlags2 & PLAYER_STATE2_GRABBED_BY_ENEMY)) {
         EnRr_SetupThrowPlayer(this); //MM behavior
     } else {
-        Math_ApproachF(&player->actor.world.pos.x, this->mouthPos.x, 1.0f, 10.0f); //reduced snap
-        Math_ApproachF(&player->actor.world.pos.y, this->mouthPos.y + this->swallowOffset, 1.0f, 10.0f); //reduced snap
-        Math_ApproachF(&player->actor.world.pos.z, this->mouthPos.z, 1.0f, 10.0f); //reduced snap
+        Math_ApproachF(&player->actor.world.pos.x, this->mouthPos.x, 1.0f, 8.0f); //reduced snap
+        Math_ApproachF(&player->actor.world.pos.y, this->mouthPos.y + this->swallowOffset, 1.0f, 12.0f); //reduced snap
+        Math_ApproachF(&player->actor.world.pos.z, this->mouthPos.z, 1.0f, 8.0f); //reduced snap
         Math_ApproachF(&this->swallowOffset, -this->collider1.dim.height, 1.0f, this->collider1.dim.height / 24.0f); //final swallowOffset is the height of the main collider, rate is height over 24 frames
         }
     }
@@ -876,10 +871,10 @@ void EnRr_ThrowPlayer(EnRr* this, PlayState* play) {
     player->av2.actionVar2 = 0;
     player->actor.velocity.y = 0;
     player->actor.speedXZ = 0;
-    Math_StepToF(&player->actor.world.pos.x, this->mouthPos.x, 10.0f);
-    Math_StepToF(&player->actor.world.pos.y, this->mouthPos.y + this->swallowOffset, 30.0f);
-    Math_StepToF(&player->actor.world.pos.z, this->mouthPos.z, 10.0f);
-    Math_StepToF(&this->swallowOffset, -this->collider1.dim.height / 2, this->collider1.dim.height / 24.0f);
+    Math_StepToF(&player->actor.world.pos.x, this->mouthPos.x, 8.0f);
+    Math_StepToF(&player->actor.world.pos.y, this->mouthPos.y + this->swallowOffset, 12.0f);
+    Math_StepToF(&player->actor.world.pos.z, this->mouthPos.z, 8.0f);
+    Math_StepToF(&this->swallowOffset, -this->collider1.dim.height / 2.0f, this->collider1.dim.height / 24.0f);
     if (this->actionTimer == 0) {
         this->reachState = 0;
         EnRr_SetupGrabPlayer(this, player);
@@ -887,7 +882,7 @@ void EnRr_ThrowPlayer(EnRr* this, PlayState* play) {
     }
 }
 
-//All set
+//Backport MM version
 void EnRr_Damage(EnRr* this, PlayState* play) {
     s32 i;
 
@@ -904,7 +899,6 @@ void EnRr_Damage(EnRr* this, PlayState* play) {
     }
 }
 
-//All set
 void EnRr_Death(EnRr* this, PlayState* play) {
     s32 pad;
     s32 i;
@@ -984,7 +978,6 @@ void EnRr_Death(EnRr* this, PlayState* play) {
     }
 }
 
-//All set
 void EnRr_Retreat(EnRr* this, PlayState* play) {
     if (this->actionTimer == 0) {
         this->retreat = false;
@@ -999,7 +992,6 @@ void EnRr_Retreat(EnRr* this, PlayState* play) {
     }
 }
 
-//All set
 void EnRr_Stunned(EnRr* this, PlayState* play) {
     if (this->actor.colorFilterTimer == 0) {
         this->stopScroll = false;
@@ -1092,7 +1084,7 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
         for (i = 1; i < 5; i++) { //Bottom seg left out of updates
             Math_SmoothStepToS(&this->bodySegs[i].rot.x, this->bodySegs[i].rotTarget.x, 5, this->segMoveRate * 512.0f,
                                0); //Reduced rate
-            if (this->actionFunc != EnRr_Damage) { //Separate segMoveRate multi during Damage
+            if (this->actionFunc != EnRr_Damage) { //Separate segMoveRate multiplier during Damage
                 Math_SmoothStepToS(&this->bodySegs[i].rot.z, this->bodySegs[i].rotTarget.z, 5, this->segMoveRate * 512.0f, 0); //Reduced rate
             } else {
                 Math_SmoothStepToS(&this->bodySegs[i].rot.z, this->bodySegs[i].rotTarget.z, 5, this->segMoveRate * 1024.0f, 0); //Changed rate during damage
@@ -1127,7 +1119,7 @@ void EnRr_Draw(Actor* thisx, PlayState* play) {
     gSPSegment(POLY_XLU_DISP++, 0x08,
                Gfx_TwoTexScroll(play->state.gfxCtx, 0, (this->scrollTimer * 0) & 0x7F,
                                 (this->scrollTimer * 0) & 0x3F, 32, 16, 1, (this->scrollTimer * 0) & 0x3F,
-                                (this->scrollTimer * -(3072 / 512)) & 0x7F, 32, 16)); //TexScroll actively affected by segPhaseVel; fix this
+                                (this->scrollTimer * -(3072 / (s16)segPhaseVelTarget)) & 0x7F, 32, 16)); //TexScroll actively affected by segPhaseVel
     Matrix_Push();
 
     Matrix_Scale((1.0f + this->bodySegs[RR_BASE].scaleMod.x) * this->bodySegs[RR_BASE].scale.x,
