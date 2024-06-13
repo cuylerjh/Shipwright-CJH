@@ -40,8 +40,8 @@ typedef struct EnRr {
                  s16 colPlayerTimer;
                  s16 grabDamagePlayer;
     /* 0x01F6 */ s16 segMovePhase; // phase angle for wobble and pulsing motion
-    /* 0x01F8 */ f32 segPhaseVel; // rate at which motion phase changes
-    /* 0x01FC */ f32 segPhaseVelTarget;
+    /* 0x01F8 */ s32 segPhaseVel; // rate at which motion phase changes
+    /* 0x01FC */ s32 segPhaseVelTarget;
     /* 0x0200 */ f32 segPulsePhaseDiff; // Phase diff between segment pulses. Affects how wave-y the pulse is.
     /* 0x0204 */ f32 segWobblePhaseDiffX; // Phase diff between segment X rot. Affects how circular the wobble is.
     /* 0x0208 */ f32 segWobbleXTarget;
@@ -56,6 +56,8 @@ typedef struct EnRr {
     /* 0x0368 */ f32 shrinkRate;
     /* 0x036C */ f32 swallowOffset;
     /* 0x0370 */ u8 reachState;
+                 u8 grabState;
+                 u8 reachUp;
     /* 0x0371 */ u8 isDead;
     /* 0x0372 */ u8 eatenShield;
     /* 0x0373 */ u8 eatenTunic;
