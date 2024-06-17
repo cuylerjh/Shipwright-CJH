@@ -436,7 +436,7 @@ void EnRr_SetupDamage(EnRr* this) {
     this->reachState = 0;
     this->actionTimer = 0;
     this->segMoveRate = 0.0f;
-    this-segPhaseVel = 1310.0f; 
+    this->segPhaseVel = 1310.0f; 
     this->segPhaseVelTarget = 2621.0f;
     this->pulseSizeTarget = 0.0f;
     this->wobbleSizeTarget = 0.0f;
@@ -787,10 +787,8 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
         case GRAB_TRY:
             //Modular wobble/pulse helps give struggle feedback to player
             this->wobbleSizeTarget = 512.0f + (player->av2.actionVar2 * 3.413f); //Caps at 1024
-            this->pulseSizeTarget = 0.15f + (player->av2.actionVar2 / 7500f); //Caps at 0.17
-            if (this->actor.params == LIKE_LIKE_PARAM_3) { //Ceiling variant guarantees steal attempt
-                player->av2.actionVar2 = 0;
-            } else if (this->actor.params != LIKE_LIKE_PARAM_2) {
+            this->pulseSizeTarget = 0.15f + (player->av2.actionVar2 / 7500.0f); //Caps at 0.17
+            if (this->actor.params = LIKE_LIKE_PARAM_2 || this->actor.params = LIKE_LIKE_PARAM_3) {
                 player->av2.actionVar2 -= 3;
             } else {
                 player->av2.actionVar2 -= 2;
@@ -803,12 +801,12 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
                 if (CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) != EQUIP_VALUE_SHIELD_MIRROR || CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_KOKIRI /* Rando Save File */) {
                     this->grabTimer = 90;
                     this->grabDamagePlayer = 5;
-                    this->segPhaseVel = 5461.0f
+                    this->segPhaseVel = 5461.0f;
                     this->segPhaseVelTarget = 5461.0f; 
                     this->wobbleSizeTarget = 256.0f;
                     this->pulseSizeTarget = 0.135f;
                  	this->bodySegs[RR_MOUTH].scaleTarget.x = this->bodySegs[RR_MOUTH].scaleTarget.z = 0.875f;
-                    player->func_80832698(this, NA_SE_VO_LI_DAMAGE_S); //---TEST
+                    //player->func_80832698(this, NA_SE_VO_LI_DAMAGE_S); //Need correct function call
                     this->grabState = GRAB_STEAL;
                 } else {
                     this->segPhaseVel = 4096.0f;
@@ -1003,7 +1001,7 @@ void EnRr_Retreat(EnRr* this, PlayState* play) {
     } else {
         Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer + 0x8000, 0x10, 0x600, 0x60); //Increased yaw speed
         this->actor.world.rot.y = this->actor.shape.rot.y;
-        this->segPhaseVelTarget = 3643.0f
+        this->segPhaseVelTarget = 3643.0f;
         if (this->actor.speedXZ == 0.0f) {
             EnRr_SetSpeed(this, 0.0407 / this->actor.scale.x); //Faster during retreat, individual friction code
         }
@@ -1059,10 +1057,11 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
     if (this->hasPlayer == 0x3F80) { // checks if 1.0f has been stored to hasPlayer's address
         assert(this->hasPlayer == 0x3F80);
     }
-    if !(this->retreat) {
+    if (!this->retreat) {
         Math_StepToF(&this->actor.speedXZ, 0.0f, 0.001508f / this->actor.scale.x); //Friction modified by size
     } else {
         Math_StepToF(&this->actor.speedXZ, 0.0f, 0.002262f / this->actor.scale.x); //Different friction during retreat
+    }
     Actor_MoveForward(&this->actor);
     Collider_UpdateCylinder(&this->actor, &this->collider1); 
     this->collider2.dim.pos.x = this->mouthPos.x;
