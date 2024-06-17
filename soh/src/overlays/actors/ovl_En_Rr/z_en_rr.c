@@ -206,11 +206,11 @@ void EnRr_Init(Actor* thisx, PlayState* play2) {
         this->actor.colChkInfo.health = 7; 
         this->actor.scale.y = 0.014f;
         this->actor.scale.x = this->actor.scale.z = 0.01508f;
-        this->collider1.dim.radius = this->collider1.dim.radius * 1.077f;
-        this->collider1.dim.height = this->collider1.dim.height * 1.077f;
-        this->collider2.dim.radius = this->collider2.dim.radius * 1.077f;
-        this->collider2.dim.height = this->collider2.dim.height * 1.077f;
-        this->collider2.dim.yShift = this->collider2.dim.yShift * 1.077f;
+        this->collider1.dim.radius = this->collider1.dim.radius * 1.0769f;
+        this->collider1.dim.height = this->collider1.dim.height * 1.0769f;
+        this->collider2.dim.radius = this->collider2.dim.radius * 1.0769f;
+        this->collider2.dim.height = this->collider2.dim.height * 1.0769f;
+        this->collider2.dim.yShift = this->collider2.dim.yShift * 1.0769f;
         if (this->actor.params == LIKE_LIKE_PARAM_3) {
             this->actor.world.rot.z = this->actor.shape.rot.z = 32767;
             this->collider1.dim.yShift -= this->collider1.dim.height;
@@ -226,13 +226,13 @@ void EnRr_Init(Actor* thisx, PlayState* play2) {
         this->collider2.dim.yShift = this->collider2.dim.yShift * 0.8308f;
     } else if (this->actor.params == LIKE_LIKE_PARAM_2) { //Giant
         this->actor.colChkInfo.health = 9; 
-        this->actor.scale.y = 0.01638f;
-        this->actor.scale.x = this->actor.scale.z = 0.01764f;
-        this->collider1.dim.radius = this->collider1.dim.radius * 1.26f;
-        this->collider1.dim.height = this->collider1.dim.height * 1.26f;
-        this->collider2.dim.radius = this->collider2.dim.radius * 1.26f;
-        this->collider2.dim.height = this->collider2.dim.height * 1.26f;
-        this->collider2.dim.yShift = this->collider2.dim.yShift * 1.26f;
+        this->actor.scale.y = 0.02f;
+        this->actor.scale.x = this->actor.scale.z = 0.02154f;
+        this->collider1.dim.radius = this->collider1.dim.radius * 1.5385f;
+        this->collider1.dim.height = this->collider1.dim.height * 1.5385f;
+        this->collider2.dim.radius = this->collider2.dim.radius * 1.5385f;
+        this->collider2.dim.height = this->collider2.dim.height * 1.5385f;
+        this->collider2.dim.yShift = this->collider2.dim.yShift * 1.5385f;
     }
     Collider_InitCylinder(play, &this->collider1);
     Collider_SetCylinderType1(play, &this->collider1, &this->actor, &sCylinderInit1);
@@ -283,22 +283,22 @@ void EnRr_SetSpeed(EnRr* this, f32 speed) {
 void EnRr_SetupReach(EnRr* this) { 
     s32 i;
     this->reachState = 1;
-    this->actionTimer = 0; //Skips to next case at start of function
+    this->actionTimer = 0; 
     this->segPhaseVelTarget = 2621.0f;
     this->segMoveRate = 0.0f;
     this->segMovePhase = 0; //---TEST, should make reach motion pulse more consistent
 
     if (!this->reachUp) {
         static f32 segmentHeightsA[] = { 0.0f, 500.0f, 750.0f, 1000.0f, 1250.0f };
-        for (i = 1; i < 5; i++) { //skips updating bottom seg
+        for (i = 1; i < 5; i++) { 
             this->bodySegs[i].heightTarget = segmentHeightsA[i];
             this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.75f;
-            this->bodySegs[i].rotTarget.x = 4096.0f + (this->actor.scale.x * 160692.971f); //Angle modified by size
+            this->bodySegs[i].rotTarget.x = 4096.0f + (this->actor.scale.x * 160692.971f); 
             this->bodySegs[i].rotTarget.z = 0.0f;
         }
     } else { //Additional functionality for reaching above
         static f32 segmentHeightsB[] = { 0.0f, 750.0f, 1000.0f, 1250.0f, 1500.0f };
-        for (i = 1; i < 5; i++) { //Skips updating bottom seg
+        for (i = 1; i < 5; i++) { 
             this->bodySegs[i].heightTarget = segmentHeightsB[i];
             this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.75f;
             this->bodySegs[i].rotTarget.x = 0.0f; 
@@ -316,16 +316,16 @@ void EnRr_SetupNeutral(EnRr* this) {
     this->reachState = 0;
     this->segMoveRate = 0.0f;
     this->segPhaseVelTarget = 2621.0f;
-    for (i = 1; i < 5; i++) { //Skips updating bottom seg
+    for (i = 1; i < 5; i++) { 
         this->bodySegs[i].heightTarget = 0.0f;
         this->bodySegs[i].rotTarget.x = this->bodySegs[i].rotTarget.z = 0.0f;
         this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.875f;
     }
     if (this->retreat) {
-        this->actionTimer = 125; //2.5 / 0.1 = 25f per step = 5 steps before approach
+        this->actionTimer = 125; 
         this->actionFunc = EnRr_Retreat;
     } else {
-        this->actionTimer = 50; //2 steps before reach
+        this->actionTimer = 50; 
         this->actionFunc = EnRr_Approach;
     }
 }
@@ -334,7 +334,7 @@ void EnRr_SetupGrabPlayer(EnRr* this, Player* player) {
     s32 i;
 
     this->actionTimer = 0; //Cleans up any left over timer from reach action
-    this->grabTimer = 64; //Phase 1 grabTimer
+    this->grabTimer = 64; 
     this->grabState = 1;
     this->grabDamagePlayer = 8;
     this->colPlayerTimer = 25; //MM behavior, during Approach this decrements to reset collider behavior
@@ -375,19 +375,20 @@ void EnRr_SetupThrowPlayer(EnRr* this) {
     s32 i;
 
     this->reachState = 1;
-    this->actionTimer = 10; //---TEST
+    this->actionTimer = 12; //---TEST
     this->segPhaseVelTarget = 2621.0f;
     this->segMoveRate = 0.0f;
     this->segMovePhase = 0; //---TEST 
-    for (i = 1; i < 5; i++) { //Skips updating bottom seg
+    for (i = 1; i < 5; i++) { 
         this->bodySegs[i].heightTarget = segmentHeightsC[i];
-        this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.75f;
+        this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.875f;
         if (this->actor.params != LIKE_LIKE_PARAM_3) {
             this->bodySegs[i].rotTarget.x = 4096.0f; 
         } else {
             this->bodySegs[i].rotTarget.x = 0.0f;
         }
         this->bodySegs[i].rotTarget.z = 0.0f;
+        this->bodySegs[RR_MOUTH].scaleTarget.x = this->bodySegs[RR_MOUTH].scaleTarget.z = 0.75;
     }
     this->actionFunc = EnRr_ThrowPlayer;
 }
@@ -398,25 +399,15 @@ void EnRr_SetupReleasePlayer(EnRr* this, PlayState* play) {
     this->actor.flags |= ACTOR_FLAG_TARGETABLE;
     this->hasPlayer = false;
     this->ocTimer = 50; 
+    player->av2.actionVar2 = 150;
     this->segMoveRate = 0.0f;
     this->segPhaseVelTarget = 2621.0f;
     this->wobbleSizeTarget = 2816.0f;
     this->pulseSizeTarget = 0.15f;
     player->actor.parent = NULL;
     osSyncPrintf(VT_FGCOL(YELLOW) "%s[%d] : Rr_Catch_Cancel" VT_RST "\n", __FILE__, __LINE__);
-    switch (EnRr_GetMessage(shield, tunic)) {
-        case RR_MESSAGE_SHIELD:
-            Message_StartTextbox(play, 0x305F, NULL);
-            break;
-        case RR_MESSAGE_TUNIC:
-            Message_StartTextbox(play, 0x3060, NULL);
-            break;
-        case RR_MESSAGE_TUNIC | RR_MESSAGE_SHIELD:
-            Message_StartTextbox(play, 0x3061, NULL);
-            break;
-    }
     if (this->actor.params != LIKE_LIKE_PARAM_3) {
-        func_8002F6D4(play, &this->actor, this->actor.scale.x * 230.786f, this->actor.shape.rot.y, this->actor.scale.y * 357.143f, 0); //Launch values modular; also, removed damage from release
+        func_8002F6D4(play, &this->actor, this->actor.scale.x * 230.786f, this->actor.shape.rot.y, this->actor.scale.y * 357.143f, 0); //Launch values modular; removed damage
     } else {
         func_8002F6D4(play, &this->actor, 0.0, this->actor.shape.rot.y, 0.0, 0); //Inverted
     }
@@ -440,7 +431,7 @@ void EnRr_SetupDamage(EnRr* this) {
     this->segPhaseVelTarget = 2621.0f;
     this->pulseSizeTarget = 0.0f;
     this->wobbleSizeTarget = 0.0f;
-    for (i = 1; i < 5; i++) { //Skips updating bottom seg
+    for (i = 1; i < 5; i++) { 
         this->bodySegs[i].heightTarget = 0.0f;
         this->bodySegs[i].rotTarget.x = this->bodySegs[i].rotTarget.z = 0.0f;
         this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.875f;
@@ -456,7 +447,7 @@ void EnRr_SetupApproach(EnRr* this) {
     this->pulseSizeTarget = 0.15f;
     this->segPhaseVelTarget = 2621.0f;
     this->wobbleSizeTarget = 2816.0f;
-    for (i = 1; i < 5; i++) { //Skips updating bottom seg
+    for (i = 1; i < 5; i++) { 
         this->bodySegs[i].heightTarget = 0.0f;
         this->bodySegs[i].rotTarget.x = this->bodySegs[i].rotTarget.z = 0.0f;
         this->bodySegs[i].scaleTarget.x = this->bodySegs[i].scaleTarget.z = 0.875f;
@@ -587,7 +578,7 @@ void EnRr_CollisionCheck(EnRr* this, PlayState* play) {
                     Actor_SetColorFilter(&this->actor, -0x8000, 0xFF, 0x2000, 0x50);
                     EnRr_SetupStunned(this);
                     return;
-                case RR_DMG_STUN: // Boomerang, Hookshot removed
+                case RR_DMG_STUN: // Boomerang; Hookshot removed
                     Audio_PlayActorSound2(&this->actor, NA_SE_EN_GOMA_JR_FREEZE);
                     Actor_SetColorFilter(&this->actor, 0, 0xFF, 0x2000, 0x50);
                     EnRr_SetupStunned(this);
@@ -638,6 +629,7 @@ void EnRr_InitBodySegments(EnRr* this, PlayState* play) {
         this->bodySegs[i].scaleMod.x = this->bodySegs[i].scaleMod.z =
             Math_CosS(i * (u32)(s16)this->segPulsePhaseDiff * 0x1000) * this->pulseSize;
     }
+    this->bodySegs[0].scaleMod.x = this->bodySegs[0].scaleMod.z = Math_CosS(0 * (u32)(s16)this->segPulsePhaseDiff * 0x1000) * (this->pulseSize / 2.0f);
     for (i = 1; i < 5; i++) {
         this->bodySegs[i].rotTarget.x = Math_CosS(i * (u32)(s16)this->segWobblePhaseDiffX * 0x1000) * this->wobbleSize;
         this->bodySegs[i].rotTarget.z = Math_SinS(i * (u32)(s16)this->segWobblePhaseDiffZ * 0x1000) * this->wobbleSize;
@@ -653,6 +645,7 @@ void EnRr_UpdateBodySegments(EnRr* this, PlayState* play) {
             this->bodySegs[i].scaleMod.x = this->bodySegs[i].scaleMod.z =
                 Math_CosS(phase + i * (s16)this->segPulsePhaseDiff * 0x1000) * this->pulseSize;
         }
+        this->bodySegs[0].scaleMod.x = this->bodySegs[0].scaleMod.z = Math_CosS(0 * (u32)(s16)this->segPulsePhaseDiff * 0x1000) * (this->pulseSize / 2.0f);
         phase = this->segMovePhase;
         if (!this->isDead && (this->reachState == 0)) {
             for (i = 1; i < 5; i++) {
@@ -708,27 +701,27 @@ void EnStream_WaitForPlayer(EnStream* this, PlayState* play) {
 }
 */
 
-//Marked to modify, ---TEST SetupReach logic; ---TEST inverted
+//Marked to modify, ---TEST SetupReach logic; 
 void EnRr_Approach(EnRr* this, PlayState* play) {
     Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0x10, 0x400, 0x40); //Yaw speed increased, ---TEST new minStep values
     this->actor.world.rot.y = this->actor.shape.rot.y;
     Player* player = GET_PLAYER(play);
-    if ((this->actionTimer == 0) && !(player->stateFlags2 & PLAYER_STATE2_GRABBED_BY_ENEMY)) {
-        if ((this->actor.yDistToPlayer < this->actor.scale.y * 6321.429f) && (this->actor.xyzDistToPlayerSq < this->actor.scale.x * 7500.0f)) { //reach trigger if within range and at same level; also checks if grabbed like MM
+    if ((this->actionTimer == 0) && !(player->stateFlags2 & PLAYER_STATE2_GRABBED_BY_ENEMY)) { //MM behavior
+        if ((this->actor.yDistToPlayer < this->actor.scale.y * 6321.429f) && (this->actor.xyzDistToPlayerSq < this->actor.scale.x * 7500.0f)) { //reach trigger if within range
             EnRr_SetupReach(this); 
         } else if ((this->actor.yDistToPlayer > this->actor.scale.y * 6321.429f) && (this->actor.xyzDistToPlayerSq < this->actor.scale.y * 12642.857f)) {
-            this->reachUp = true; //reachUp trigger if within range and above actor
+            this->reachUp = true; //reachUp trigger if above actor
             EnRr_SetupReach(this); 
         }
     }
-    if ((this->actor.xzDistToPlayer < (350.0f + (this->actor.scale.x * 7500.0f))) && (this->actor.speedXZ == 0.0f)) { //Approach trigger scales with size
-        EnRr_SetSpeed(this, 0.0377f / this->actor.scale.x); //Modified by size
+    if ((this->actor.xzDistToPlayer < (350.0f + (this->actor.scale.x * 7500.0f))) && (this->actor.speedXZ == 0.0f)) { 
+        EnRr_SetSpeed(this, 0.0377f / this->actor.scale.x); 
     }
 }
 
 //Marked to modify
 void EnRr_Reach(EnRr* this, PlayState* play) {
-    Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0x10, 0x400, 0x40); //Yaw speed increased
+    Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0x10, 0x400, 0x40); 
     this->actor.world.rot.y = this->actor.shape.rot.y;
     switch (this->reachState) {
         case REACH_EXTEND:
@@ -739,7 +732,7 @@ void EnRr_Reach(EnRr* this, PlayState* play) {
         case REACH_STOP:
             if (this->actionTimer == 0) { //Extended, wider scaleTarget.xz
                 this->actionTimer = 9;
-                this->bodySegs[RR_MOUTH].scaleTarget.x = this->bodySegs[RR_MOUTH].scaleTarget.z = 2.25f;
+                this->bodySegs[RR_MOUTH].scaleTarget.x = this->bodySegs[RR_MOUTH].scaleTarget.z = 2.0f;
                 this->reachState = REACH_OPEN;
             }
             break;
@@ -776,7 +769,9 @@ void EnRr_Reach(EnRr* this, PlayState* play) {
 void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     player->actor.velocity.y = 0.0f;
-    this->grabDamagePlayer--; //Deals incidental damage, not the primary objective of Like Likes
+    this->grabTimer--;
+    this->grabDamagePlayer--; //Deals incidental damage
+
     func_800AA000(this->actor.xyzDistToPlayerSq, 120, 2, 120);
     if (this->frameCount % (32768 / (s16)this->segPhaseVel) == 0) { //Sound play frequency modified by segPhaseVel
         Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_EAT);
@@ -785,15 +780,15 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
 
     switch (this->grabState) {
         case GRAB_TRY:
-            //Modular wobble/pulse helps give struggle feedback to player
+            //Modular wobble/pulse helps give feedback to player
             this->wobbleSizeTarget = 512.0f + (player->av2.actionVar2 * 3.413f); //Caps at 1024
-            this->pulseSizeTarget = 0.15f + (player->av2.actionVar2 / 7500.0f); //Caps at 0.17
+            this->pulseSizeTarget = 0.15f + (player->av2.actionVar2 / 6000.0f); //Caps at 0.175
             if (this->actor.params == LIKE_LIKE_PARAM_2 || this->actor.params == LIKE_LIKE_PARAM_3) {
                 player->av2.actionVar2 -= 3;
             } else {
                 player->av2.actionVar2 -= 2;
             }
-            if (this->grabDamagePlayer == 0 && player->actor.colChkInfo.health > 16) { //LL will hurt but not kill
+            if (this->grabDamagePlayer == 0 && player->actor.colChkInfo.health > 16) { 
                 play->damagePlayer(play, -1);
                 this->grabDamagePlayer = 8;
             }
@@ -806,7 +801,7 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
                     this->wobbleSizeTarget = 256.0f;
                     this->pulseSizeTarget = 0.135f;
                  	this->bodySegs[RR_MOUTH].scaleTarget.x = this->bodySegs[RR_MOUTH].scaleTarget.z = 0.875f;
-                    //player->func_80832698(this, NA_SE_VO_LI_DAMAGE_S); //Need correct function call
+                    Audio_PlayActorSound2(player, NA_SE_VO_LI_DAMAGE_S); //---TEST
                     this->grabState = GRAB_STEAL;
                 } else {
                     this->segPhaseVel = 4096.0f;
@@ -818,8 +813,8 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
             }
             break;
         case GRAB_STEAL:
-            player->av2.actionVar2 = 0; //player is trapped until this phase ends
-            if (this->grabDamagePlayer == 0 && player->actor.colChkInfo.health > 16) { //LL will hurt but not kill
+            player->av2.actionVar2 = 0; 
+            if (this->grabDamagePlayer == 0 && player->actor.colChkInfo.health > 16) { 
                 play->damagePlayer(play, -1);
                 this->grabDamagePlayer = 5;
             }
@@ -842,10 +837,24 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
                         this->eatenTunic = tunic;
                     }
                 }
-                if (shield != 0 || tunic != 0) {
-                    this->retreat = true;
-                    Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_DRINK); //---TEST
+                switch (EnRr_GetMessage(shield, tunic)) {
+                    case RR_MESSAGE_SHIELD:
+                        Message_StartTextbox(play, 0x305F, NULL);
+                        this->actor.colChkInfo.health += 2;
+                        Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_DRINK); 
+                        break;
+                    case RR_MESSAGE_TUNIC:
+                        Message_StartTextbox(play, 0x3060, NULL);
+                        this->actor.colChkInfo.health += 2;
+                        Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_DRINK); 
+                        break;
+                    case RR_MESSAGE_TUNIC | RR_MESSAGE_SHIELD:
+                        Message_StartTextbox(play, 0x3061, NULL);
+                        this->actor.colChkInfo.health += 3;
+                        Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_DRINK); 
+                        break;
                 }
+
                 this->grabTimer = 400;
                 //this->grabDamagePlayer = 24;
                 this->segPhaseVel = 3072.0f; 
@@ -857,11 +866,11 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
             break;
         case GRAB_HOLD:
             player->av2.actionVar2 --;
-            /*if (this->grabDamagePlayer == 0 && player.actor.chkColInfo.health > 16) { //LL will hurt but not kill
-                play->damagePlayer(play, -4);
-                this->grabDamagePlayer = 24;
+            /*if (this->grabDamagePlayer == 0 && player.actor.chkColInfo.health > 16) { 
+                play->damagePlayer(play, -1);
+                this->grabDamagePlayer = (32768 / (s16)this->segPhaseVel);
             }*/
-            //Modular phase/wobble/pulse helps give struggle feedback to player
+            //Modular phase/wobble/pulse helps give feedback to player
             this->segPhaseVelTarget = 2560.0f - (player->av2.actionVar2 * 10.24); //Caps at 1536
             this->wobbleSizeTarget = 768.0f + (player->av2.actionVar2 * 10.24); //Caps at 1796
             this->pulseSizeTarget = 0.15f + (player->av2.actionVar2 / 4285.714f); //Caps at 0.185
@@ -883,7 +892,6 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
 void EnRr_ThrowPlayer(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
 
-    this->actionTimer--;
     player->av2.actionVar2 = 0;
     player->actor.velocity.y = 0;
     player->actor.speedXZ = 0;
@@ -999,7 +1007,7 @@ void EnRr_Retreat(EnRr* this, PlayState* play) {
         this->segPhaseVelTarget = 2621.0f;
         this->actionFunc = EnRr_Approach;
     } else {
-        Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer + 0x8000, 0x10, 0x600, 0x60); //Increased yaw speed
+        Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer + 0x8000, 0x10, 0x600, 0x60); 
         this->actor.world.rot.y = this->actor.shape.rot.y;
         this->segPhaseVelTarget = 3643.0f;
         if (this->actor.speedXZ == 0.0f) {
@@ -1021,6 +1029,19 @@ void EnRr_Stunned(EnRr* this, PlayState* play) {
     }
 }
 
+/*Need to backport Ripple GFX from MM
+void EnRr_GenerateRipple(EnRr* this, PlayState* play) {
+    Vec3f sp2C;
+
+    if ((this->actor.depthInWater < this->collider1.dim.height) && (this->actor.depthInWater > 1.0f) &&
+        ((play->gameplayFrames % 9) == 0)) {
+        sp2C.x = this->actor.world.pos.x;
+        sp2C.y = this->actor.world.pos.y + this->actor.depthInWater;
+        sp2C.z = this->actor.world.pos.z;
+        EffectSsGRipple_Spawn(play, &sp2C, this->actor.scale.x * 34210.527f, this->actor.scale.x * 60526.316f, 0);
+    }
+}*/
+
 //Marked to modify
 void EnRr_Update(Actor* thisx, PlayState* play) {
     s32 pad;
@@ -1033,9 +1054,6 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
     }
     if (this->actionTimer != 0) {
         this->actionTimer--;
-    }
-    if (this->grabTimer != 0) {
-        this->grabTimer--;
     }
     if (this->ocTimer != 0) {
         this->ocTimer--;
@@ -1063,13 +1081,16 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
         Math_StepToF(&this->actor.speedXZ, 0.0f, 0.002262f / this->actor.scale.x); //Different friction during retreat
     }
     Actor_MoveForward(&this->actor);
+
+    //EnRr_GenerateRipple(this, play);
+
     Collider_UpdateCylinder(&this->actor, &this->collider1); 
     this->collider2.dim.pos.x = this->mouthPos.x;
     this->collider2.dim.pos.y = this->mouthPos.y;
     this->collider2.dim.pos.z = this->mouthPos.z;
     //this->collider2.dim.rot.x = this->bodySegs[RR_MOUTH].rot.x; need another method for rotating colliders
     //this->collider2.dim.rot.z = this->bodySegs[RR_MOUTH].rot.z; 
-    this->collider2.dim.radius *= this->bodySegs[RR_MOUTH].scale.x; //Width scales with mouth
+    this->collider2.dim.radius *= this->bodySegs[RR_MOUTH].scale.x; 
 
     if (!this->isDead) { //Changed so that colliders are not affected by invincibility
         CollisionCheck_SetAC(play, &play->colChkCtx, &this->collider1.base);
@@ -1100,7 +1121,7 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
         Math_ApproachF(&this->segWobblePhaseDiffZ, this->segWobbleZTarget, 1.0f, 2.0f); //Changed to instant
         Math_ApproachF(&this->pulseSize, this->pulseSizeTarget, 1.0f, 0.00125f); //Reduced rate
         Math_ApproachF(&this->wobbleSize, this->wobbleSizeTarget, 1.0f, 32.0f); //Reduced rate
-        for (i = 1; i < 5; i++) { //Bottom seg left out of updates
+        for (i = 1; i < 5; i++) { 
             Math_SmoothStepToS(&this->bodySegs[i].rot.x, this->bodySegs[i].rotTarget.x, 5, this->segMoveRate * 512.0f,
                                0); //Reduced rate
             if (this->actionFunc != EnRr_Damage) { //Separate segMoveRate multiplier during Damage
@@ -1116,7 +1137,6 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
     }
 }
 
-//All set
 static Vec3f sEffectOffsets[] = {
     { 25.0f, 0.0f, 0.0f },
     { -25.0f, 0.0f, 0.0f },
@@ -1124,7 +1144,6 @@ static Vec3f sEffectOffsets[] = {
     { 0.0f, 0.0f, -25.0f },
 };
 
-//All set
 void EnRr_Draw(Actor* thisx, PlayState* play) {
     s32 pad;
     Vec3f zeroVec;
@@ -1138,7 +1157,7 @@ void EnRr_Draw(Actor* thisx, PlayState* play) {
     gSPSegment(POLY_XLU_DISP++, 0x08,
                Gfx_TwoTexScroll(play->state.gfxCtx, 0, (this->scrollTimer * 0) & 0x7F,
                                 (this->scrollTimer * 0) & 0x3F, 32, 16, 1, (this->scrollTimer * 0) & 0x3F,
-                                (this->scrollTimer * -(3072 / (s16)this->segPhaseVelTarget)) & 0x7F, 32, 16)); //TexScroll actively affected by segPhaseVel
+                                (this->scrollTimer * -(3072 / (1 + (s16)this->segPhaseVel))) & 0x7F, 32, 16)); //TexScroll actively affected by segPhaseVel
     Matrix_Push();
 
     Matrix_Scale((1.0f + this->bodySegs[RR_BASE].scaleMod.x) * this->bodySegs[RR_BASE].scale.x,
