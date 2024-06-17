@@ -336,7 +336,7 @@ void EnRr_SetupGrabPlayer(EnRr* this, Player* player) {
     this->actionTimer = 0; //Cleans up any left over timer from reach action
     this->grabTimer = 64; //Phase 1 grabTimer
     this->grabState = 1;
-    this->grabDamagePlayer = 32;
+    this->grabDamagePlayer = 8;
     this->colPlayerTimer = 25; //MM behavior, during Approach this decrements to reset collider behavior
     this->collider1.base.ocFlags1 &= ~OC1_TYPE_PLAYER; //MM behavior, allows collisions with other objects w/o pushing player
     this->actor.flags &= ~ACTOR_FLAG_TARGETABLE;
@@ -796,13 +796,13 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
                 player->av2.actionVar2 -= 2;
             }
             if (this->grabDamagePlayer == 0 && player->actor.colChkInfo.health > 16) { //LL will hurt but not kill
-                play->damagePlayer(play, -4);
-                this->grabDamagePlayer = 32;
+                play->damagePlayer(play, -1);
+                this->grabDamagePlayer = 8;
             }
             if (this->grabTimer == 0) { 
                 if (CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) != EQUIP_VALUE_SHIELD_MIRROR || CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_KOKIRI /* Rando Save File */) {
                     this->grabTimer = 90;
-                    this->grabDamagePlayer = 20;
+                    this->grabDamagePlayer = 5;
                     this->segPhaseVel = 5461.0f
                     this->segPhaseVelTarget = 5461.0f; 
                     this->wobbleSizeTarget = 256.0f;
@@ -822,8 +822,8 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
         case GRAB_STEAL:
             player->av2.actionVar2 = 0; //player is trapped until this phase ends
             if (this->grabDamagePlayer == 0 && player->actor.colChkInfo.health > 16) { //LL will hurt but not kill
-                play->damagePlayer(play, -4);
-                this->grabDamagePlayer = 20;
+                play->damagePlayer(play, -1);
+                this->grabDamagePlayer = 5;
             }
             if (this->grabTimer == 0) {
                 u8 tunic;
