@@ -788,7 +788,7 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
             //Modular wobble/pulse helps give struggle feedback to player
             this->wobbleSizeTarget = 512.0f + (player->av2.actionVar2 * 3.413f); //Caps at 1024
             this->pulseSizeTarget = 0.15f + (player->av2.actionVar2 / 7500.0f); //Caps at 0.17
-            if (this->actor.params = LIKE_LIKE_PARAM_2 || this->actor.params = LIKE_LIKE_PARAM_3) {
+            if (this->actor.params == LIKE_LIKE_PARAM_2 || this->actor.params == LIKE_LIKE_PARAM_3) {
                 player->av2.actionVar2 -= 3;
             } else {
                 player->av2.actionVar2 -= 2;
