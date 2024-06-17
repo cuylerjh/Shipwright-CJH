@@ -14148,7 +14148,7 @@ void func_8084F308(Player* this, PlayState* play) {
         Player_AnimPlayLoop(play, this, &gPlayerAnim_link_normal_re_dead_attack_wait);
     }
 
-    if (func_80832594(this, 0, 100)) {
+    if (func_80832594(this, 0, 150)) { //OoT3D parameters
         func_80839F90(this, play);
         this->stateFlags2 &= ~PLAYER_STATE2_GRABBED_BY_ENEMY;
     }
