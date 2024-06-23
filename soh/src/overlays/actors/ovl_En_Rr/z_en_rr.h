@@ -39,6 +39,8 @@ typedef struct EnRr {
     /* 0x01F4 */ s16 ocTimer;
                  s16 colPlayerTimer;
                  s16 grabDamagePlayer;
+                 s16 frameDiv;
+                 s16 scrollDiv;
     /* 0x01F6 */ s16 segMovePhase; // phase angle for wobble and pulsing motion
     /* 0x01F8 */ s32 segPhaseVel; // rate at which motion phase changes
     /* 0x01FC */ s32 segPhaseVelTarget;
