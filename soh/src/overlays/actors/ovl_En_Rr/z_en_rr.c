@@ -653,7 +653,7 @@ void EnRr_Reach(EnRr* this, PlayState* play) {
 void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     player->actor.velocity.y = 0.0f;
-    player->actor.speedXZ = 0.0f
+    player->actor.speedXZ = 0.0f;
 
     func_800AA000(this->actor.xyzDistToPlayerSq, 120, 2, 120);
     if ((this->frameCount % 8) == 0) {
