@@ -51,6 +51,9 @@ static EnemyEntry randomizedEnemySpawnTable[RANDOMIZED_ENEMY_SPAWN_TABLE_SIZE] =
     { ACTOR_EN_SB, 0 },         // Shell Blade
     { ACTOR_EN_KAREBABA, 0 },   // Withered Deku Baba
     { ACTOR_EN_RR, 0 },         // Like-Like
+    { ACTOR_EN_RR, 1 },         // Small Like-Like
+    { ACTOR_EN_RR, 2 },         // Giant Like-Like
+    { ACTOR_EN_RR, 4 },         // Rupee-Like
     { ACTOR_EN_NY, 0 },         // Spike (rolling enemy)
     { ACTOR_EN_IK, 2 },         // Iron Knuckle (black, standing)
     { ACTOR_EN_IK, 3 },         // Iron Knuckle (white, standing)
