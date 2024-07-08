@@ -128,6 +128,7 @@ void func_80A01C38(EnElf* this, s32 arg1) {
         case 9:
             this->unk_2AE = 0x1000;
             this->unk_2B0 = 0x200;
+            gSaveContext.jinxTimer = 0;
             this->func_2C8 = func_80A02A20;
             this->unk_2B4 = 3.0f;
             this->unk_2B8 = 10.0f;
@@ -354,6 +355,7 @@ void EnElf_Init(Actor* thisx, PlayState* play) {
             break;
         case FAIRY_REVIVE_BOTTLE:
             colorConfig = -1;
+            gSaveContext.jinxTimer = 0;
             EnElf_SetupAction(this, func_80A03610);
             this->unk_2B8 = Math_Vec3f_DistXZ(&thisx->world.pos, &player->actor.world.pos);
             this->unk_2AC = player->actor.shape.rot.y;
@@ -649,6 +651,7 @@ void func_80A0329C(EnElf* this, PlayState* play) {
                 if (this->fairyFlags & FAIRY_FLAG_BIG) {
                     Magic_Fill(play);
                 }
+                gSaveContext.jinxTimer = 0;
                 this->unk_2B8 = 50.0f;
                 this->unk_2AC = refActor->actor.shape.rot.y;
                 this->unk_2B0 = -0x1000;
