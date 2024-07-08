@@ -442,6 +442,7 @@ void SaveManager::InitMeta(int fileNum) {
     fileMetaInfo[fileNum].isMagicAcquired = gSaveContext.isMagicAcquired;
     fileMetaInfo[fileNum].isDoubleMagicAcquired = gSaveContext.isDoubleMagicAcquired;
     fileMetaInfo[fileNum].rupees = gSaveContext.rupees;
+    fileMetaInfo[fileNum].jinxTimer = gSaveContext.jinxTimer;
     fileMetaInfo[fileNum].gsTokens = gSaveContext.inventory.gsTokens;
     fileMetaInfo[fileNum].isDoubleDefenseAcquired = gSaveContext.isDoubleDefenseAcquired;
     fileMetaInfo[fileNum].gregFound = Flags_GetRandomizerInf(RAND_INF_GREG_FOUND);
@@ -494,6 +495,7 @@ void SaveManager::InitFileNormal() {
     gSaveContext.magicLevel = 0;
     gSaveContext.magic = 0x30;
     gSaveContext.rupees = 0;
+    gSaveContext.jinxTimer = 0;
     gSaveContext.swordHealth = 0;
     gSaveContext.naviTimer = 0;
     gSaveContext.isMagicAcquired = 0;
@@ -650,6 +652,7 @@ void SaveManager::InitFileDebug() {
     gSaveContext.magicLevel = 0;
     gSaveContext.magic = 0x30;
     gSaveContext.rupees = 150;
+    gSaveContext.jinxTimer = 0;
     gSaveContext.swordHealth = 8;
     gSaveContext.naviTimer = 0;
     gSaveContext.isMagicAcquired = 1;
@@ -753,6 +756,7 @@ void SaveManager::InitFileMaxed() {
     gSaveContext.magicLevel = 2;
     gSaveContext.magic = 0x60;
     gSaveContext.rupees = 500;
+    gSaveContext.jinxTimer = 0;
     gSaveContext.swordHealth = 8;
     gSaveContext.naviTimer = 0;
     gSaveContext.isMagicAcquired = 1;
@@ -1193,6 +1197,7 @@ void SaveManager::LoadBaseVersion1() {
     SaveManager::Instance->LoadData("magicLevel", gSaveContext.magicLevel);
     SaveManager::Instance->LoadData("magic", gSaveContext.magic);
     SaveManager::Instance->LoadData("rupees", gSaveContext.rupees);
+    SaveManager::Instance->LoadData("jinxTimer", gSaveContext.jinxTimer);
     SaveManager::Instance->LoadData("swordHealth", gSaveContext.swordHealth);
     SaveManager::Instance->LoadData("naviTimer", gSaveContext.naviTimer);
     SaveManager::Instance->LoadData("magicAcquired", gSaveContext.isMagicAcquired);
@@ -1338,6 +1343,7 @@ void SaveManager::LoadBaseVersion2() {
     SaveManager::Instance->LoadData("magicLevel", gSaveContext.magicLevel);
     SaveManager::Instance->LoadData("magic", gSaveContext.magic);
     SaveManager::Instance->LoadData("rupees", gSaveContext.rupees);
+    SaveManager::Instance->LoadData("jinxTimer", gSaveContext.jinxTimer);
     SaveManager::Instance->LoadData("swordHealth", gSaveContext.swordHealth);
     SaveManager::Instance->LoadData("naviTimer", gSaveContext.naviTimer);
     SaveManager::Instance->LoadData("magicAcquired", gSaveContext.isMagicAcquired);
@@ -1554,6 +1560,7 @@ void SaveManager::LoadBaseVersion3() {
     SaveManager::Instance->LoadData("magicLevel", gSaveContext.magicLevel);
     SaveManager::Instance->LoadData("magic", gSaveContext.magic);
     SaveManager::Instance->LoadData("rupees", gSaveContext.rupees);
+    SaveManager::Instance->LoadData("jinxTimer", gSaveContext.jinxTimer);
     SaveManager::Instance->LoadData("swordHealth", gSaveContext.swordHealth);
     SaveManager::Instance->LoadData("naviTimer", gSaveContext.naviTimer);
     SaveManager::Instance->LoadData("isMagicAcquired", gSaveContext.isMagicAcquired);
@@ -1775,6 +1782,7 @@ void SaveManager::LoadBaseVersion4() {
     SaveManager::Instance->LoadData("magicLevel", gSaveContext.magicLevel);
     SaveManager::Instance->LoadData("magic", gSaveContext.magic);
     SaveManager::Instance->LoadData("rupees", gSaveContext.rupees);
+    SaveManager::Instance->LoadData("jinxTimer", gSaveContext.jinxTimer);
     SaveManager::Instance->LoadData("swordHealth", gSaveContext.swordHealth);
     SaveManager::Instance->LoadData("naviTimer", gSaveContext.naviTimer);
     SaveManager::Instance->LoadData("isMagicAcquired", gSaveContext.isMagicAcquired);
@@ -1952,6 +1960,7 @@ void SaveManager::SaveBase(SaveContext* saveContext, int sectionID, bool fullSav
     SaveManager::Instance->SaveData("magicLevel", saveContext->magicLevel);
     SaveManager::Instance->SaveData("magic", saveContext->magic);
     SaveManager::Instance->SaveData("rupees", saveContext->rupees);
+    SaveManager::Instance->SaveData("jinxTimer", saveContext->jinxTimer);
     SaveManager::Instance->SaveData("swordHealth", saveContext->swordHealth);
     SaveManager::Instance->SaveData("naviTimer", saveContext->naviTimer);
     SaveManager::Instance->SaveData("isMagicAcquired", saveContext->isMagicAcquired);
@@ -2316,6 +2325,7 @@ typedef struct {
     /* 0x0032 */ s8 magicLevel;
     /* 0x0033 */ s8 magic;
     /* 0x0034 */ s16 rupees;
+                 s16 jinxTimer;
     /* 0x0036 */ u16 swordHealth;
     /* 0x0038 */ u16 naviTimer;
     /* 0x003A */ u8 magicAcquired;
@@ -2432,6 +2442,7 @@ void CopyV0Save(SaveContext_v0& src, SaveContext& dst) {
     dst.magicLevel = src.magicLevel;
     dst.magic = src.magic;
     dst.rupees = src.rupees;
+    dst.jinxTimer = src.jinxTimer;
     dst.swordHealth = src.swordHealth;
     dst.naviTimer = src.naviTimer;
     dst.isMagicAcquired = src.magicAcquired;
