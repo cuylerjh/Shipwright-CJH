@@ -9,11 +9,13 @@ struct EnRr;
 typedef void (*EnRrActionFunc)(struct EnRr*, PlayState*);
 
 typedef enum {
-    /* 0 */ LIKE_LIKE_PARAM_0, //standard
-    /* 1 */ LIKE_LIKE_PARAM_1, //child
-    /* 2 */ LIKE_LIKE_PARAM_2, //large
-    /* 3 */ LIKE_LIKE_PARAM_3 //inverted
-} LikeLikeParam;
+    /* 0 */ LIKE_LIKE_NORMAL,
+    /* 1 */ LIKE_LIKE_SMALL,
+    /* 2 */ LIKE_LIKE_GIANT,
+    /* 3 */ LIKE_LIKE_INVERT,
+    /* 4 */ RUPEE_LIKE,
+    /* 5 */ LIFE_LIKE,
+} LikeLikeType;
 
 typedef struct {
     /* 0x00 */ f32 height;
@@ -33,36 +35,40 @@ typedef struct EnRr {
     /* 0x01E8 */ s16 frameCount;
     /* 0x01EA */ s16 actionTimer;
     /* 0x01EC */ s16 scrollTimer;
-    /* 0x01EE */ s16 grabTimer;
+                 s16 scrollMod; // Actively modifies texScroll based on segPhaseVel value.
+    /* 0x01EE */ s16 soundTimer;
+                 s16 soundEatCount; // Replaces grabTimer. Increments with each sound play during EnRr_GrabPlayer to move through each state and then release.
+                 s16 struggleCounter; // Actor-specific counter correlating to player->av2.actionvar2. Determines breakfree while ignoring z_player.c functionality.
+                 s16 grabEject; // Increases when hasPlayer but not within a certain xz range. Throws player early.
     /* 0x01F0 */ s16 invincibilityTimer;
     /* 0x01F2 */ s16 effectTimer;
     /* 0x01F4 */ s16 ocTimer;
-                 s16 colPlayerTimer;
-                 s16 grabDamagePlayer;
-                 s16 frameDiv;
-                 s16 scrollDiv;
-    /* 0x01F6 */ s16 segMovePhase; // phase angle for wobble and pulsing motion
-    /* 0x01F8 */ s32 segPhaseVel; // rate at which motion phase changes
-    /* 0x01FC */ s32 segPhaseVelTarget;
-    /* 0x0200 */ f32 segPulsePhaseDiff; // Phase diff between segment pulses. Affects how wave-y the pulse is.
+                 s16 colPlayerTimer; // MM timer and behavior for nullifying main collider during EnRr_GrabPlayer while still allowing collisions with other objects.
+    /* 0x01F6 */ s16 segMovePhase; // Phase angle for wobble and pulsing motion.
+                 s16 eatenRupees;
+    /* 0x01F8 */ f32 segPhaseVel;  // Rate at which motion phase changes.
+    /* 0x01FC */ f32 segPhaseVelTarget;
+    /* 0x0200 */ f32 segPulsePhaseDiff;   // Phase diff between segment pulses. Affects how wave-y the pulse is.
     /* 0x0204 */ f32 segWobblePhaseDiffX; // Phase diff between segment X rot. Affects how circular the wobble is.
     /* 0x0208 */ f32 segWobbleXTarget;
     /* 0x020C */ f32 segWobblePhaseDiffZ; // Phase diff between segment Z rot. Affects how circular the wobble is.
     /* 0x0210 */ f32 segWobbleZTarget;
-    /* 0x0214 */ f32 pulseSize; // Amplitude of the scale pulsations
+    /* 0x0214 */ f32 pulseSize; // Amplitude of the scale pulsations.
     /* 0x0218 */ f32 pulseSizeTarget;
-    /* 0x021C */ f32 wobbleSize; // Amplitude of the wobbling motion
+    /* 0x021C */ f32 wobbleSize; // Amplitude of the wobbling motion.
     /* 0x0220 */ f32 wobbleSizeTarget;
     /* 0x0224 */ EnRrBodySegment bodySegs[5];
     /* 0x0364 */ f32 segMoveRate;
     /* 0x0368 */ f32 shrinkRate;
     /* 0x036C */ f32 swallowOffset;
     /* 0x0370 */ u8 reachState;
-                 u8 grabState;
-                 u8 reachUp;
+                 u8 grabState; // Like reachState, moves through grabStates with unique functionality.
+                 u8 reachUp; // Returns true if the player is in a certain range above this actor.
     /* 0x0371 */ u8 isDead;
     /* 0x0372 */ u8 eatenShield;
     /* 0x0373 */ u8 eatenTunic;
+                 u8 msgShield; // Moved from function variable to actor variable.
+                 u8 msgTunic; // Moved from function variable to actor variable.
     /* 0x0374 */ u8 dropType;
     /* 0x0375 */ u8 retreat;
     /* 0x0376 */ u8 stopScroll;
@@ -70,6 +76,6 @@ typedef struct EnRr {
     /* 0x037C */ Vec3f mouthPos;
     /* 0x0388 */ Vec3f effectPos[5];
     /* 0x03C4 */ char unk_3C4[0x2000]; //! @bug This is a huge amount of wasted memory.
-} EnRr; // size = 0x23C4
+} EnRr;                                // size = 0x23C4
 
 #endif
