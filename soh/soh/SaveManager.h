@@ -26,6 +26,7 @@ typedef struct {
     u8 isMagicAcquired;
     u8 isDoubleMagicAcquired;
     s16 rupees;
+    s16 jinxTimer;
     s16 gsTokens;
     u8 isDoubleDefenseAcquired;
     u8 gregFound;
