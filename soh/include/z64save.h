@@ -183,6 +183,7 @@ typedef struct {
     /* 0x0032 */ s8 magicLevel; // 0 for no magic/new load, 1 for magic, 2 for double magic
     /* 0x0033 */ s8 magic; // current magic available for use
     /* 0x0034 */ s16 rupees;
+                 s16 jinxTimer;
     /* 0x0036 */ u16 swordHealth;
     /* 0x0038 */ u16 naviTimer;
     /* 0x003A */ u8 isMagicAcquired;
