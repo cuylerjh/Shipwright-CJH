@@ -1570,11 +1570,19 @@ void func_80832564(PlayState* play, Player* this) {
 s32 func_80832594(Player* this, s32 arg1, s32 arg2) {
     s16 controlStickAngleDiff = this->prevControlStickAngle - sControlStickAngle;
 
+    if (gSaveContext.jinxTimer == 0) {
+        this->av2.actionVar2 +=
+            arg1 + (s16)(ABS(controlStickAngleDiff) * fabsf(sControlStickMagnitude) * 2.5415802156203426e-06f);
+    }
     this->av2.actionVar2 +=
-        arg1 + (s16)(ABS(controlStickAngleDiff) * fabsf(sControlStickMagnitude) * 2.5415802156203426e-06f);
+        Rand_S16Offset(0, arg1 + (s16)(ABS(controlStickAngleDiff) * fabsf(sControlStickMagnitude) * 2.5415802156203426e-06f));
 
-    if (CHECK_BTN_ANY(sControlInput->press.button, BTN_A | (BTN_B & gSaveContext.jinxTimer == 0))) {
-        this->av2.actionVar2 += 5;
+    if (CHECK_BTN_ANY(sControlInput->press.button, BTN_A | BTN_B)) {
+        if (gSaveContext.jinxTimer == 0) {
+            this->av2.actionVar2 += 5;
+        } else {
+            this->av2.actionVar2 += Rand_S16Offset(2, 5);
+        }
     }
 
     return this->av2.actionVar2 > arg2;
@@ -2291,7 +2299,7 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
                     hasOnDpad |= Player_ItemIsInUse(this, DPAD_ITEM(buttonIndex));
                 }
             }
-            if ((!Player_ItemIsInUse(this, B_BTN_ITEM)) || (gSaveContext.jinxTimer == 0) &&
+            if ((!Player_ItemIsInUse(this, B_BTN_ITEM) || (gSaveContext.jinxTimer != 0)) &&
                 !Player_ItemIsInUse(this, C_BTN_ITEM(0)) &&
                 !Player_ItemIsInUse(this, C_BTN_ITEM(1)) && !Player_ItemIsInUse(this, C_BTN_ITEM(2)) && !hasOnDpad) {
                 Player_UseItem(play, this, ITEM_NONE);
@@ -2319,9 +2327,9 @@ void Player_ProcessItemButtons(Player* this, PlayState* play) {
             if ((item < ITEM_NONE_FE) && (Player_ItemToItemAction(item) == this->heldItemAction)) {
                 sHeldItemButtonIsHeldDown = true;
             }
-        /*} else if ((Player_BButtonSwordFromIA(this, Player_ItemToItemAction(this, item)) != PLAYER_B_SWORD_NONE) &&
+        } else if ((!Player_ItemIsInUse(this, B_BTN_ITEM)) && 
                (gSaveContext.jinxTimer != 0)) {
-                   if (Message_GetState(&play->msgCtx) == TEXT_STATE_NONE) {
+            /* if (Message_GetState(&play->msgCtx) == TEXT_STATE_NONE) {
                        Message_StartTextbox(play, 0xF7, NULL);*/
         } else {
             this->heldItemButton = i;
@@ -4262,8 +4270,9 @@ void func_80838280(Player* this) {
 }
 
 void func_808382BC(Player* this) {
-    if ((this->invincibilityTimer >= 0) && (this->invincibilityTimer < 20)) {
-        this->invincibilityTimer = 20;
+    if ((this->invincibilityTimer >= 0) &&
+        (this->invincibilityTimer < (CVarGetInteger(CVAR_ENHANCEMENT("InvincibilityTimer"), 20)))) {
+        this->invincibilityTimer = (CVarGetInteger(CVAR_ENHANCEMENT("InvincibilityTimer"), 20));
     }
 }
 
@@ -4324,7 +4333,7 @@ s32 func_808382DC(Player* this, PlayState* play) {
             }
 
             this->actor.colChkInfo.damage += this->unk_8A0;
-            func_80837C0C(play, this, sp5C[this->unk_8A1 - 1], this->unk_8A4, this->unk_8A8, this->unk_8A2, 20);
+            func_80837C0C(play, this, sp5C[this->unk_8A1 - 1], this->unk_8A4, this->unk_8A8, this->unk_8A2, (CVarGetInteger(CVAR_ENHANCEMENT("InvincibilityTimer"), 20)));
         } else {
             sp64 = (this->shieldQuad.base.acFlags & AC_BOUNCED) != 0;
 
@@ -4408,7 +4417,7 @@ s32 func_808382DC(Player* this, PlayState* play) {
                     sp4C = 0;
                 }
 
-                func_80837C0C(play, this, sp4C, 4.0f, 5.0f, Actor_WorldYawTowardActor(ac, &this->actor), 20);
+                func_80837C0C(play, this, sp4C, 4.0f, 5.0f, Actor_WorldYawTowardActor(ac, &this->actor), (CVarGetInteger(CVAR_ENHANCEMENT("InvincibilityTimer"), 20)));
             } else if (this->invincibilityTimer != 0) {
                 return 0;
             } else {
@@ -4425,7 +4434,7 @@ s32 func_808382DC(Player* this, PlayState* play) {
                       (this->floorTypeTimer >= D_808544F4[sp48])))) {
                     this->floorTypeTimer = 0;
                     this->actor.colChkInfo.damage = 4;
-                    func_80837C0C(play, this, 0, 4.0f, 5.0f, this->actor.shape.rot.y, 20);
+                    func_80837C0C(play, this, 0, 4.0f, 5.0f, this->actor.shape.rot.y, (CVarGetInteger(CVAR_ENHANCEMENT("InvincibilityTimer"), 20)));
                 } else {
                     return 0;
                 }
@@ -6328,7 +6337,7 @@ void func_8083D330(PlayState* play, Player* this) {
 }
 
 void func_8083D36C(PlayState* play, Player* this) {
-    if ((this->currentBoots != PLAYER_BOOTS_IRON) || !(this->actor.bgCheckFlags & 1)) {
+    if ((this->actor.parent == NULL) || (this->currentBoots != PLAYER_BOOTS_IRON) || !(this->actor.bgCheckFlags & 1)) { // try this
         func_80832564(play, this);
 
         if ((this->currentBoots != PLAYER_BOOTS_IRON) && (this->stateFlags2 & PLAYER_STATE2_UNDERWATER)) {
@@ -6375,7 +6384,7 @@ void func_8083D53C(PlayState* play, Player* this) {
         }
     }
 
-    if ((Player_Action_80845668 != this->actionFunc) && (Player_Action_8084BDFC != this->actionFunc)) {
+    if ((this->actor.parent == NULL) && (Player_Action_80845668 != this->actionFunc) && (Player_Action_8084BDFC != this->actionFunc)) { // try this
         if (this->ageProperties->unk_2C < this->actor.yDistToWater) {
             if (!(this->stateFlags1 & PLAYER_STATE1_IN_WATER) ||
                 (!((this->currentBoots == PLAYER_BOOTS_IRON) && (this->actor.bgCheckFlags & 1)) &&
@@ -6793,7 +6802,7 @@ s32 Player_ActionChange_2(Player* this, PlayState* play) {
         }
         this->stateFlags1 &= ~(PLAYER_STATE1_GETTING_ITEM | PLAYER_STATE1_ITEM_OVER_HEAD);
         this->actor.colChkInfo.damage = 0;
-        func_80837C0C(play, this, 3, 0.0f, 0.0f, 0, 20);
+        func_80837C0C(play, this, 3, 0.0f, 0.0f, 0, (CVarGetInteger(CVAR_ENHANCEMENT("InvincibilityTimer"), 20)));
         this->getItemId = GI_NONE;
         this->getItemEntry = (GetItemEntry)GET_ITEM_NONE;
         // Gameplay stats: Increment Ice Trap count
@@ -8715,7 +8724,7 @@ s32 func_80842DF4(PlayState* play, Player* this) {
 
                 if (this->actor.colChkInfo.atHitEffect == 1) {
                     this->actor.colChkInfo.damage = 8;
-                    func_80837C0C(play, this, 4, 0.0f, 0.0f, this->actor.shape.rot.y, 20);
+                    func_80837C0C(play, this, 4, 0.0f, 0.0f, this->actor.shape.rot.y, (CVarGetInteger(CVAR_ENHANCEMENT("InvincibilityTimer"), 20)));
                     return 1;
                 }
             }
@@ -9342,7 +9351,7 @@ void Player_Action_80844A44(Player* this, PlayState* play) {
 
     if (this->actor.bgCheckFlags & 1) {
         this->actor.colChkInfo.damage = 0x10;
-        func_80837C0C(play, this, 1, 4.0f, 5.0f, this->actor.shape.rot.y, 20);
+        func_80837C0C(play, this, 1, 4.0f, 5.0f, this->actor.shape.rot.y, (CVarGetInteger(CVAR_ENHANCEMENT("InvincibilityTimer"), 20)));
     }
 }
 
@@ -11348,7 +11357,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
         this->unk_890--;
     }
 
-    if (gSaveContext.jinxTimer != 0) {
+    if (gSaveContext.jinxTimer != 0 && !CVarGetInteger(CVAR_ENHANCEMENT("JinxCureOnly"), 0)) {
         gSaveContext.jinxTimer--;
     }
 
@@ -11389,7 +11398,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
         f32 temp_f0;
         f32 phi_f12;
 
-        if (this->currentBoots != this->prevBoots) {
+        if ((this->currentBoots != this->prevBoots) && (this->actor.parent == NULL)) {
             if (this->currentBoots == PLAYER_BOOTS_IRON) {
                 if (this->stateFlags1 & PLAYER_STATE1_IN_WATER) {
                     func_80832340(play, this);
@@ -11440,7 +11449,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
         }
 
         if (!(this->skelAnime.moveFlags & 0x80)) {
-            if (((this->actor.bgCheckFlags & 1) && (sFloorType == 5) && (this->currentBoots != PLAYER_BOOTS_IRON)) ||
+            if (((this->actor.bgCheckFlags & 1) && (sFloorType == 5) && (this->currentBoots != PLAYER_BOOTS_IRON) && (this->actor.parent == NULL)) ||
                 ((this->currentBoots == PLAYER_BOOTS_HOVER || GameInteractor_GetSlipperyFloorActive()) &&
                  !(this->stateFlags1 & (PLAYER_STATE1_IN_WATER | PLAYER_STATE1_IN_CUTSCENE)))) {
                 f32 sp70 = this->linearVelocity;
@@ -12010,13 +12019,13 @@ void Player_Draw(Actor* thisx, PlayState* play2) {
         Gfx_SetupDL_25Xlu(play->state.gfxCtx);
 
         if (this->invincibilityTimer > 0) {
-            this->unk_88F += CLAMP(50 - this->invincibilityTimer, 8, 40);
+            this->unk_88F += CLAMP((CVarGetInteger(CVAR_ENHANCEMENT("InvincibilityTimer"), 20)) * 3 / 2 - this->invincibilityTimer, 8, 40);
             POLY_OPA_DISP =
                 Gfx_SetFog2(POLY_OPA_DISP, 255, 0, 0, 0, 0, 4000 - (s32)(Math_CosS(this->unk_88F * 256) * 2000.0f));
         } else if (gSaveContext.jinxTimer != 0) {
             this->unk_88F += 10;
             POLY_OPA_DISP =
-                Gfx_SetFog2(POLY_OPA_DISP, 0, 0, 255, 0, 0, 4000 - (s32)(Math_CosS(this->unk_88F << 8) * 2000.0f));
+                Gfx_SetFog2(POLY_OPA_DISP, 0, 0, 255, 0, 0, 4000 - (s32)(Math_CosS(this->unk_88F * 256) * 2000.0f));
         }
 
         func_8002EBCC(&this->actor, play, 0);
@@ -13873,7 +13882,7 @@ void Player_Action_8084E6D4(Player* this, PlayState* play) {
                     func_8083C0E8(this, play);
                 } else {
                     this->actor.colChkInfo.damage = 0;
-                    func_80837C0C(play, this, 3, 0.0f, 0.0f, 0, 20);
+                    func_80837C0C(play, this, 3, 0.0f, 0.0f, 0, (CVarGetInteger(CVAR_ENHANCEMENT("InvincibilityTimer"), 20)));
                 }
                 return;
             }

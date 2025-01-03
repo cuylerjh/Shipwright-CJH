@@ -932,6 +932,8 @@ void DrawEnhancementsMenu() {
                     UpdatePermanentHeartLossState();
                 }
                 UIWidgets::Tooltip("When you lose 4 quarters of a heart you will permanently lose that heart container.\n\nDisabling this after the fact will restore your heart containers.");
+                UIWidgets::PaddedEnhancementSliderInt("Invincibility Timer: %d frames", "##InvincibilityTimer", CVAR_ENHANCEMENT("InvincibilityTimer"), 0, 100, "", 20, true, true, false);
+                UIWidgets::Tooltip("Adjust respite frames received after taking damage.");
                 ImGui::Text("Damage Multiplier");
                 UIWidgets::EnhancementCombobox(CVAR_ENHANCEMENT("DamageMult"), allPowers, 0);
                 UIWidgets::Tooltip(
@@ -986,6 +988,12 @@ void DrawEnhancementsMenu() {
                 UIWidgets::Tooltip("Bonking into trees will have a chance to drop up to 3 sticks. Must already have obtained sticks.");
                 UIWidgets::PaddedEnhancementCheckbox("No Heart Drops", CVAR_ENHANCEMENT("NoHeartDrops"), true, false);
                 UIWidgets::Tooltip("Disables heart drops, but not heart placements, like from a Deku Scrub running off\nThis simulates Hero Mode from other games in the series");
+                UIWidgets::PaddedEnhancementCheckbox("Bubbles Inflict Jinx", CVAR_ENHANCEMENT("JinxEffect"), true, false);
+                UIWidgets::Tooltip("Bubbles can inflict jinx on the player, like in MM.");
+                UIWidgets::PaddedEnhancementCheckbox("Jinx Cure Only", CVAR_ENHANCEMENT("JinxCureOnly"), true, false);
+                UIWidgets::Tooltip("Jinx never expires and must be cured via potions, milk, or a fairy.");
+                UIWidgets::PaddedEnhancementSliderInt("Jinx Timer Multiplier: %d", "##JinxMultiplier", CVAR_ENHANCEMENT("JinxMultiplier"), 1, 60, "", 12, true, true, false);
+                UIWidgets::Tooltip("Modifies length of Jinx effect.");
                 if (UIWidgets::PaddedEnhancementCheckbox("Hyper Bosses", CVAR_ENHANCEMENT("HyperBosses"), true, false)) {
                     UpdateHyperBossesState();
                 }
@@ -1198,8 +1206,9 @@ void DrawEnhancementsMenu() {
             UIWidgets::Tooltip("Displays a tick in the top center of the screen to help with glitch line-ups in SoH, as traditional UI based line-ups do not work outside of 4:3");
             UIWidgets::PaddedEnhancementCheckbox("Enable 3D Dropped items/projectiles", CVAR_ENHANCEMENT("NewDrops"), true, false);
             UIWidgets::Tooltip("Change most 2D items and projectiles on the overworld to their 3D versions");
-            UIWidgets::PaddedEnhancementCheckbox("Disable Black Bar Letterboxes", CVAR_ENHANCEMENT("DisableBlackBars"), true, false);
+            UIWidgets::PaddedEnhancementCheckbox("Disable Black Bar Letterboxes", CVAR_ENHANCEMENT("DisableBlackBars"), true, false); 
             UIWidgets::Tooltip("Disables Black Bar Letterboxes during cutscenes and Z-targeting\nNote: there may be minor visual glitches that were covered up by the black bars\nPlease disable this setting before reporting a bug");
+            UIWidgets::PaddedEnhancementSliderInt("Black Bar Letterbox Size: %d", "##LETTERBOXSIZE", CVAR_ENHANCEMENT("LetterboxSize"), 0, 48, "", 32, true, true, true);
             UIWidgets::PaddedEnhancementCheckbox("Dynamic Wallet Icon", CVAR_ENHANCEMENT("DynamicWalletIcon"), true, false);
             UIWidgets::Tooltip("Changes the rupee in the wallet icon to match the wallet size you currently have");
             UIWidgets::PaddedEnhancementCheckbox("Always show dungeon entrances", CVAR_ENHANCEMENT("AlwaysShowDungeonMinimapIcon"), true, false);

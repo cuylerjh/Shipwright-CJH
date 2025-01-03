@@ -13,6 +13,7 @@ void ShrinkWindow_SetVal(s32 value) {
     if (HREG(80) == 0x13 && HREG(81) == 1) {
         osSyncPrintf("shrink_window_setval(%d)\n", value);
     }
+    value = CVarGetInteger(CVAR_ENHANCEMENT("LetterboxSize"), 32);
     sShrinkWindowVal = value;
 }
 

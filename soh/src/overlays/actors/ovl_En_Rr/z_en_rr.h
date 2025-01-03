@@ -23,7 +23,7 @@ typedef struct {
     /* 0x08 */ Vec3f scale;
     /* 0x14 */ Vec3f scaleTarget;
     /* 0x20 */ Vec3f scaleMod;
-    /* 0x2C */ Vec3f rotTarget;
+    /* 0x2C */ Vec3s rotTarget;
     /* 0x38 */ Vec3s rot;
 } EnRrBodySegment; // size = 0x40
 
@@ -43,12 +43,15 @@ typedef struct EnRr {
     /* 0x01F0 */ s16 invincibilityTimer;
     /* 0x01F2 */ s16 effectTimer;
     /* 0x01F4 */ s16 ocTimer;
+                 s16 fallTimer; 
                  s16 colPlayerTimer; // MM timer and behavior for nullifying main collider during EnRr_GrabPlayer while still allowing collisions with other objects.
     /* 0x01F6 */ s16 segMovePhase; // Phase angle for wobble and pulsing motion.
                  s16 eatenRupees;
+                 s16 dropRupees;
+                 s16 stolenLife;
+                 s16 bodySegCount;
     /* 0x01F8 */ f32 segPhaseVel;  // Rate at which motion phase changes.
     /* 0x01FC */ f32 segPhaseVelTarget;
-    /* 0x0200 */ f32 segPulsePhaseDiff;   // Phase diff between segment pulses. Affects how wave-y the pulse is.
     /* 0x0204 */ f32 segWobblePhaseDiffX; // Phase diff between segment X rot. Affects how circular the wobble is.
     /* 0x0208 */ f32 segWobbleXTarget;
     /* 0x020C */ f32 segWobblePhaseDiffZ; // Phase diff between segment Z rot. Affects how circular the wobble is.
@@ -61,6 +64,23 @@ typedef struct EnRr {
     /* 0x0364 */ f32 segMoveRate;
     /* 0x0368 */ f32 shrinkRate;
     /* 0x036C */ f32 swallowOffset;
+    /*        */ f32 heightRef1;
+    /*        */ f32 heightRef2;
+    /*        */ f32 radiusRef;
+    /*        */ f32 yShiftRef;
+    /*        */ f32 reachHeight;
+    /*        */ f32 reachAngle;
+    /*        */ f32 rateTimer;
+    /*        */ f32 heightRate;
+    /*        */ f32 scaleRate1; 
+    /*        */ f32 scaleRate2; // Determines scale rate for mouth segment. 
+    /*        */ f32 rotXRate;
+    /*        */ f32 rotZRate;
+                 f32 segPhaseVelRate;
+                 f32 segWobbleXRate;
+                 f32 segWobbleZRate;
+                 f32 pulseSizeRate;
+                 f32 wobbleSizeRate;
     /* 0x0370 */ u8 reachState;
                  u8 grabState; // Like reachState, moves through grabStates with unique functionality.
                  u8 reachUp; // Returns true if the player is in a certain range above this actor.
@@ -69,13 +89,13 @@ typedef struct EnRr {
     /* 0x0373 */ u8 eatenTunic;
                  u8 msgShield; // Moved from function variable to actor variable.
                  u8 msgTunic; // Moved from function variable to actor variable.
-    /* 0x0374 */ u8 dropType;
+                 u8 releaseThrow;
     /* 0x0375 */ u8 retreat;
     /* 0x0376 */ u8 stopScroll;
+                 u8 playerIsFacing;
     /* 0x0378 */ s16 hasPlayer;
     /* 0x037C */ Vec3f mouthPos;
     /* 0x0388 */ Vec3f effectPos[5];
-    /* 0x03C4 */ char unk_3C4[0x2000]; //! @bug This is a huge amount of wasted memory.
-} EnRr;                                // size = 0x23C4
+} EnRr; 
 
 #endif

@@ -647,8 +647,8 @@ void EnBb_Blue(EnBb* this, PlayState* play) {
             afterHitAngle = 0x4000;
             Audio_PlayActorSound2(&this->actor, NA_SE_EN_BUBLE_BITE);
             
-            if (this->flameScaleX > 0.0f) { 
-                gSaveContext.jinxTimer = 1200;
+            if (this->flameScaleX > 0.0f && CVarGetInteger(CVAR_ENHANCEMENT("JinxEffect"), 0) != 0) {
+                gSaveContext.jinxTimer = 100 * CVarGetInteger(CVAR_ENHANCEMENT("JinxMultiplier"), 12);
             }
             
             if (play->gameplayFrames & 1) {
@@ -932,8 +932,8 @@ void EnBb_White(EnBb* this, PlayState* play) {
             Audio_PlayActorSound2(&this->actor, NA_SE_EN_BUBLE_BITE);
             this->collider.base.atFlags &= ~AT_HIT;
             
-            if (this->flameScaleX > 0.0f) { 
-                gSaveContext.jinxTimer = 1200;
+            if (this->flameScaleX > 0.0f && CVarGetInteger(CVAR_ENHANCEMENT("JinxEffect"), 0) != 0) {
+                gSaveContext.jinxTimer = 100 * CVarGetInteger(CVAR_ENHANCEMENT("JinxMultiplier"), 12);
             }
         }
         this->actor.shape.rot.y = this->actor.world.rot.y;
@@ -1020,10 +1020,10 @@ void EnBb_Green(EnBb* this, PlayState* play) {
             this->maxSpeed = 10.0f;
             if (this->collider.base.atFlags & AT_HIT) {
                 Audio_PlayActorSound2(&this->actor, NA_SE_EN_BUBLE_BITE);
-                this->collider.base.atFlags &= ~AT_HIT;
-                
-                if (this->flameScaleX > 0.0f) { 
-                    gSaveContext.jinxTimer = 1200;
+                this->collider.base.atFlags &= ~AT_HIT;         
+            
+                if (this->flameScaleX > 0.0f && CVarGetInteger(CVAR_ENHANCEMENT("JinxEffect"), 0) != 0) {
+                    gSaveContext.jinxTimer = 100 * CVarGetInteger(CVAR_ENHANCEMENT("JinxMultiplier"), 12);
                 }
             }
             if (Math_CosF(this->bobPhase) == 0.0f) {
