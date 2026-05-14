@@ -18,6 +18,7 @@ typedef struct ArmsHook {
     /* 0x0204 */ Vec3f grabbedDistDiff;
     /* 0x0210 */ s16 timer;
     /* 0x0214 */ ArmsHookActionFunc actionFunc;
+                 f32 speed;
 } ArmsHook; // size = 0x0218
 
 #endif

@@ -202,7 +202,7 @@ void EnPeehat_Init(Actor* thisx, PlayState* play) {
     this->actor.focus.pos = this->actor.world.pos;
     this->unk_2D4 = 0;
     this->actor.world.rot.y = 0;
-    this->actor.colChkInfo.mass = MASS_HEAVY;
+    this->actor.colChkInfo.mass = 170;
     this->actor.colChkInfo.health = 6;
     this->actor.colChkInfo.damageTable = &sDamageTable;
     this->actor.floorHeight = this->actor.world.pos.y;
@@ -330,10 +330,12 @@ void EnPeehat_Ground_SetStateGround(EnPeehat* this) {
 void EnPeehat_Ground_StateGround(EnPeehat* this, PlayState* play) {
     // Keep the peahat as the version that doesn't spawn extra enemies and can actually be killed
     // when Enemy Randomizer is on.
+    Player* player = GET_PLAYER(play);
     if (IS_DAY || CVarGetInteger(CVAR_ENHANCEMENT("RandomizedEnemies"), 0)) {
         this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED;
         if (this->riseDelayTimer == 0) {
-            if (this->actor.xzDistToPlayer < this->xzDistToRise) {
+            if (this->actor.xzDistToPlayer < this->xzDistToRise &&
+                !(player->swallowed)) {
                 EnPeehat_Ground_SetStateRise(this);
             }
         } else {
@@ -367,8 +369,11 @@ void EnPeehat_Flying_SetStateGround(EnPeehat* this) {
 }
 
 void EnPeehat_Flying_StateGrounded(EnPeehat* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
+
     if (IS_DAY) {
-        if (this->actor.xzDistToPlayer < this->xzDistToRise) {
+        if (this->actor.xzDistToPlayer < this->xzDistToRise &&
+            !(player->swallowed)) {
             EnPeehat_Flying_SetStateRise(this);
         }
     } else {

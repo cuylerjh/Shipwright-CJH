@@ -142,7 +142,7 @@ u8 sAudioExtraFilter2 = 0;
 Vec3f* sSariaBgmPtr = NULL;
 f32 D_80130650 = 2000.0f;
 u8 sSeqModeInput = 0;
-u8 sSeqFlags[0x6F] = {
+u8 sSeqFlags[0x70] = {
     0x2,  // NA_BGM_GENERAL_SFX
     0x1,  // NA_BGM_NATURE_BACKGROUND
     0,    // NA_BGM_FIELD_LOGIC
@@ -167,6 +167,7 @@ u8 sSeqFlags[0x6F] = {
     0,    // NA_BGM_FIELD_STILL_2
     0,    // NA_BGM_FIELD_STILL_3
     0,    // NA_BGM_FIELD_STILL_4
+    0x81, // NA_BGM_FIELD_NIGHT
     0x21, // NA_BGM_DUNGEON
     0x10, // NA_BGM_KAKARIKO_ADULT
     0,    // NA_BGM_ENEMY

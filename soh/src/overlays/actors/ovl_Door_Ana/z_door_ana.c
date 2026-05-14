@@ -51,7 +51,7 @@ static ColliderCylinderInit sCylinderInit = {
         BUMP_ON,
         OCELEM_NONE,
     },
-    { 50, 10, 0, { 0 } },
+    { 50, 10, -10, { 0 } },
 };
 
 // array of entrance table entries to grotto destinations
@@ -108,7 +108,7 @@ void DoorAna_WaitClosed(DoorAna* this, PlayState* play) {
         }
     } else {
         // bombing/hammering open a grotto
-        if (this->collider.base.acFlags & AC_HIT) {
+        if (this->collider.base.acFlags & AC_HIT || (this->actor.xyzDistToPlayerSq < SQ(150.0f) && play->actorCtx.unk_02 != 0)) {
             openGrotto = true;
             Collider_DestroyCylinder(play, &this->collider);
         } else {
@@ -153,7 +153,7 @@ void DoorAna_WaitOpen(DoorAna* this, PlayState* play) {
             DoorAna_SetupAction(this, DoorAna_GrabPlayer);
         } else {
             if (!Player_InCsMode(play) && !(player->stateFlags1 & (PLAYER_STATE1_ON_HORSE | PLAYER_STATE1_IN_WATER)) &&
-                this->actor.xzDistToPlayer <= 15.0f && -50.0f <= this->actor.yDistToPlayer &&
+                this->actor.xzDistToPlayer <= 25.0f && -50.0f <= this->actor.yDistToPlayer &&
                 this->actor.yDistToPlayer <= 15.0f) {
                 player->stateFlags1 |= PLAYER_STATE1_FLOOR_DISABLED;
                 this->actor.targetMode = 1;

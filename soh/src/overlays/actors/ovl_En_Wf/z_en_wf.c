@@ -219,7 +219,7 @@ void EnWf_Init(Actor* thisx, PlayState* play) {
     thisx->colChkInfo.damageTable = &sDamageTable;
     ActorShape_Init(&thisx->shape, 0.0f, ActorShadow_DrawCircle, 0.0f);
     thisx->focus.pos = thisx->world.pos;
-    thisx->colChkInfo.mass = MASS_HEAVY;
+    thisx->colChkInfo.mass = 140;
     thisx->colChkInfo.health = 8;
     thisx->colChkInfo.cylRadius = 50;
     thisx->colChkInfo.cylHeight = 100;
@@ -350,7 +350,7 @@ s32 EnWf_ChangeAction(PlayState* play, EnWf* this, s16 mustChoose) {
     if (mustChoose) {
         s16 playerFacingAngleDiff;
 
-        if (playerYawDiff >= 0x1B58) {
+        if (playerYawDiff >= 0x1B58 || (player->swallowed)) {
             EnWf_SetupSidestep(this, play);
             return true;
         }
@@ -463,7 +463,8 @@ void EnWf_Wait(EnWf* this, PlayState* play) {
         angle = player->actor.shape.rot.y - this->actor.shape.rot.y;
         angle = ABS(angle);
 
-        if ((this->actor.xzDistToPlayer < 80.0f) && (player->meleeWeaponState != 0) && (angle >= 0x1F40)) {
+        if ((this->actor.xzDistToPlayer < 80.0f) && (player->meleeWeaponState != 0) && (angle >= 0x1F40) ||
+            (player->swallowed)) {
             this->actor.shape.rot.y = this->actor.world.rot.y = this->actor.yawTowardsPlayer;
             EnWf_SetupRunAroundPlayer(this);
         } else {

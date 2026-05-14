@@ -448,13 +448,18 @@ void EnFloormas_Die(EnFloormas* this, PlayState* play) {
 }
 
 void EnFloormas_BigDecideAction(EnFloormas* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
+
     if (SkelAnime_Update(&this->skelAnime)) {
         // within 400 units of link and within 90 degrees rotation of him
-        if (this->actor.xzDistToPlayer < 400.0f && !Actor_IsFacingPlayer(&this->actor, 0x4000)) {
+        if (this->actor.xzDistToPlayer < 400.0f && this->actor.yDistToPlayer < 200.0f &&
+            !Actor_IsFacingPlayer(&this->actor, 0x4000) && !(player->swallowed)) {
             this->actionTarget = this->actor.yawTowardsPlayer;
             EnFloormas_SetupTurn(this);
             // within 280 units of link and within 45 degrees rotation of him
-        } else if (this->actor.xzDistToPlayer < 280.0f && Actor_IsFacingPlayer(&this->actor, 0x2000)) {
+        } else if (this->actor.xzDistToPlayer < 280.0f && this->actor.yDistToPlayer < 125.0f &&
+                   Actor_IsFacingPlayer(&this->actor, 0x2000) &&
+                   !(player->swallowed)) {
             EnFloormas_SetupHover(this, play);
         } else {
             EnFloormas_SetupStand(this);
@@ -476,6 +481,7 @@ void EnFloormas_Stand(EnFloormas* this, PlayState* play) {
 
 void EnFloormas_BigWalk(EnFloormas* this, PlayState* play) {
     s32 animPastFrame;
+    Player* player = GET_PLAYER(play);
 
     SkelAnime_Update(&this->skelAnime);
     animPastFrame = Animation_OnFrame(&this->skelAnime, 0.0f);
@@ -490,13 +496,16 @@ void EnFloormas_BigWalk(EnFloormas* this, PlayState* play) {
         Audio_PlayActorSound2(&this->actor, NA_SE_EN_FALL_WALK);
     }
 
-    if ((this->actor.xzDistToPlayer < 320.0f) && (Actor_IsFacingPlayer(&this->actor, 0x4000))) {
+    if ((this->actor.xzDistToPlayer < 320.0f) && (this->actor.yDistToPlayer < 200.0f) &&
+        (Actor_IsFacingPlayer(&this->actor, 0x4000)) && !(player->swallowed)) {
         EnFloormas_SetupRun(this);
     } else if (this->actor.bgCheckFlags & 8) {
         // set target rotation to the colliding wall's rotation
         this->actionTarget = this->actor.wallYaw;
         EnFloormas_SetupTurn(this);
-    } else if ((this->actor.xzDistToPlayer < 400.0f) && !Actor_IsFacingPlayer(&this->actor, 0x4000)) {
+    } else if ((this->actor.xzDistToPlayer < 400.0f) && (this->actor.yDistToPlayer < 200.0f) &&
+               !Actor_IsFacingPlayer(&this->actor, 0x4000) &&
+               !(player->swallowed)) {
         // set target rotation to link.
         this->actionTarget = this->actor.yawTowardsPlayer;
         EnFloormas_SetupTurn(this);
@@ -513,6 +522,8 @@ void EnFloormas_BigStopWalk(EnFloormas* this, PlayState* play) {
 
 void EnFloormas_Run(EnFloormas* this, PlayState* play) {
     SkelAnime_Update(&this->skelAnime);
+    Player* player = GET_PLAYER(play);
+
     if (Animation_OnFrame(&this->skelAnime, 0.0f) || Animation_OnFrame(&this->skelAnime, 12.0f) ||
         Animation_OnFrame(&this->skelAnime, 24.0f) || Animation_OnFrame(&this->skelAnime, 36.0f)) {
         Audio_PlayActorSound2(&this->actor, NA_SE_EN_FALL_WALK);
@@ -520,8 +531,9 @@ void EnFloormas_Run(EnFloormas* this, PlayState* play) {
 
     Math_ApproachS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 3, 0x71C);
 
-    if ((this->actor.xzDistToPlayer < 280.0f) && Actor_IsFacingPlayer(&this->actor, 0x2000) &&
-        !(this->actor.bgCheckFlags & 8)) {
+    if ((this->actor.xzDistToPlayer < 280.0f) && (this->actor.yDistToPlayer < 125.0f) &&
+        Actor_IsFacingPlayer(&this->actor, 0x2000) && !(this->actor.bgCheckFlags & 8) &&
+        !(player->swallowed)) {
         EnFloormas_SetupHover(this, play);
     } else if (this->actor.xzDistToPlayer > 400.0f) {
         EnFloormas_SetupBigWalk(this);
@@ -695,7 +707,7 @@ void EnFloormas_SmWalk(EnFloormas* this, PlayState* play) {
     } else if (this->actor.bgCheckFlags & 8) {
         this->actionTarget = this->actor.wallYaw;
         EnFloormas_SetupTurn(this);
-    } else if (this->actor.xzDistToPlayer < 120.0f) {
+    } else if (this->actor.xzDistToPlayer < 120.0f && this->actor.yDistToPlayer < 120.0f) {
         Math_ScaledStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer + 0x8000, 0x38E);
     }
 }
@@ -731,7 +743,7 @@ void EnFloormas_SmDecideAction(EnFloormas* this, PlayState* play) {
         }
     } else {
         Math_ApproachS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 3, 0x71C);
-        if (this->actor.xzDistToPlayer < 80.0f) {
+        if (this->actor.xzDistToPlayer < 80.0f && this->actor.yDistToPlayer < 80.0f) {
             EnFloormas_SetupJumpAtLink(this);
         }
     }

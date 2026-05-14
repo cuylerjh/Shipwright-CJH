@@ -141,7 +141,7 @@ void EnBw_Init(Actor* thisx, PlayState* play) {
     ActorShape_Init(&this->actor.shape, 0.0f, ActorShadow_DrawCircle, 40.0f);
     this->actor.colChkInfo.damageTable = &sDamageTable;
     this->actor.colChkInfo.health = 6;
-    this->actor.colChkInfo.mass = MASS_HEAVY;
+    this->actor.colChkInfo.mass = 0xF0;
     this->actor.focus.pos = this->actor.world.pos;
     func_809CE9A8(this);
     this->color1.a = this->color1.r = 255;
@@ -338,7 +338,8 @@ void func_809CEA24(EnBw* this, PlayState* play) {
         case 3:
             Math_SmoothStepToF(&this->unk_248, 0.6f, 1.0f, 0.05f, 0.0f);
             if ((this->unk_224 == 0) && (this->actor.xzDistToPlayer < 200.0f) &&
-                (ABS(this->actor.yDistToPlayer) < 50.0f) && Actor_IsFacingPlayer(&this->actor, 0x1C70)) {
+                (ABS(this->actor.yDistToPlayer) < 50.0f) && Actor_IsFacingPlayer(&this->actor, 0x1C70) &&
+                !(player->swallowed)) {
                 func_809CF72C(this);
             } else {
                 Math_SmoothStepToS(&this->actor.world.rot.y, this->unk_236 + this->unk_238, 1,
@@ -352,7 +353,8 @@ void func_809CEA24(EnBw* this, PlayState* play) {
                                    this->actor.speedXZ * 1000.0f, 0);
                 if ((this->actor.xzDistToPlayer < 90.0f) && (this->actor.yDistToPlayer < 50.0f) &&
                     Actor_IsFacingPlayer(&this->actor, 0x1554) &&
-                    Actor_TestFloorInDirection(&this->actor, play, 71.24802f, this->actor.yawTowardsPlayer)) {
+                    Actor_TestFloorInDirection(&this->actor, play, 71.24802f, this->actor.yawTowardsPlayer) &&
+                    !(player->swallowed)) {
                     func_809CF8F0(this);
                 }
             } else {
@@ -681,6 +683,7 @@ void func_809D0424(EnBw* this, PlayState* play) {
 }
 
 void func_809D0584(EnBw* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
     if ((this->actor.bgCheckFlags & 0x10) && (this->actor.bgCheckFlags & 1)) {
         this->unk_230 = 0;
         this->actor.scale.y -= 0.009f;
@@ -729,7 +732,8 @@ void func_809D0584(EnBw* this, PlayState* play) {
                 this->unk_248 = 0.0f;
             }
         }
-        if ((play->actorCtx.unk_02 != 0) && (this->actor.xzDistToPlayer <= 400.0f) && (this->actor.bgCheckFlags & 1)) {
+        if ((play->actorCtx.unk_02 != 0) && (this->actor.xzDistToPlayer <= 400.0f) &&
+            (this->actor.bgCheckFlags & 1) && !(player->swallowed)) {
             if (this->unk_220 == 5) {
                 this->unk_23C = 0;
                 func_809CFF10(this);

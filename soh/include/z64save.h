@@ -22,6 +22,7 @@ typedef enum {
     /* 0x5 */ MAGIC_STATE_RESET, // Reset colors and return to idle
     /* 0x6 */ MAGIC_STATE_METER_FLASH_3, // Flashes border with no additional behaviour
     /* 0x7 */ MAGIC_STATE_CONSUME_LENS, // Magic slowly consumed by lens.
+              MAGIC_STATE_CONSUME_LIKE_LIKE,
     /* 0x8 */ MAGIC_STATE_STEP_CAPACITY, // Step `magicCapacity` to full capacity
     /* 0x9 */ MAGIC_STATE_FILL, // Add magic until magicFillTarget is reached.
     /* 0xA */ MAGIC_STATE_ADD // Add requested magic
@@ -33,6 +34,7 @@ typedef enum {
     /* 2 */ MAGIC_CONSUME_NOW_ALT, // Identical behaviour to MAGIC_CONSUME_NOW. Unused
     /* 3 */ MAGIC_CONSUME_LENS, // Lens consumption
     /* 4 */ MAGIC_CONSUME_WAIT_PREVIEW, // Sets consume target but waits to consume. Draws yellow magic to target consumption
+            MAGIC_CONSUME_LIKE_LIKE,
     /* 5 */ MAGIC_ADD // Sets a target to add magic
 } MagicChangeType;
 
@@ -55,6 +57,12 @@ typedef struct {
     /* 0x48 */ s8 dungeonKeys[19];
     /* 0x5B */ s8 defenseHearts;
     /* 0x5C */ s16 gsTokens;
+               s32 eatenSwords[3];
+               s32 eatenShield; // For restoring Mirror Shield.
+               s32 eatenTunic; // For restoring Kokiri Tunic.
+               s32 eatenBoots[3];
+               s32 eatenItems[4];
+               s32 eatenBottles[4];
 } Inventory; // size = 0x5E
 
 typedef struct {

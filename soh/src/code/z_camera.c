@@ -1512,7 +1512,8 @@ s32 Camera_Free(Camera* camera) {
         camera->play->camY = -0x228C;
     }
 
-    f32 distTarget = CVarGetInteger(CVAR_SETTING("FreeLook.MaxCameraDistance"), para1->distTarget);
+    f32 ageMod = LINK_IS_ADULT ? 1.0f : 0.75f;
+    f32 distTarget = CVarGetInteger(CVAR_SETTING("FreeLook.MaxCameraDistance"), para1->distTarget * ageMod);
     f32 speedScaler = CVarGetInteger(CVAR_SETTING("FreeLook.TransitionSpeed"), 25);
     f32 distDiff = ABS(distTarget - camera->dist);
     if (distDiff > 0)

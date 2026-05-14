@@ -152,7 +152,7 @@ void EnSkb_Init(Actor* thisx, PlayState* play) {
     this->actor.colChkInfo.damageTable = &sDamageTable;
     ActorShape_Init(&this->actor.shape, 0.0f, ActorShadow_DrawCircle, 0.0f);
     this->actor.focus.pos = this->actor.world.pos;
-    this->actor.colChkInfo.mass = 0xFE;
+    this->actor.colChkInfo.mass = 70;
     this->actor.colChkInfo.health = 2;
     this->actor.shape.yOffset = -8000.0f;
     SkelAnime_Init(play, &this->skelAnime, &gStalchildSkel, &gStalchildUncurlingAnim, this->jointTable,
@@ -191,12 +191,15 @@ void EnSkb_Destroy(Actor* thisx, PlayState* play) {
     ResourceMgr_UnregisterSkeleton(&this->skelAnime);
 }
 
-void func_80AFCD60(EnSkb* this) {
+void func_80AFCD60(EnSkb* this, PlayState* play) {
     // Don't despawn stallchildren during daytime when enemy randomizer is enabled.
+    Player* player = GET_PLAYER(play);
     if (IS_DAY && !CVarGetInteger(CVAR_ENHANCEMENT("RandomizedEnemies"), 0)) {
         func_80AFCF48(this);
     } else if (Actor_IsFacingPlayer(&this->actor, 0x11C7) &&
-               (this->actor.xzDistToPlayer < (60.0f + (this->actor.params * 6.0f)))) {
+               (this->actor.xzDistToPlayer < (60.0f + (this->actor.params * 6.0f))) &&
+               (this->actor.yDistToPlayer < (60.0f + (this->actor.params * 6.0f))) &&
+               (this->actor.yDistToPlayer > -30.0f) && !(player->swallowed)) {
         func_80AFD33C(this);
     } else {
         func_80AFD0A4(this);
@@ -204,11 +207,10 @@ void func_80AFCD60(EnSkb* this) {
 }
 
 void func_80AFCDF8(EnSkb* this) {
-    Animation_PlayOnceSetSpeed(&this->skelAnime, &gStalchildUncurlingAnim, 1.0f);
-    this->unk_280 = 0;
-    this->actor.flags &= ~ACTOR_FLAG_ATTENTION_ENABLED;
-    Audio_PlayActorSound2(&this->actor, NA_SE_EN_RIVA_APPEAR);
-    EnSkb_SetupAction(this, func_80AFCE5C);
+        Animation_PlayOnceSetSpeed(&this->skelAnime, &gStalchildUncurlingAnim, 1.0f);
+        this->unk_280 = 0;
+        this->actor.flags &= ~ACTOR_FLAG_ATTENTION_ENABLED;
+        EnSkb_SetupAction(this, func_80AFCE5C);
 }
 
 void func_80AFCE5C(EnSkb* this, PlayState* play) {
@@ -224,7 +226,7 @@ void func_80AFCE5C(EnSkb* this, PlayState* play) {
         EnSkb_SpawnDebris(play, this, &this->actor.world.pos);
     }
     if ((SkelAnime_Update(&this->skelAnime) != 0) && (0.0f == this->actor.shape.yOffset)) {
-        func_80AFCD60(this);
+        func_80AFCD60(this, play);
     }
 }
 
@@ -296,7 +298,9 @@ void EnSkb_Advance(EnSkb* this, PlayState* play) {
         !CVarGetInteger(CVAR_ENHANCEMENT("RandomizedEnemies"), 0)) {
         func_80AFCF48(this);
     } else if (Actor_IsFacingPlayer(&this->actor, 0x11C7) &&
-               (this->actor.xzDistToPlayer < (60.0f + (this->actor.params * 6.0f)))) {
+               (this->actor.xzDistToPlayer < (60.0f + (this->actor.params * 6.0f))) &&
+               (this->actor.yDistToPlayer < (60.0f + (this->actor.params * 6.0f))) &&
+               (this->actor.yDistToPlayer > -30.0f) && !(player->swallowed)) {
         func_80AFD33C(this);
     }
 }
@@ -324,7 +328,7 @@ void EnSkb_SetupAttack(EnSkb* this, PlayState* play) {
         this->collider.base.atFlags &= ~6;
         func_80AFD47C(this);
     } else if (SkelAnime_Update(&this->skelAnime) != 0) {
-        func_80AFCD60(this);
+        func_80AFCD60(this, play);
     }
 }
 
@@ -339,7 +343,7 @@ void func_80AFD47C(EnSkb* this) {
 
 void func_80AFD508(EnSkb* this, PlayState* play) {
     if (SkelAnime_Update(&this->skelAnime) != 0) {
-        func_80AFCD60(this);
+        func_80AFCD60(this, play);
     }
 }
 
@@ -366,7 +370,7 @@ void func_80AFD59C(EnSkb* this, PlayState* play) {
         if (this->actor.colChkInfo.health == 0) {
             func_80AFD7B4(this, play);
         } else {
-            func_80AFCD60(this);
+            func_80AFCD60(this, play);
         }
     }
 }
@@ -402,7 +406,7 @@ void func_80AFD6CC(EnSkb* this, PlayState* play) {
 
         Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 1, 0x1194, 0);
         if (SkelAnime_Update(&this->skelAnime) && (this->actor.bgCheckFlags & 1)) {
-            func_80AFCD60(this);
+            func_80AFCD60(this, play);
         }
     }
 }
@@ -448,7 +452,8 @@ void func_80AFD968(EnSkb* this, PlayState* play) {
     s16 phi_v1;
     Player* player;
 
-    if ((this->unk_280 != 1) && (this->actor.bgCheckFlags & 0x60) && (this->actor.yDistToWater >= 40.0f)) {
+    if ((this->unk_280 != 1) && (this->actor.bgCheckFlags & 0x60) && (this->actor.yDistToWater >= 40.0f) ||
+        (this->actor.xyzDistToPlayerSq < SQ(300.0f) && play->actorCtx.unk_02 != 0)) {
         this->actor.colChkInfo.health = 0;
         this->unk_281 = 0;
         func_80AFD7B4(this, play);

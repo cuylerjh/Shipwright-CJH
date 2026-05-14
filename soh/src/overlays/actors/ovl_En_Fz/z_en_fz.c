@@ -127,7 +127,7 @@ static DamageTable sDamageTable = {
     /* Explosive     */ DMG_ENTRY(2, 0xF),
     /* Boomerang     */ DMG_ENTRY(0, 0xF),
     /* Normal arrow  */ DMG_ENTRY(0, 0xF),
-    /* Hammer swing  */ DMG_ENTRY(2, 0xF),
+    /* Hammer swing  */ DMG_ENTRY(6, 0xF),
     /* Hookshot      */ DMG_ENTRY(2, 0xF),
     /* Kokiri sword  */ DMG_ENTRY(0, 0xF),
     /* Master sword  */ DMG_ENTRY(2, 0xF),
@@ -151,7 +151,7 @@ static DamageTable sDamageTable = {
     /* Master jump   */ DMG_ENTRY(4, 0xF),
     /* Unknown 1     */ DMG_ENTRY(0, 0x0),
     /* Unblockable   */ DMG_ENTRY(0, 0x0),
-    /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+    /* Hammer jump   */ DMG_ENTRY(6, 0xF),
     /* Unknown 2     */ DMG_ENTRY(0, 0x0),
 };
 

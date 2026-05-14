@@ -280,7 +280,7 @@ void EnMb_Init(Actor* thisx, PlayState* play) {
             SkelAnime_InitFlex(play, &this->skelAnime, &gEnMbSpearSkel, &gEnMbSpearStandStillAnim, this->jointTable,
                                this->morphTable, 28);
             this->actor.colChkInfo.health = 2;
-            this->actor.colChkInfo.mass = MASS_HEAVY;
+            this->actor.colChkInfo.mass = 0xFD;
             this->maxHomeDist = 1000.0f;
             this->playerDetectionRange = 1750.0f;
             EnMb_SetupSpearGuardLookAround(this);
@@ -758,7 +758,8 @@ void EnMb_SpearPatrolEndCharge(EnMb* this, PlayState* play) {
                 relYawFromPlayer = this->actor.shape.rot.y - this->actor.yawTowardsPlayer;
 
                 if (ABS(this->actor.yDistToPlayer) <= 20.0f && EnMb_IsPlayerInCorridor(this, play) &&
-                    ABS(relYawFromPlayer) <= 0x4000 && this->actor.xzDistToPlayer <= 200.0f) {
+                    ABS(relYawFromPlayer) <= 0x4000 && this->actor.xzDistToPlayer <= 200.0f &&
+                    !(player->stateFlags2 & PLAYER_STATE2_GRABBED_BY_ENEMY)) {
                     EnMb_SetupSpearPrepareAndCharge(this);
                 } else {
                     lastFrame = Animation_GetLastFrame(&gEnMbSpearPrepareChargeAnim);
@@ -1168,7 +1169,8 @@ void EnMb_SpearGuardWalk(EnMb* this, PlayState* play) {
         Math_Vec3f_DistXZ(&this->actor.home.pos, &player->actor.world.pos) < this->playerDetectionRange) {
         Math_SmoothStepToS(&this->actor.world.rot.y, this->actor.yawTowardsPlayer, 1, 0x2EE, 0);
         this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED;
-        if (this->actor.xzDistToPlayer < 500.0f && relYawTowardsPlayer < 0x1388) {
+        if (this->actor.xzDistToPlayer < 500.0f && relYawTowardsPlayer < 0x1388 &&
+            !(player->stateFlags2 & PLAYER_STATE2_GRABBED_BY_ENEMY)) {
             EnMb_SetupSpearPrepareAndCharge(this);
         }
     } else {
@@ -1281,8 +1283,9 @@ void EnMb_ClubWaitPlayerNear(EnMb* this, PlayState* play) {
         // Without the height check, the Moblin will attack (and play the sound effect) a lot even though
         // the Moblin is very far away from the player in vertical rooms (like the first room in Deku Tree).
         s8 enemyRando = CVarGetInteger(CVAR_ENHANCEMENT("RandomizedEnemies"), 0);
-        if (!enemyRando ||
-            (enemyRando && this->actor.yDistToPlayer <= 100.0f && this->actor.yDistToPlayer >= -100.0f)) {
+        if (!enemyRando || (enemyRando && this->actor.yDistToPlayer <= 100.0f && this->actor.yDistToPlayer >= -100.0f &&
+                            !(player->stateFlags2 & PLAYER_STATE2_GRABBING_DYNAPOLY) &&
+                            !(player->swallowed))) {
             EnMb_SetupClubAttack(this);
         }
     }

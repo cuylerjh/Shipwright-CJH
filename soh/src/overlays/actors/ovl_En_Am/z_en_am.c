@@ -119,6 +119,7 @@ static ColliderQuadInit sQuadInit = {
 typedef enum {
     /* 00 */ AM_DMGEFF_NONE, // used by anything that cant kill the armos
     /* 01 */ AM_DMGEFF_NUT,
+    /* 05 */ AM_DMGEFF_HAMMER,
     /* 06 */ AM_DMGEFF_STUN = 6, // doesnt include deku nuts
     /* 13 */ AM_DMGEFF_ICE = 13,
     /* 14 */ AM_DMGEFF_MAGIC_FIRE_LIGHT,
@@ -132,7 +133,7 @@ static DamageTable sDamageTable = {
     /* Explosive     */ DMG_ENTRY(2, AM_DMGEFF_KILL),
     /* Boomerang     */ DMG_ENTRY(0, AM_DMGEFF_STUN),
     /* Normal arrow  */ DMG_ENTRY(2, AM_DMGEFF_KILL),
-    /* Hammer swing  */ DMG_ENTRY(2, AM_DMGEFF_KILL),
+    /* Hammer swing  */ DMG_ENTRY(2, AM_DMGEFF_HAMMER),
     /* Hookshot      */ DMG_ENTRY(0, AM_DMGEFF_STUN),
     /* Kokiri sword  */ DMG_ENTRY(1, AM_DMGEFF_NONE),
     /* Master sword  */ DMG_ENTRY(2, AM_DMGEFF_KILL),
@@ -156,7 +157,7 @@ static DamageTable sDamageTable = {
     /* Master jump   */ DMG_ENTRY(4, AM_DMGEFF_KILL),
     /* Unknown 1     */ DMG_ENTRY(0, AM_DMGEFF_NONE),
     /* Unblockable   */ DMG_ENTRY(0, AM_DMGEFF_NONE),
-    /* Hammer jump   */ DMG_ENTRY(4, AM_DMGEFF_KILL),
+    /* Hammer jump   */ DMG_ENTRY(4, AM_DMGEFF_HAMMER),
     /* Unknown 2     */ DMG_ENTRY(0, AM_DMGEFF_NONE),
 };
 
@@ -347,8 +348,10 @@ void EnAm_SetupRecoilFromDamage(EnAm* this, PlayState* play) {
     this->dyna.actor.world.rot.y = this->dyna.actor.yawTowardsPlayer;
     Audio_PlayActorSound2(&this->dyna.actor, NA_SE_EN_AMOS_DAMAGE);
 
-    if (EnAm_CanMove(this, play, -6.0f, this->dyna.actor.world.rot.y)) {
-        this->dyna.actor.speedXZ = -6.0f;
+    f32 recoilSpeed = this->hammerDeath ? -12.0f : -6.0f;
+
+    if (EnAm_CanMove(this, play, recoilSpeed, this->dyna.actor.world.rot.y)) {
+        this->dyna.actor.speedXZ = recoilSpeed;
     }
 
     this->dyna.actor.colorFilterTimer = 0;
@@ -558,7 +561,7 @@ void EnAm_RecoilFromDamage(EnAm* this, PlayState* play) {
 
     if (SkelAnime_Update(&this->skelAnime)) {
         EnAm_SetupLunge(this);
-        this->deathTimer = 64;
+        this->deathTimer = this->hammerDeath ? 4 : 64;
         this->panicSpinRot = 0;
     }
 }
@@ -810,7 +813,7 @@ void EnAm_UpdateDamage(EnAm* this, PlayState* play) {
             if (this->behavior >= AM_BEHAVIOR_5) {
                 EnAm_SetupRicochet(this, play);
             }
-        } else if ((this->hurtCollider.base.acFlags & AC_HIT) && (this->behavior >= AM_BEHAVIOR_5)) {
+        } else if ((this->hurtCollider.base.acFlags & AC_HIT) && ((this->behavior >= AM_BEHAVIOR_5) || (this->dyna.actor.colChkInfo.damageEffect == AM_DMGEFF_HAMMER))) {
             this->hurtCollider.base.acFlags &= ~AC_HIT;
 
             if (this->dyna.actor.colChkInfo.damageEffect != AM_DMGEFF_MAGIC_FIRE_LIGHT) {
@@ -833,8 +836,15 @@ void EnAm_UpdateDamage(EnAm* this, PlayState* play) {
                         CollisionCheck_SpawnShieldParticlesMetal(play, &sparkPos);
                     }
                 } else if ((this->dyna.actor.colChkInfo.damageEffect == AM_DMGEFF_KILL) ||
-                           (this->behavior == AM_BEHAVIOR_STUNNED)) {
+                           (this->behavior == AM_BEHAVIOR_STUNNED) || (this->dyna.actor.colChkInfo.damageEffect == AM_DMGEFF_HAMMER)) {
                     this->dyna.actor.colChkInfo.health = 0;
+
+                    if (this->dyna.actor.colChkInfo.damageEffect == AM_DMGEFF_HAMMER) {
+                        Audio_PlayActorSound2(&this->dyna.actor, NA_SE_IT_HAMMER_HIT);
+                        this->hammerDeath = true;
+                    } else {
+                        this->hammerDeath = false;
+                    }
 
                     EnAm_SetupRecoilFromDamage(this, play);
                 } else {

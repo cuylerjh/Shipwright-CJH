@@ -69,6 +69,12 @@ const char* enemyCVarList[RANDOMIZED_ENEMY_SPAWN_TABLE_SIZE] = {
     CVAR_ENHANCEMENT("RandomizedEnemyList.Keese"),
     CVAR_ENHANCEMENT("RandomizedEnemyList.LargeBaba"),
     CVAR_ENHANCEMENT("RandomizedEnemyList.LikeLike"),
+    CVAR_ENHANCEMENT("RandomizedEnemyList.SmallLikeLike"),
+    CVAR_ENHANCEMENT("RandomizedEnemyList.GiantLikeLike"),
+    CVAR_ENHANCEMENT("RandomizedEnemyList.InvertedLikeLike"),
+    CVAR_ENHANCEMENT("RandomizedEnemyList.RupeeLike"),
+    CVAR_ENHANCEMENT("RandomizedEnemyList.LifeLike"),
+    CVAR_ENHANCEMENT("RandomizedEnemyList.MagicLike"),
     CVAR_ENHANCEMENT("RandomizedEnemyList.Lizalfos"),
     CVAR_ENHANCEMENT("RandomizedEnemyList.MadScrub"),
     CVAR_ENHANCEMENT("RandomizedEnemyList.NormalWolfos"),
@@ -133,6 +139,12 @@ const char* enemyNameList[RANDOMIZED_ENEMY_SPAWN_TABLE_SIZE] = {
     "Keese",
     "Large Deku Baba",
     "Like-Like",
+    "Small Like-Like",
+    "Giant Like-Like",
+    "Inverted Like-Like",
+    "Rupee-Like",
+    "Life-Like",
+    "Magic-Like",
     "Lizalfos",
     "Mad Scrub",
     "Wolfos (Normal)",
@@ -200,6 +212,12 @@ static EnemyEntry randomizedEnemySpawnTable[RANDOMIZED_ENEMY_SPAWN_TABLE_SIZE] =
     // Doesn't work (reliant on surface, without a spawner it kills itself too quickly)
     // { ACTOR_EN_REEBA, 0 },       // Leever
     { ACTOR_EN_RR, 0 },         // Like-Like
+    { ACTOR_EN_RR, 1 },         // Small Like-Like
+    { ACTOR_EN_RR, 3 },         // Giant Like-Like
+    { ACTOR_EN_RR, 4 },         // Inverted Like-Like
+    { ACTOR_EN_RR, 6 },         // Rupee-Like
+    { ACTOR_EN_RR, 7 },         // Life-Like
+    { ACTOR_EN_RR, 8 },         // Magic-Like
     { ACTOR_EN_ZF, -1 },        // Lizalfos
     { ACTOR_EN_DEKUNUTS, 768 }, // Mad Scrub (triple attack) (projectiles don't work)
     { ACTOR_EN_WF, 0 },         // Wolfos (normal)
@@ -330,20 +348,33 @@ extern "C" uint8_t GetRandomizedEnemy(PlayState* play, int16_t* actorId, f32* po
             *posY = *posY - 200;
         }
 
+        if (play->sceneNum == SCENE_FOREST_TEMPLE) {
+            // Move the enemy out of the hole and onto the surface in the first corridor room.
+            if (play->roomCtx.curRoom.num == 19) {
+                *posX = -1600;
+                *posY = 1050;
+                *posZ = -3480;
+            }
+        }
+
         // Do a raycast from the original position of the actor to find the ground below it, then try to place
         // the new actor on the ground. This way enemies don't spawn very high in the sky, and gives us control
         // over height offsets per enemy from a proven grounded position.
         CollisionPoly poly;
         Vec3f pos;
         f32 raycastResult;
+        u16 excludeRooms;
 
         pos.x = *posX;
         pos.y = *posY + 50;
         pos.z = *posZ;
         raycastResult = BgCheck_AnyRaycastFloor1(&play->colCtx, &poly, &pos);
 
+        // Exclude both corridor rooms so enemies correctly spawn in reachable space.
+        excludeRooms = play->sceneNum == SCENE_FOREST_TEMPLE && (play->roomCtx.curRoom.num == 19 || play->roomCtx.curRoom.num == 20);
+
         // If ground is found below actor, move actor to that height.
-        if (raycastResult > BGCHECK_Y_MIN) {
+        if (raycastResult > BGCHECK_Y_MIN && !excludeRooms) {
             *posY = raycastResult;
         }
 
@@ -488,7 +519,8 @@ bool IsEnemyFoundToRandomize(int16_t sceneNum, int8_t roomNum, int16_t actorId, 
                 // grate to open.
                 case ACTOR_EN_SB:
                 case ACTOR_EN_NY:
-                    return (!(!isMQ && sceneNum == SCENE_WATER_TEMPLE && roomNum == 2));
+                    //return (!(!isMQ && sceneNum == SCENE_WATER_TEMPLE && roomNum == 2));
+                    return 1;
                 case ACTOR_EN_SKJ:
                     return !(sceneNum == SCENE_LOST_WOODS && LINK_IS_CHILD);
                 default:

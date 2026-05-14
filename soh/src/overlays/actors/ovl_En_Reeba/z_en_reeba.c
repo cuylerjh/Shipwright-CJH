@@ -65,7 +65,7 @@ static DamageTable sDamageTable = {
     /* Master jump   */ DMG_ENTRY(4, 0xE),
     /* Unknown 1     */ DMG_ENTRY(0, 0x1),
     /* Unblockable   */ DMG_ENTRY(0, 0x0),
-    /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+    /* Hammer jump   */ DMG_ENTRY(4, 0xE),
     /* Unknown 2     */ DMG_ENTRY(0, 0x0),
 };
 
@@ -113,7 +113,7 @@ void EnReeba_Init(Actor* thisx, PlayState* play) {
     this->actor.focus.pos = this->actor.world.pos;
     SkelAnime_Init(play, &this->skelanime, &object_reeba_Skel_001EE8, &object_reeba_Anim_0001E4, this->jointTable,
                    this->morphTable, 18);
-    this->actor.colChkInfo.mass = MASS_HEAVY;
+    this->actor.colChkInfo.mass = 100;
     this->actor.colChkInfo.health = 4;
     Collider_InitCylinder(play, &this->collider);
     Collider_SetCylinder(play, &this->collider, &this->actor, &sCylinderInit);

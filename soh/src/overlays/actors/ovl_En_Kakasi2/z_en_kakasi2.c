@@ -103,6 +103,8 @@ void EnKakasi2_Init(Actor* thisx, PlayState* play) {
         Collider_InitCylinder(play, &this->collider);
         Collider_SetCylinder(play, &this->collider, &this->actor, &sCylinderInit);
         SkelAnime_InitFlex(play, &this->skelAnime, &object_ka_Skel_0065B0, &object_ka_Anim_000214, NULL, NULL, 0);
+        this->actor.flags &= ~ACTOR_FLAG_LOCK_ON_DISABLED;
+        Actor_ChangeCategory(play, &play->actorCtx, &this->actor, ACTORCAT_MISC);
         this->actionFunc = func_80A9062C;
     } else {
         this->actionFunc = func_80A90264;
@@ -130,7 +132,9 @@ void func_80A90264(EnKakasi2* this, PlayState* play) {
         Collider_SetCylinder(play, &this->collider, &this->actor, &sCylinderInit);
         SkelAnime_InitFlex(play, &this->skelAnime, &object_ka_Skel_0065B0, &object_ka_Anim_000214, NULL, NULL, 0);
         OnePointCutscene_Attention(play, &this->actor);
-        this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_LOCK_ON_DISABLED;
+        this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED;
+        this->actor.flags &= ~ACTOR_FLAG_LOCK_ON_DISABLED;
+        Actor_ChangeCategory(play, &play->actorCtx, &this->actor, ACTORCAT_MISC);
 
         Sfx_PlaySfxCentered(NA_SE_SY_CORRECT_CHIME);
         if (this->switchFlag >= 0) {
@@ -143,7 +147,7 @@ void func_80A90264(EnKakasi2* this, PlayState* play) {
                (fabsf(player->actor.world.pos.y - this->actor.world.pos.y) < this->maxSpawnDistance.y) &&
                (Flags_GetEventChkInf(EVENTCHKINF_PLAYED_SONG_FOR_SCARECROW_AS_ADULT))) {
 
-        this->unk_194 = 0;
+        this->unk_194 = 0; 
         if (play->msgCtx.ocarinaMode == OCARINA_MODE_0B) {
             if (this->switchFlag >= 0) {
                 Flags_SetSwitch(play, this->switchFlag);
@@ -157,7 +161,9 @@ void func_80A90264(EnKakasi2* this, PlayState* play) {
             OnePointCutscene_Attention(play, &this->actor);
             Sfx_PlaySfxCentered(NA_SE_SY_CORRECT_CHIME);
 
-            this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_LOCK_ON_DISABLED;
+            this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED;
+            this->actor.flags &= ~ACTOR_FLAG_LOCK_ON_DISABLED;
+            Actor_ChangeCategory(play, &play->actorCtx, &this->actor, ACTORCAT_MISC);
             this->actionFunc = func_80A904D8;
         }
     }
@@ -193,16 +199,23 @@ void func_80A90578(EnKakasi2* this, PlayState* play) {
 void func_80A9062C(EnKakasi2* this, PlayState* play) {
     f32 frameCount = Animation_GetLastFrame(&object_ka_Anim_000214);
 
-    Animation_Change(&this->skelAnime, &object_ka_Anim_000214, 0.0f, 0.0f, (s16)frameCount, ANIMMODE_ONCE, -10.0f);
+    Animation_Change(&this->skelAnime, &object_ka_Anim_000214, 1.0f, 0.0f, (s16)frameCount, ANIMMODE_LOOP, -10.0f);
     this->actionFunc = func_80A906C4;
 }
 
 void func_80A906C4(EnKakasi2* this, PlayState* play) {
-    if (this->skelAnime.curFrame != 0) {
-        Math_ApproachZeroF(&this->skelAnime.curFrame, 0.5f, 1.0f);
-    }
+    f32 currentFrame;
+
+    // if (this->skelAnime.curFrame != 0) {
+    //     Math_ApproachZeroF(&this->skelAnime.curFrame, 0.5f, 1.0f);
+    // }
     Math_SmoothStepToS(&this->actor.shape.rot.y, this->unk_198, 5, 0xBB8, 0);
     SkelAnime_Update(&this->skelAnime);
+
+    currentFrame = this->skelAnime.curFrame;
+    if (currentFrame == 11 || currentFrame == 17) {
+        Audio_PlayActorSound2(&this->actor, NA_SE_EV_KAKASHI_SWING);
+    }
 }
 
 void EnKakasi2_Update(Actor* thisx, PlayState* play2) {

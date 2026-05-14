@@ -448,6 +448,30 @@ void EnItem00_Init(Actor* thisx, PlayState* play) {
             Actor_SetScale(&this->actor, 0.01f);
             this->scale = 0.01f;
             break;
+        case ITEM00_SWORD_KOKIRI:
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_SWORD_1);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
+        case ITEM00_SWORD_MASTER:
+            EnItem00_SetObjectDependency(this, play, RG_MASTER_SWORD);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
+        case ITEM00_SWORD_BGS:
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_LONGSWORD);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
         case ITEM00_SHIELD_DEKU:
             EnItem00_SetObjectDependency(this, play, OBJECT_GI_SHIELD_1);
             Actor_SetScale(&this->actor, 0.5f);
@@ -464,9 +488,42 @@ void EnItem00_Init(Actor* thisx, PlayState* play) {
             shadowScale = 0.6f;
             this->actor.world.rot.x = 0x4000;
             break;
+        case ITEM00_SHIELD_MIRROR:
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_SHIELD_3);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
+        case ITEM00_TUNIC_KOKIRI:
         case ITEM00_TUNIC_ZORA:
         case ITEM00_TUNIC_GORON:
             EnItem00_SetObjectDependency(this, play, OBJECT_GI_CLOTHES);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
+        case ITEM00_BOOTS_KOKIRI:
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_BOOTS_2);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
+        case ITEM00_BOOTS_IRON:
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_BOOTS_2);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
+        case ITEM00_BOOTS_HOVER:
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_HOVERBOOTS);
             Actor_SetScale(&this->actor, 0.5f);
             this->scale = 0.5f;
             yOffset = 0.0f;
@@ -477,6 +534,55 @@ void EnItem00_Init(Actor* thisx, PlayState* play) {
             yOffset = 320.0f;
             Actor_SetScale(&this->actor, 0.03f);
             this->scale = 0.03f;
+            break;
+        case ITEM00_HOOKSHOT:
+        case ITEM00_LONGSHOT:
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_HOOKSHOT);
+            Actor_SetScale(&this->actor, 0.5f); 
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
+        case ITEM00_BOOMERANG:
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_BOOMERANG);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
+        case ITEM00_LENS:
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_GLASSES);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
+        case ITEM00_HAMMER:
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_HAMMER);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
+            break;
+        case ITEM00_BOTTLE:
+        case ITEM00_BOTTLE_RED_POTION:
+        case ITEM00_BOTTLE_GREEN_POTION:
+        case ITEM00_BOTTLE_BLUE_POTION:
+        case ITEM00_BOTTLE_FAIRY:
+        case ITEM00_BOTTLE_MILK:
+        case ITEM00_BOTTLE_FISH:
+        case ITEM00_BOTTLE_BUGS:
+        case ITEM00_BOTTLE_POE:        
+            EnItem00_SetObjectDependency(this, play, OBJECT_GI_BOTTLE);
+            Actor_SetScale(&this->actor, 0.5f);
+            this->scale = 0.5f;
+            yOffset = 0.0f;
+            shadowScale = 0.6f;
+            this->actor.world.rot.x = 0x4000;
             break;
         case ITEM00_SOH_GIVE_ITEM_ENTRY:
         case ITEM00_SOH_GIVE_ITEM_ENTRY_GI:
@@ -569,10 +675,20 @@ void EnItem00_Init(Actor* thisx, PlayState* play) {
             break;
         case ITEM00_HEART_PIECE:
         case ITEM00_HEART_CONTAINER:
+        case ITEM00_SWORD_KOKIRI:
+        case ITEM00_SWORD_MASTER:
+        case ITEM00_SWORD_BGS:
         case ITEM00_SHIELD_DEKU:
         case ITEM00_SHIELD_HYLIAN:
+        case ITEM00_SHIELD_MIRROR:
+        case ITEM00_TUNIC_KOKIRI:
         case ITEM00_TUNIC_ZORA:
         case ITEM00_TUNIC_GORON:
+        case ITEM00_HOOKSHOT:
+        case ITEM00_LONGSHOT:
+        case ITEM00_BOOMERANG:
+        case ITEM00_LENS:
+        case ITEM00_HAMMER:
         case ITEM00_BOMBS_SPECIAL:
             break;
         case ITEM00_BOMBCHU:
@@ -599,7 +715,7 @@ void func_8001DFC8(EnItem00* this, PlayState* play) {
         (this->actor.params == ITEM00_HEART_PIECE)) {
         this->actor.shape.rot.y += 960;
     } else {
-        if ((this->actor.params >= ITEM00_SHIELD_DEKU) && (this->actor.params < ITEM00_BOMBS_SPECIAL)) {
+        if ((this->actor.params >= ITEM00_SWORD_KOKIRI) && (this->actor.params < ITEM00_BOMBS_SPECIAL)) {
             if (this->unk_15A == -1) {
                 if (Math_SmoothStepToS(&this->actor.shape.rot.x, this->actor.world.rot.x - 0x4000, 2, 3000, 1500) ==
                     0) {
@@ -692,7 +808,7 @@ void func_8001E304(EnItem00* this, PlayState* play) {
 
     if (this->actor.params <= ITEM00_RUPEE_RED) {
         this->actor.shape.rot.y += 960;
-    } else if ((this->actor.params >= ITEM00_SHIELD_DEKU) && (this->actor.params < ITEM00_BOMBS_SPECIAL)) {
+    } else if ((this->actor.params >= ITEM00_SWORD_KOKIRI) && (this->actor.params < ITEM00_BOMBS_SPECIAL)) {
         this->actor.world.rot.x -= 700;
         this->actor.shape.rot.y += 400;
         this->actor.shape.rot.x = this->actor.world.rot.x - 0x4000;
@@ -837,8 +953,12 @@ void EnItem00_Update(Actor* thisx, PlayState* play) {
     Collider_UpdateCylinder(&this->actor, &this->collider);
     CollisionCheck_SetAC(play, &play->colChkCtx, &this->collider.base);
 
-    if ((this->actor.params == ITEM00_SHIELD_DEKU) || (this->actor.params == ITEM00_SHIELD_HYLIAN) ||
-        (this->actor.params == ITEM00_TUNIC_ZORA) || (this->actor.params == ITEM00_TUNIC_GORON)) {
+    if ((this->actor.params == ITEM00_SHIELD_DEKU) ||
+        (this->actor.params == ITEM00_SHIELD_HYLIAN) || (this->actor.params == ITEM00_SHIELD_MIRROR) ||
+        (this->actor.params == ITEM00_TUNIC_KOKIRI) || (this->actor.params == ITEM00_TUNIC_ZORA) ||
+        (this->actor.params == ITEM00_TUNIC_GORON) || (this->actor.params == ITEM00_HOOKSHOT) ||
+        (this->actor.params == ITEM00_LONGSHOT) || (this->actor.params == ITEM00_BOOMERANG) ||
+        (this->actor.params == ITEM00_LENS) || (this->actor.params == ITEM00_BOTTLE)) {
         this->actor.shape.yOffset = Math_CosS(this->actor.shape.rot.x) * 37.0f;
         this->actor.shape.yOffset = ABS(this->actor.shape.yOffset);
     }
@@ -924,17 +1044,53 @@ void EnItem00_Update(Actor* thisx, PlayState* play) {
         case ITEM00_MAGIC_SMALL:
             getItemId = GI_MAGIC_SMALL;
             break;
+        case ITEM00_SWORD_KOKIRI:
+            getItemId = GI_SWORD_KOKIRI;
+            break;
+        case ITEM00_SWORD_MASTER:
+            getItemId = GI_SWORD_MASTER;
+            break;
+        case ITEM00_SWORD_BGS:
+            getItemId = GI_SWORD_BGS;
+            break;
         case ITEM00_SHIELD_DEKU:
             getItemId = GI_SHIELD_DEKU;
             break;
         case ITEM00_SHIELD_HYLIAN:
             getItemId = GI_SHIELD_HYLIAN;
             break;
+        case ITEM00_SHIELD_MIRROR: 
+            getItemId = GI_SHIELD_MIRROR;
+            break;
+        case ITEM00_TUNIC_KOKIRI:
+            getItemId = GI_TUNIC_KOKIRI;
+            break;
         case ITEM00_TUNIC_ZORA:
             getItemId = GI_TUNIC_ZORA;
             break;
         case ITEM00_TUNIC_GORON:
             getItemId = GI_TUNIC_GORON;
+            break;
+        case ITEM00_HOOKSHOT:
+            getItemId = GI_HOOKSHOT;
+            break;
+        case ITEM00_LONGSHOT:
+            getItemId = GI_LONGSHOT;
+            break;
+        case ITEM00_BOOMERANG:
+            getItemId = GI_BOOMERANG;
+            break;
+        case ITEM00_LENS:
+            getItemId = GI_LENS;
+            break;
+        case ITEM00_HAMMER:
+            getItemId = GI_HAMMER;
+            break;
+        case ITEM00_BOTTLE:
+            getItemId = GI_BOTTLE;
+            break;
+        case ITEM00_BOTTLE_RED_POTION:
+            getItemId = GI_POTION_RED; 
             break;
         case ITEM00_BOMBS_SPECIAL:
             break;
@@ -953,10 +1109,21 @@ void EnItem00_Update(Actor* thisx, PlayState* play) {
         case ITEM00_HEART_PIECE:
         case ITEM00_HEART_CONTAINER:
         case ITEM00_SMALL_KEY:
+        case ITEM00_SWORD_KOKIRI:
+        case ITEM00_SWORD_MASTER:
+        case ITEM00_SWORD_BGS:
         case ITEM00_SHIELD_DEKU:
         case ITEM00_SHIELD_HYLIAN:
+        case ITEM00_SHIELD_MIRROR:
+        case ITEM00_TUNIC_KOKIRI:
         case ITEM00_TUNIC_ZORA:
         case ITEM00_TUNIC_GORON:
+        case ITEM00_HOOKSHOT:
+        case ITEM00_LONGSHOT:
+        case ITEM00_BOOMERANG:
+        case ITEM00_LENS:
+        case ITEM00_HAMMER:
+        case ITEM00_BOTTLE:
             if (Actor_HasParent(&this->actor, play)) {
                 Flags_SetCollectible(play, this->collectibleFlag);
                 Actor_Kill(&this->actor);
@@ -1163,17 +1330,74 @@ void EnItem00_Draw(Actor* thisx, PlayState* play) {
                     EnItem00_DrawCollectible(this, play);
                 }
                 break;
+            case ITEM00_SWORD_KOKIRI:
+                GetItem_Draw(play, GID_SWORD_KOKIRI);
+                break;
+            case ITEM00_SWORD_MASTER:
+                GetItem_Draw(play, GID_SWORD_MASTER);
+                break;
+            case ITEM00_SWORD_BGS:
+                GetItem_Draw(play, GID_SWORD_BGS);
+                break;
             case ITEM00_SHIELD_DEKU:
                 GetItem_Draw(play, GID_SHIELD_DEKU);
                 break;
             case ITEM00_SHIELD_HYLIAN:
                 GetItem_Draw(play, GID_SHIELD_HYLIAN);
                 break;
+            case ITEM00_SHIELD_MIRROR:
+                GetItem_Draw(play, GID_SHIELD_MIRROR);
+                break;
+            case ITEM00_TUNIC_KOKIRI:
+                GetItem_Draw(play, GID_TUNIC_KOKIRI);
+                break;
             case ITEM00_TUNIC_ZORA:
                 GetItem_Draw(play, GID_TUNIC_ZORA);
                 break;
             case ITEM00_TUNIC_GORON:
                 GetItem_Draw(play, GID_TUNIC_GORON);
+                break;
+            case ITEM00_HOOKSHOT:
+                GetItem_Draw(play, GID_HOOKSHOT);
+                break;
+            case ITEM00_LONGSHOT:
+                GetItem_Draw(play, GID_LONGSHOT);
+                break;
+            case ITEM00_BOOMERANG:
+                GetItem_Draw(play, GID_BOOMERANG);
+                break;
+            case ITEM00_LENS:
+                GetItem_Draw(play, GID_LENS);
+                break;
+            case ITEM00_HAMMER:
+                GetItem_Draw(play, GID_HAMMER);
+                break;
+            case ITEM00_BOTTLE:
+                GetItem_Draw(play, GID_BOTTLE);
+                break;
+            case ITEM00_BOTTLE_RED_POTION:
+                GetItem_Draw(play, GID_POTION_RED);
+                break;
+            case ITEM00_BOTTLE_GREEN_POTION:
+                GetItem_Draw(play, GID_POTION_GREEN);
+                break;
+            case ITEM00_BOTTLE_BLUE_POTION:
+                GetItem_Draw(play, GID_POTION_BLUE);
+                break;
+            case ITEM00_BOTTLE_FISH:
+                GetItem_Draw(play, GID_FISH);
+                break;
+            case ITEM00_BOTTLE_MILK:
+                GetItem_Draw(play, GID_MILK);
+                break;
+            case ITEM00_BOTTLE_BUGS:
+                GetItem_Draw(play, GID_BUG);
+                break;
+            case ITEM00_BOTTLE_FAIRY:
+                GetItem_Draw(play, GID_FAIRY);
+                break;
+            case ITEM00_BOTTLE_POE:
+                GetItem_Draw(play, GID_POE);
                 break;
             case ITEM00_FLEXIBLE:
                 break;

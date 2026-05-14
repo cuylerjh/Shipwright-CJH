@@ -524,17 +524,20 @@ void EnGoma_Jump(EnGoma* this, PlayState* play) {
 
 void EnGoma_Stand(EnGoma* this, PlayState* play) {
     SkelAnime_Update(&this->skelanime);
+    Player* player = GET_PLAYER(play);
+
     Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
     Math_ApproachS(&this->actor.shape.rot.y, Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor), 2,
                    3000);
 
-    if (this->actionTimer == 0) {
+    if (this->actionTimer == 0 && !(player->swallowed)) {
         EnGoma_SetupChasePlayer(this);
     }
 }
 
 void EnGoma_ChasePlayer(EnGoma* this, PlayState* play) {
     SkelAnime_Update(&this->skelanime);
+    Player* player = GET_PLAYER(play);
 
     if (Animation_OnFrame(&this->skelanime, 1.0f) || Animation_OnFrame(&this->skelanime, 5.0f)) {
         if (this->actor.params < 6) {
@@ -551,7 +554,8 @@ void EnGoma_ChasePlayer(EnGoma* this, PlayState* play) {
     if (this->actor.bgCheckFlags & 1) {
         this->actor.velocity.y = 0.0f;
     }
-    if (this->actor.xzDistToPlayer <= 150.0f) {
+    if (this->actor.xzDistToPlayer <= 150.0f && this->actor.yDistToPlayer < 75.0f &&
+        !(player->swallowed)) {
         EnGoma_SetupPrepareJump(this);
     }
 }

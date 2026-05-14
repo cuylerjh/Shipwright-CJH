@@ -129,13 +129,14 @@ void BgHidanDalm_Wait(BgHidanDalm* this, PlayState* play) {
 
     if (GameInteractor_Should(VB_HAMMER_TOTEM_BREAK,
                               (this->collider.base.acFlags & AC_HIT) && !Player_InCsMode(play) &&
-                                  (player->meleeWeaponAnimation == 22 || player->meleeWeaponAnimation == 23),
+                                  (player->meleeWeaponAnimation == 22 || player->meleeWeaponAnimation == 23 ||
+                                   (player->meleeWeaponAnimation == 0 && player->heldItemAction == PLAYER_IA_HAMMER)),
                               this)) {
         this->collider.base.acFlags &= ~AC_HIT;
         if ((this->collider.elements[0].info.bumperFlags & BUMP_HIT) ||
             (this->collider.elements[1].info.bumperFlags & BUMP_HIT)) {
             this->dyna.actor.world.rot.y -= 0x4000;
-        } else {
+        } else { 
             this->dyna.actor.world.rot.y += 0x4000;
         }
         this->dyna.actor.world.pos.x += 32.5f * Math_SinS(this->dyna.actor.world.rot.y);

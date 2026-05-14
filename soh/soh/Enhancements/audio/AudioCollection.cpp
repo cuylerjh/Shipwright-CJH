@@ -374,12 +374,12 @@ uint16_t AudioCollection::GetReplacementSequence(uint16_t seqId) {
     // if Hyrule Field Morning is about to play, but Hyrule Field is swapped, get the replacement sequence
     // for Hyrule Field instead. Otherwise, leave it alone, so that without any sfx editor modifications we will
     // play the normal track as usual.
-    if (seqId == NA_BGM_FIELD_MORNING) {
-        if (CVarGetInteger(CVAR_AUDIO("ReplacedSequences.NA_BGM_FIELD_LOGIC.value"), NA_BGM_FIELD_LOGIC) !=
-            NA_BGM_FIELD_LOGIC) {
-            seqId = NA_BGM_FIELD_LOGIC;
-        }
-    }
+    // if (seqId == NA_BGM_FIELD_MORNING) {
+    //     if (CVarGetInteger(CVAR_AUDIO("ReplacedSequences.NA_BGM_FIELD_LOGIC.value"), NA_BGM_FIELD_LOGIC) !=
+    //         NA_BGM_FIELD_LOGIC) {
+    //         seqId = NA_BGM_FIELD_LOGIC;
+    //     }
+    // }
 
     if (sequenceMap.find(seqId) == sequenceMap.end()) {
         return seqId;

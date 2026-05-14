@@ -82,7 +82,7 @@ static DamageTable sDamageTable[] = {
     /* Master jump   */ DMG_ENTRY(4, 0xD),
     /* Unknown 1     */ DMG_ENTRY(0, 0x0),
     /* Unblockable   */ DMG_ENTRY(0, 0x0),
-    /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+    /* Hammer jump   */ DMG_ENTRY(4, 0xF),
     /* Unknown 2     */ DMG_ENTRY(0, 0x0),
 };
 
@@ -117,7 +117,7 @@ void EnSb_Init(Actor* thisx, PlayState* play) {
     Collider_InitCylinder(play, &this->collider);
     Collider_SetCylinderType1(play, &this->collider, &this->actor, &sCylinderInit);
     this->isDead = false;
-    this->actor.colChkInfo.mass = 0;
+    this->actor.colChkInfo.mass = 50;
     Actor_SetScale(&this->actor, 0.006f);
     this->actor.shape.rot.y = 0;
     this->actor.speedXZ = 0.0f;
@@ -208,23 +208,28 @@ void EnSb_SetupCooldown(EnSb* this, s32 changeSpeed) {
 }
 
 void EnSb_WaitClosed(EnSb* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
+
     // always face toward link
     Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0xA, 0x7D0, 0x0);
 
-    if ((this->actor.xzDistToPlayer <= 160.0f) && (this->actor.xzDistToPlayer > 40.0f)) {
+    if ((this->actor.xzDistToPlayer <= 160.0f) && (this->actor.xzDistToPlayer > 40.0f) &&
+        !(player->swallowed)) {
         EnSb_SetupOpen(this);
     }
 }
 
 void EnSb_Open(EnSb* this, PlayState* play) {
     f32 currentFrame = this->skelAnime.curFrame;
+    Player* player = GET_PLAYER(play);
 
     if (Animation_GetLastFrame(&object_sb_Anim_000194) <= currentFrame) {
         this->timer = 15;
         EnSb_SetupWaitOpen(this);
     } else {
         Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0xA, 0x7D0, 0x0);
-        if ((this->actor.xzDistToPlayer > 160.0f) || (this->actor.xzDistToPlayer <= 40.0f)) {
+        if ((this->actor.xzDistToPlayer > 160.0f) || (this->actor.xzDistToPlayer <= 40.0f) ||
+            (player->swallowed)) {
             EnSb_SetupWaitClosed(this);
         }
     }

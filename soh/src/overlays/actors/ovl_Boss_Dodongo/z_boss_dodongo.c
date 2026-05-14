@@ -32,6 +32,7 @@ void BossDodongo_BlowFire(BossDodongo* this, PlayState* play);
 void BossDodongo_Roll(BossDodongo* this, PlayState* play);
 void BossDodongo_SpawnFire(BossDodongo* this, PlayState* play, s16 arg2);
 void BossDodongo_Explode(BossDodongo* this, PlayState* play);
+void BossDodongo_GrabPlayer(BossDodongo* this, PlayState* play);
 void BossDodongo_LayDown(BossDodongo* this, PlayState* play);
 void BossDodongo_Vulnerable(BossDodongo* this, PlayState* play);
 void BossDodongo_GetUp(BossDodongo* this, PlayState* play);
@@ -308,6 +309,26 @@ s32 BossDodongo_AteExplosive(BossDodongo* this, PlayState* play) {
         }
 
         currentExplosive = currentExplosive->next;
+    }
+
+    return false;
+}
+
+s32 BossDodongo_AtePlayer(BossDodongo* this, PlayState* play) {
+    f32 dx;
+    f32 dy;
+    f32 dz;
+    Player* player = GET_PLAYER(play);
+
+    dx = player->actor.world.pos.x - this->mouthPos.x;
+    dy = player->actor.world.pos.y - this->mouthPos.y;
+    dz = player->actor.world.pos.z - this->mouthPos.z;
+
+    if ((fabsf(dx) < 50.0f) && (fabsf(dy) < 110.0f) && (fabsf(dz) < 50.0f)) {
+        if (play->grabPlayer(play, player)) {
+            player->actor.parent = &this->actor;
+            return true;
+        }
     }
 
     return false;
@@ -651,6 +672,18 @@ void BossDodongo_SetupExplode(BossDodongo* this) {
     this->unk_200 = 300.0f;
 }
 
+void BossDodongo_SetupGrabPlayer(BossDodongo* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
+    Animation_Change(&this->skelAnime, &object_kingdodongo_Anim_00E848, 1.0f, 0.0f,
+                     Animation_GetLastFrame(&object_kingdodongo_Anim_00E848) - 3.0f, ANIMMODE_ONCE, -5.0f);
+    this->actor.flags &= ~ACTOR_FLAG_ATTENTION_ENABLED;
+    player->cylinder.base.ocFlags1 &= ~OC1_ON;
+    this->actionFunc = BossDodongo_GrabPlayer;
+    this->unk_1C0 = 2;
+    this->unk_1DA = 50;
+    GameInteractor_SetLinkSize(GI_LINK_SIZE_MINISH);
+}
+
 void BossDodongo_SetupWalk(BossDodongo* this) {
     Animation_Change(&this->skelAnime, &object_kingdodongo_Anim_01D934, 1.0f, 0.0f,
                      Animation_GetLastFrame(&object_kingdodongo_Anim_01D934), ANIMMODE_ONCE, -10.0f);
@@ -686,6 +719,26 @@ void BossDodongo_SetupInhale(BossDodongo* this) {
     this->unk_1DA = 100;
     this->unk_1AC = 0;
     this->unk_1E2 = 1;
+}
+
+void BossDodongo_SetupReleasePlayer(BossDodongo* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
+
+    player->actor.parent = NULL;
+    player->av2.actionVar2 = 0;
+
+    this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED;
+
+    player->actor.world.rot.x = player->actor.shape.rot.x = 0;
+
+    if (CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) == EQUIP_VALUE_SHIELD_HYLIAN) {
+        Inventory_DeleteEquipment(play, EQUIP_TYPE_SHIELD);
+        Message_StartTextbox(play, 0x305F, NULL);
+    }
+
+    GameInteractor_SetLinkSize(GI_LINK_SIZE_RESET);
+    func_8002F6D4(play, &this->actor, 10.0f, this->actor.shape.rot.y, 6.0f, 16);
+    Audio_PlayActorSound2(&this->actor, NA_SE_EN_LIKE_THROW);
 }
 
 void BossDodongo_Damaged(BossDodongo* this, PlayState* play) {
@@ -731,7 +784,7 @@ void BossDodongo_Explode(BossDodongo* this, PlayState* play) {
                          Animation_GetLastFrame(&object_kingdodongo_Anim_004E0C), ANIMMODE_ONCE, -5.0f);
         this->actionFunc = BossDodongo_LayDown;
         Audio_PlayActorSound2(&this->actor, NA_SE_IT_BOMB_EXPLOSION);
-        Audio_PlayActorSound2(&this->actor, NA_SE_EN_DODO_K_DAMAGE);
+        Audio_PlayActorSound2(&this->actor, NA_SE_EN_DODO_K_DAMAGE); 
         func_80033E88(&this->actor, play, 4, 10);
         this->health -= 2;
 
@@ -739,6 +792,28 @@ void BossDodongo_Explode(BossDodongo* this, PlayState* play) {
         if (this->health <= 0) {
             this->health = 1;
         }
+    }
+}
+
+void BossDodongo_GrabPlayer(BossDodongo* this, PlayState* play) {
+    s16 pad;
+    s16 i;
+    Player* player = GET_PLAYER(play);
+
+    player->actor.speedXZ = 0.0f;
+    player->actor.velocity.y = 0.0f;
+
+    Math_SmoothStepToF(&this->unk_208, 0.05f, 1.0f, 0.005f, 0.0f);
+    SkelAnime_Update(&this->skelAnime);
+
+    player->actor.world.pos.x = this->mouthPos.x;
+    player->actor.world.pos.y = this->mouthPos.y - 30.0f;
+    player->actor.world.pos.z = this->mouthPos.z;
+
+    if (this->unk_1DA == 0) {
+        Animation_Change(&this->skelAnime, &object_kingdodongo_Anim_004E0C, 1.0f, 0.0f,
+                         Animation_GetLastFrame(&object_kingdodongo_Anim_004E0C), ANIMMODE_ONCE, -5.0f);
+        this->actionFunc = BossDodongo_SetupBlowFire;
     }
 }
 
@@ -781,6 +856,7 @@ void BossDodongo_BlowFire(BossDodongo* this, PlayState* play) {
     s32 pad;
     Vec3f unusedZeroVec1 = { 0.0f, 0.0f, 0.0f };
     Vec3f unusedZeroVec2 = { 0.0f, 0.0f, 0.0f };
+    Player* player = GET_PLAYER(play);
 
     SkelAnime_Update(&this->skelAnime);
 
@@ -788,8 +864,20 @@ void BossDodongo_BlowFire(BossDodongo* this, PlayState* play) {
         Audio_PlayActorSound2(&this->actor, NA_SE_EN_DODO_K_CRY);
     }
 
+    if (this->skelAnime.curFrame < 17.0f && player->actor.parent != NULL && player->actor.parent->id == ACTOR_BOSS_DODONGO) {
+        player->actor.speedXZ = 0.0f;
+        player->actor.velocity.y = 0.0f;
+
+        player->actor.world.pos.x = this->mouthPos.x;
+        player->actor.world.pos.y = this->mouthPos.y - 30.0f;
+        player->actor.world.pos.z = this->mouthPos.z;
+    }
+
     if (Animation_OnFrame(&this->skelAnime, 17.0f)) {
         this->unk_1C8 = 28;
+        if (player->actor.parent != NULL && player->actor.parent->id == ACTOR_BOSS_DODONGO) {
+            BossDodongo_SetupReleasePlayer(this, play);
+        }
     }
 
     if ((this->skelAnime.curFrame > 17.0f) && (this->skelAnime.curFrame < 35.0f)) {
@@ -799,11 +887,59 @@ void BossDodongo_BlowFire(BossDodongo* this, PlayState* play) {
     }
 
     if (this->unk_1DA == 0) {
+        player->cylinder.base.ocFlags1 |= OC1_ON;
         BossDodongo_SetupRoll(this);
     }
 }
 
-void BossDodongo_Inhale(BossDodongo* this, PlayState* PlayState) {
+static void BossDodongo_InhaleVacuum(BossDodongo* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
+    Vec3f playerTargetPos = player->actor.world.pos;
+    Vec3f mouthTargetPos = this->mouthPos;
+
+    Actor* currentExplosive = play->actorCtx.actorLists[ACTORCAT_EXPLOSIVE].head;
+    Actor* thisx = &this->actor;
+
+    // while (currentExplosive != NULL) {
+    //     if (currentExplosive == thisx) {
+    //         currentExplosive = currentExplosive->next;
+    //         continue;
+    //     }
+
+    //     dx = currentExplosive->world.pos.x - this->mouthPos.x;
+    //     dy = currentExplosive->world.pos.y - this->mouthPos.y;
+    //     dz = currentExplosive->world.pos.z - this->mouthPos.z;
+
+    //     currentExplosive = currentExplosive->next;
+    // }
+    Vec3f diff;
+
+    Math_Vec3f_Diff(&mouthTargetPos, &playerTargetPos, &diff);
+
+    f32 distSq = SQ(diff.x) + SQ(diff.y) + SQ(diff.z);
+
+    float maxDistSq = SQ(400.0f);
+
+    if (distSq < maxDistSq) {
+        f32 dist = sqrtf(distSq);
+
+        // Normalize direction
+        Math3D_Vec3fNormalize(&diff);
+
+        // Stronger pull when closer
+        f32 pullRatio = 1.0f - (distSq / maxDistSq); // 1.0 when close, 0.0 at max range
+        f32 suctionStrength = pullRatio * 16.0f;
+
+        f32 yMod = 0.4f;
+
+        // Apply force toward mouth
+        player->actor.world.pos.x += diff.x * suctionStrength;
+        player->actor.velocity.y += diff.y * suctionStrength * yMod;
+        player->actor.world.pos.z += diff.z * suctionStrength;
+    }
+}
+
+void BossDodongo_Inhale(BossDodongo* this, PlayState* play) {
     this->unk_1E2 = 1;
 
     if (this->unk_1AC > 20) {
@@ -818,9 +954,15 @@ void BossDodongo_Inhale(BossDodongo* this, PlayState* PlayState) {
     } else {
         this->unk_1AC++;
 
-        if ((this->unk_1AC > 20) && (this->unk_1AC < 82) && BossDodongo_AteExplosive(this, PlayState)) {
-            Audio_PlayActorSound2(&this->actor, NA_SE_EN_DODO_K_DRINK);
-            BossDodongo_SetupExplode(this);
+        if ((this->unk_1AC > 20) && (this->unk_1AC < 82)) {
+            BossDodongo_InhaleVacuum(this, play);
+            if (BossDodongo_AteExplosive(this, play)) {
+                Audio_PlayActorSound2(&this->actor, NA_SE_EN_DODO_K_DRINK);
+                BossDodongo_SetupExplode(this);
+            } else if (BossDodongo_AtePlayer(this, play)) {
+                Audio_PlayActorSound2(&this->actor, NA_SE_EN_DODO_K_DRINK);
+                BossDodongo_SetupGrabPlayer(this, play);
+            }
         }
     }
 }

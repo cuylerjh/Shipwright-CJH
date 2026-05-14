@@ -951,12 +951,19 @@ void func_80083108(PlayState* play) {
                     gSaveContext.buttonStatus[3] = gSaveContext.buttonStatus[5] = gSaveContext.buttonStatus[6] =
                         gSaveContext.buttonStatus[7] = gSaveContext.buttonStatus[8] = BTN_DISABLED;
             } else if ((Player_GetEnvironmentalHazard(play) >= 2) && (Player_GetEnvironmentalHazard(play) < 5)) {
-                if (gSaveContext.buttonStatus[0] != BTN_DISABLED) {
-                    sp28 = 1;
+                if (Player_GetEnvironmentalHazard(play) == 2) {
+                    if (gSaveContext.buttonStatus[0] == BTN_DISABLED) {
+                        sp28 = 1;
+                    }
+
+                    gSaveContext.buttonStatus[0] = BTN_ENABLED;
+                } else {
+                    if (gSaveContext.buttonStatus[0] != BTN_DISABLED) {
+                        sp28 = 1;
+                    }
+
+                    gSaveContext.buttonStatus[0] = BTN_DISABLED;
                 }
-
-                gSaveContext.buttonStatus[0] = BTN_DISABLED;
-
                 for (i = 1; i < ARRAY_COUNT(gSaveContext.equips.buttonItems); i++) {
                     if ((gSaveContext.equips.buttonItems[i] >= ITEM_SHIELD_DEKU) &&
                         (gSaveContext.equips.buttonItems[i] <= ITEM_BOOTS_HOVER)) {
@@ -968,7 +975,9 @@ void func_80083108(PlayState* play) {
                         gSaveContext.buttonStatus[BUTTON_STATUS_INDEX(i)] = BTN_ENABLED;
                     } else if (Player_GetEnvironmentalHazard(play) == 2) {
                         if ((gSaveContext.equips.buttonItems[i] != ITEM_HOOKSHOT) &&
-                            (gSaveContext.equips.buttonItems[i] != ITEM_LONGSHOT)) {
+                            (gSaveContext.equips.buttonItems[i] != ITEM_LONGSHOT) &&
+                            (gSaveContext.equips.buttonItems[i] != ITEM_HAMMER ||
+                             Player_GetStrength() != PLAYER_STR_GOLD_G)) {
                             if (gSaveContext.buttonStatus[BUTTON_STATUS_INDEX(i)] == BTN_ENABLED) {
                                 sp28 = 1;
                             }
@@ -1959,7 +1968,7 @@ u8 Item_Give(PlayState* play, u8 item) {
 
         // Both Giant's Knife and Biggoron Sword have the same Item ID, so this part handles both of them
         if (item == ITEM_SWORD_BGS) {
-            gSaveContext.swordHealth = 8;
+            gSaveContext.swordHealth = gSaveContext.swordHealth > 0 || gSaveContext.bgsFlag ? 8 : 0;
 
             if (ALL_EQUIP_VALUE(EQUIP_TYPE_SWORD) ==
                 ((1 << EQUIP_INV_SWORD_KOKIRI) | (1 << EQUIP_INV_SWORD_MASTER) | (1 << EQUIP_INV_SWORD_BIGGORON) |

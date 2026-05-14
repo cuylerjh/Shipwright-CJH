@@ -65,7 +65,7 @@ static ColliderCylinderInit sCylinderInits[] = {
     {
         {
             COLTYPE_HARD,
-            AT_NONE,
+            AT_ON | AT_TYPE_PLAYER,
             AC_ON | AC_HARD | AC_TYPE_PLAYER,
             OC1_ON | OC1_TYPE_ALL,
             OC2_TYPE_2,
@@ -73,9 +73,9 @@ static ColliderCylinderInit sCylinderInits[] = {
         },
         {
             ELEMTYPE_UNK0,
-            { 0x00000000, 0x00, 0x00 },
+            { 0x00000002, 0x00, 0x01 },
             { 0x4FC1FFFE, 0x00, 0x00 },
-            TOUCH_NONE,
+            TOUCH_ON | TOUCH_SFX_HARD,
             BUMP_ON,
             OCELEM_ON,
         },
@@ -84,7 +84,7 @@ static ColliderCylinderInit sCylinderInits[] = {
     {
         {
             COLTYPE_HARD,
-            AT_NONE,
+            AT_ON | AT_TYPE_PLAYER,
             AC_ON | AC_HARD | AC_TYPE_PLAYER,
             OC1_ON | OC1_TYPE_ALL,
             OC2_TYPE_2,
@@ -92,9 +92,9 @@ static ColliderCylinderInit sCylinderInits[] = {
         },
         {
             ELEMTYPE_UNK0,
-            { 0x00000000, 0x00, 0x00 },
+            { 0x00000002, 0x00, 0x01 },
             { 0x4FC1FFF6, 0x00, 0x00 },
-            TOUCH_NONE,
+            TOUCH_ON | TOUCH_SFX_HARD,
             BUMP_ON,
             OCELEM_ON,
         },
@@ -365,7 +365,8 @@ void EnIshi_Wait(EnIshi* this, PlayState* play) {
             EnIshi_SpawnBugs(this, play);
         }
     } else if ((this->collider.base.acFlags & AC_HIT) && (type == ROCK_SMALL) &&
-               this->collider.info.acHitInfo->toucher.dmgFlags & 0x40000048) {
+                   this->collider.info.acHitInfo->toucher.dmgFlags & 0x40000048 ||
+               (((this->actor.bgCheckFlags & 0xB) || (this->collider.base.atFlags & AT_HIT)))) {
         EnIshi_DropCollectible(this, play);
         SoundSource_PlaySfxAtFixedWorldPos(play, &this->actor.world.pos, sBreakSoundDurations[type],
                                            sBreakSounds[type]);
@@ -478,6 +479,7 @@ void EnIshi_Fly(EnIshi* this, PlayState* play) {
     Actor_UpdateBgCheckInfo(play, &this->actor, 7.5f, 35.0f, 0.0f, 0xC5);
     Collider_UpdateCylinder(&this->actor, &this->collider);
     CollisionCheck_SetOC(play, &play->colChkCtx, &this->collider.base);
+    CollisionCheck_SetAT(play, &play->colChkCtx, &this->collider.base);
 }
 
 void EnIshi_Update(Actor* thisx, PlayState* play) {

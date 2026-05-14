@@ -70,6 +70,33 @@ static ColliderCylinderInit sCylInitFlame = {
     { 15, 45, 45, { 0, 0, 0 } },
 };
 
+static ColliderJntSphElementInit sFlameElementsInit[1] = { 
+    {
+        {
+        ELEMTYPE_UNK2,
+        { 0x00000000, 0x00, 0x00 },
+        { 0x00020820, 0x00, 0x00 },
+        TOUCH_NONE,
+        BUMP_ON,
+        OCELEM_NONE,
+        },
+        { 1, { { 0, 0, 0 }, 22 }, 100 },
+    },
+};
+
+static ColliderJntSphInit sJntSphInitFlame = {
+    {
+        COLTYPE_NONE,
+        AT_NONE,
+        AC_ON | AC_TYPE_PLAYER,
+        OC1_NONE,
+        OC2_NONE,
+        COLSHAPE_JNTSPH,
+    },
+    1,
+    sFlameElementsInit,
+};
+
 static InitChainEntry sInitChain[] = {
     ICHAIN_VEC3F_DIV1000(scale, 1000, ICHAIN_CONTINUE),
     ICHAIN_F32(uncullZoneForward, 4000, ICHAIN_CONTINUE),
@@ -92,13 +119,26 @@ void ObjSyokudai_Init(Actor* thisx, PlayState* play) {
     Collider_SetCylinder(play, &this->colliderStand, &this->actor, &sCylInitStand);
     this->colliderStand.base.colType = sColTypesStand[this->actor.params >> 0xC];
 
-    Collider_InitCylinder(play, &this->colliderFlame);
-    Collider_SetCylinder(play, &this->colliderFlame, &this->actor, &sCylInitFlame);
+    //Collider_InitCylinder(play, &this->colliderFlame);
+    //Collider_SetCylinder(play, &this->colliderFlame, &this->actor, &sCylInitFlame);
+
+    Collider_InitJntSph(play, &this->colliderFlameSph);
+    Collider_SetJntSph(play, &this->colliderFlameSph, &this->actor, &sJntSphInitFlame, this->flameSphItems);
+    this->colliderFlameSph.elements[0].dim.worldSphere.radius = sJntSphInitFlame.elements[0].dim.modelSphere.radius;
 
     this->actor.colChkInfo.mass = MASS_IMMOVABLE;
 
-    Lights_PointGlowSetInfo(&this->lightInfo, this->actor.world.pos.x, this->actor.world.pos.y + 70.0f,
-                            this->actor.world.pos.z, 255, 255, 180, -1);
+    Vec3f localLightCenter = { 0.0f, 70.0f, 0.0f };
+    Vec3f worldLightCenter;
+
+    // Calculate the tilted position for the light glow
+    Matrix_Translate(this->actor.world.pos.x, this->actor.world.pos.y, this->actor.world.pos.z, MTXMODE_NEW);
+    Matrix_RotateZYX(this->actor.shape.rot.x, this->actor.shape.rot.y, this->actor.shape.rot.z, MTXMODE_APPLY);
+    Matrix_MultVec3f(&localLightCenter, &worldLightCenter);
+
+    // Set the light info using the calculated world coordinates
+    Lights_PointGlowSetInfo(&this->lightInfo, worldLightCenter.x, worldLightCenter.y,
+                            worldLightCenter.z, 255, 255, 180, -1);
     this->lightNode = LightContext_InsertLight(play, &play->lightCtx, &this->lightInfo);
 
     if ((this->actor.params & 0x400) || ((torchType != 2) && Flags_GetSwitch(play, this->actor.params & 0x3F))) {
@@ -115,7 +155,8 @@ void ObjSyokudai_Destroy(Actor* thisx, PlayState* play) {
     ObjSyokudai* this = (ObjSyokudai*)thisx;
 
     Collider_DestroyCylinder(play, &this->colliderStand);
-    Collider_DestroyCylinder(play, &this->colliderFlame);
+    //Collider_DestroyCylinder(play, &this->colliderFlame);
+    Collider_DestroyJntSph(play, &this->colliderFlameSph);
     LightContext_RemoveLight(play, &play->lightCtx, this->lightNode);
 }
 
@@ -172,8 +213,13 @@ void ObjSyokudai_Update(Actor* thisx, PlayState* play2) {
                 this->litTimer = 20;
             }
         }
-        if (this->colliderFlame.base.acFlags & AC_HIT) {
-            dmgFlags = this->colliderFlame.info.acHitInfo->toucher.dmgFlags;
+        // if (this->colliderFlame.base.acFlags & AC_HIT) {
+        //     dmgFlags = this->colliderFlame.info.acHitInfo->toucher.dmgFlags;
+        //     if (dmgFlags & 0x20820) {
+        //         interactionType = 1;
+        //     }
+        if (this->colliderFlameSph.base.acFlags & AC_HIT) {
+            dmgFlags = this->colliderFlameSph.elements[0].info.acHitInfo->toucher.dmgFlags;
             if (dmgFlags & 0x20820) {
                 interactionType = 1;
             }
@@ -196,7 +242,7 @@ void ObjSyokudai_Update(Actor* thisx, PlayState* play2) {
                         player->unk_860 = 200;
                     }
                 } else if (dmgFlags & 0x20) {
-                    arrow = (EnArrow*)this->colliderFlame.base.ac;
+                    arrow = (EnArrow*)this->colliderFlameSph.base.ac;
                     if ((arrow->actor.update != NULL) && (arrow->actor.id == ACTOR_EN_ARROW)) {
                         arrow->actor.params = 0;
                         arrow->collider.info.toucher.dmgFlags = 0x800;
@@ -237,8 +283,27 @@ void ObjSyokudai_Update(Actor* thisx, PlayState* play2) {
     CollisionCheck_SetOC(play, &play->colChkCtx, &this->colliderStand.base);
     CollisionCheck_SetAC(play, &play->colChkCtx, &this->colliderStand.base);
 
-    Collider_UpdateCylinder(&this->actor, &this->colliderFlame);
-    CollisionCheck_SetAC(play, &play->colChkCtx, &this->colliderFlame.base);
+    //Collider_UpdateCylinder(&this->actor, &this->colliderFlame);
+    //CollisionCheck_SetAC(play, &play->colChkCtx, &this->colliderFlame.base);
+
+    // Manually calculate the flame's tilted position
+    Vec3f localFlameCenter = { 0.0f, 67.0f, 0.0f }; 
+    Vec3f worldFlameCenter;
+
+    // 1. Replicate the actor's base matrix state (Position + Rotation)
+    Matrix_Translate(this->actor.world.pos.x, this->actor.world.pos.y, this->actor.world.pos.z, MTXMODE_NEW);
+    Matrix_RotateZYX(this->actor.shape.rot.x, this->actor.shape.rot.y, this->actor.shape.rot.z, MTXMODE_APPLY);
+    
+    // 2. Apply our local offset to get the exact world position
+    Matrix_MultVec3f(&localFlameCenter, &worldFlameCenter);
+
+    // 3. Manually update the joint sphere's world coordinates
+    this->colliderFlameSph.elements[0].dim.worldSphere.center.x = worldFlameCenter.x;
+    this->colliderFlameSph.elements[0].dim.worldSphere.center.y = worldFlameCenter.y;
+    this->colliderFlameSph.elements[0].dim.worldSphere.center.z = worldFlameCenter.z;
+
+    // 4. Register the AC collision check
+    CollisionCheck_SetAC(play, &play->colChkCtx, &this->colliderFlameSph.base);
 
     if (GameInteractor_Should(VB_SWITCH_TIMER_TICK, this->litTimer > 0, this, &this->litTimer)) {
         this->litTimer--;

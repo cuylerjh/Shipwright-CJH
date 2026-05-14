@@ -711,6 +711,10 @@ s32 EnSt_IsCloseToPlayer(EnSt* this, PlayState* play) {
         // player is below the Skulltula's ground position
         return false;
     }
+
+    if (player->swallowed) {
+        return false;
+    }
     return true;
 }
 

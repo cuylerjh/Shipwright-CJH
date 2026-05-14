@@ -371,7 +371,7 @@ void EnArrow_Fly(EnArrow* this, PlayState* play) {
                 if (this->actor.params >= ARROW_NORMAL_LIT) {
                     this->timer = 60;
                 } else {
-                    this->timer = 20;
+                    this->timer = 100;
                 }
 
                 Audio_PlayActorSound2(&this->actor, NA_SE_IT_ARROW_STICK_OBJ);
@@ -423,8 +423,19 @@ void EnArrow_Fly(EnArrow* this, PlayState* play) {
 }
 
 void func_809B45E0(EnArrow* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
+
     SkelAnime_Update(&this->skelAnime);
 
+    if (this->actor.xzDistToPlayer < 30.0f && this->actor.yDistToPlayer < 40.0f && this->actor.yDistToPlayer > -40.0f) {
+
+        // Ensure the player has the bow and isn't already at max capacity
+        if ((INV_CONTENT(ITEM_BOW) == ITEM_BOW) && (AMMO(ITEM_BOW) < CUR_CAPACITY(UPG_QUIVER))) {
+            AMMO(ITEM_BOW)++;
+            Audio_PlayActorSound2(&this->actor, NA_SE_SY_GET_ITEM);
+            Actor_Kill(&this->actor);
+        }
+    }
     if (DECR(this->timer) == 0) {
         Actor_Kill(&this->actor);
     }

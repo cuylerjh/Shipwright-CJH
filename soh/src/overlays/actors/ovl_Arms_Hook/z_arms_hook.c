@@ -3,6 +3,9 @@
 
 #define FLAGS (ACTOR_FLAG_UPDATE_CULLING_DISABLED | ACTOR_FLAG_DRAW_CULLING_DISABLED)
 
+extern Vec3f gHookshotReticleTarget;
+extern u8 gHookshotHasReticleTarget;
+
 void ArmsHook_Init(Actor* thisx, PlayState* play);
 void ArmsHook_Destroy(Actor* thisx, PlayState* play);
 void ArmsHook_Update(Actor* thisx, PlayState* play);
@@ -52,10 +55,44 @@ static Color_RGB8 sUnusedColors[] = {
     { 255, 255, 50 },
 };
 
+// 24-Vertex Enclosed 3D Chain Link (Chamfered Rectangle)
+static Vtx sCustom3DChainLinkVtx[24] = {
+    // FRONT FACE -> Base Metal
+    { { {  -7,  4,   0 }, 0, { 0, 0 }, { 130, 130, 130, 255 } } },
+    { { {   7,  4,   0 }, 0, { 0, 0 }, { 130, 130, 130, 255 } } },
+    // CHAMFERS -> Bright Highlights (Simulating edge wear / reflection)
+    { { {  15,  4,   8 }, 0, { 0, 0 }, { 255, 255, 255, 255 } } }, 
+    { { {  15,  4,  92 }, 0, { 0, 0 }, { 255, 255, 255, 255 } } },
+    { { {   7,  4, 100 }, 0, { 0, 0 }, { 130, 130, 130, 255 } } },
+    { { {  -7,  4, 100 }, 0, { 0, 0 }, { 130, 130, 130, 255 } } },
+    { { { -15,  4,  92 }, 0, { 0, 0 }, { 255, 255, 255, 255 } } },
+    { { { -15,  4,   8 }, 0, { 0, 0 }, { 255, 255, 255, 255 } } },
+    // INNER HOLE FRONT -> Dark Shadow (Z values pulled in to thicken the ends)
+    { { {  -7,  4,  15 }, 0, { 0, 0 }, {  40,  40,  40, 255 } } }, 
+    { { {   7,  4,  15 }, 0, { 0, 0 }, {  40,  40,  40, 255 } } },
+    { { {   7,  4,  85 }, 0, { 0, 0 }, {  40,  40,  40, 255 } } },
+    { { {  -7,  4,  85 }, 0, { 0, 0 }, {  40,  40,  40, 255 } } },
+
+    // BACK FACE -> Ambient Shadow
+    { { {  -7, -4,   0 }, 0, { 0, 0 }, {  60,  60,  60, 255 } } },
+    { { {   7, -4,   0 }, 0, { 0, 0 }, {  60,  60,  60, 255 } } },
+    { { {  15, -4,   8 }, 0, { 0, 0 }, {  90,  90,  90, 255 } } },
+    { { {  15, -4,  92 }, 0, { 0, 0 }, {  90,  90,  90, 255 } } },
+    { { {   7, -4, 100 }, 0, { 0, 0 }, {  60,  60,  60, 255 } } },
+    { { {  -7, -4, 100 }, 0, { 0, 0 }, {  60,  60,  60, 255 } } },
+    { { { -15, -4,  92 }, 0, { 0, 0 }, {  90,  90,  90, 255 } } },
+    { { { -15, -4,   8 }, 0, { 0, 0 }, {  90,  90,  90, 255 } } },
+    // INNER HOLE BACK -> Pitch Black
+    { { {  -7, -4,  15 }, 0, { 0, 0 }, {  20,  20,  20, 255 } } },
+    { { {   7, -4,  15 }, 0, { 0, 0 }, {  20,  20,  20, 255 } } },
+    { { {   7, -4,  85 }, 0, { 0, 0 }, {  20,  20,  20, 255 } } },
+    { { {  -7, -4,  85 }, 0, { 0, 0 }, {  20,  20,  20, 255 } } },
+};
+
 static Vec3f D_80865B70 = { 0.0f, 0.0f, 0.0f };
 static Vec3f D_80865B7C = { 0.0f, 0.0f, 900.0f };
-static Vec3f D_80865B88 = { 0.0f, 500.0f, -3000.0f };
-static Vec3f D_80865B94 = { 0.0f, -500.0f, -3000.0f };
+static Vec3f D_80865B88 = { 0.0f, 500.0f, -5000.0f };
+static Vec3f D_80865B94 = { 0.0f, -500.0f, -5000.0f };
 static Vec3f D_80865BA0 = { 0.0f, 500.0f, 1200.0f };
 static Vec3f D_80865BAC = { 0.0f, -500.0f, 1200.0f };
 
@@ -65,6 +102,7 @@ void ArmsHook_SetupAction(ArmsHook* this, ArmsHookActionFunc actionFunc) {
 
 void ArmsHook_Init(Actor* thisx, PlayState* play) {
     ArmsHook* this = (ArmsHook*)thisx;
+    Player* player = GET_PLAYER(play);
 
     Collider_InitQuad(play, &this->collider);
     Collider_SetQuad(play, &this->collider, &this->actor, &sQuadInit);
@@ -85,11 +123,12 @@ void ArmsHook_Wait(ArmsHook* this, PlayState* play) {
     if (this->actor.parent == NULL) {
         Player* player = GET_PLAYER(play);
         // get correct timer length for hookshot or longshot
-        s32 length = ((player->heldItemAction == PLAYER_IA_HOOKSHOT) ? 13 : 26) *
+        s32 length = ((player->heldItemAction == PLAYER_IA_HOOKSHOT) ? 13 : 20) *
                      CVarGetFloat(CVAR_CHEAT("HookshotReachMultiplier"), 1.0f);
 
         ArmsHook_SetupAction(this, ArmsHook_Shoot);
-        Actor_SetProjectileSpeed(&this->actor, 20.0f);
+        this->speed = player->heldItemAction == PLAYER_IA_HOOKSHOT ? 20.0f : 26.0f;
+        Actor_SetProjectileSpeed(&this->actor, this->speed);
         this->actor.parent = &GET_PLAYER(play)->actor;
         this->timer = length;
     }
@@ -203,16 +242,16 @@ void ArmsHook_Shoot(ArmsHook* this, PlayState* play) {
         }
 
         bodyDistDiff = Math_Vec3f_DistXYZAndStoreDiff(&player->unk_3C8, &this->actor.world.pos, &bodyDistDiffVec);
-        if (bodyDistDiff < 30.0f) {
+        if (bodyDistDiff < this->speed) {
             velocity = 0.0f;
             phi_f16 = 0.0f;
         } else {
             if (this->actor.child != NULL) {
-                velocity = 30.0f;
+                velocity = player->heldItemAction == PLAYER_IA_HOOKSHOT ? 30.0f : 45.0f;
             } else if (grabbed != NULL) {
                 velocity = 50.0f;
             } else {
-                velocity = 200.0f;
+                velocity = this->speed * 5.0f;
             }
             phi_f16 = bodyDistDiff - velocity;
             if (bodyDistDiff <= velocity) {
@@ -269,8 +308,8 @@ void ArmsHook_Shoot(ArmsHook* this, PlayState* play) {
             sp5C = COLPOLY_GET_NORMAL(poly->normal.x);
             sp58 = COLPOLY_GET_NORMAL(poly->normal.z);
             Math_Vec3f_Copy(&this->actor.world.pos, &sp78);
-            this->actor.world.pos.x += 10.0f * sp5C;
-            this->actor.world.pos.z += 10.0f * sp58;
+            //this->actor.world.pos.x += 10.0f * sp5C;
+            //this->actor.world.pos.z += 10.0f * sp58;
             this->timer = 0;
             if (SurfaceType_IsHookshotSurface(&play->colCtx, poly, bgId)) {
                 if (bgId != BGCHECK_SCENE) {
@@ -326,27 +365,203 @@ void ArmsHook_Draw(Actor* thisx, PlayState* play) {
 
         func_80090480(play, &this->collider, &this->hookInfo, &sp6C, &sp60);
         Gfx_SetupDL_25Opa(play->state.gfxCtx);
+
+        // --- DRAW THE HOOK TIP ---
         if (CVarGetInteger(CVAR_ENHANCEMENT("EquipmentAlwaysVisible"), 0) &&
             CVarGetInteger(CVAR_ENHANCEMENT("ScaleAdultEquipmentAsChild"), 0) && LINK_IS_CHILD) {
             Matrix_Scale(0.8, 0.8, 0.8, MTXMODE_APPLY);
         }
         gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPDisplayList(POLY_OPA_DISP++, gLinkAdultHookshotTipDL);
+
+        // --- PREPARE THE CHAIN MATRIX ---
+        // 1. Start the matrix at the tip of the hookshot
         Matrix_Translate(this->actor.world.pos.x, this->actor.world.pos.y, this->actor.world.pos.z, MTXMODE_NEW);
+
+        // 2. Calculate vector and distances back to Link's hand
         Math_Vec3f_Diff(&player->unk_3C8, &this->actor.world.pos, &sp78);
         sp58 = SQ(sp78.x) + SQ(sp78.z);
         sp5C = sqrtf(sp58);
+        f32 totalDist = sqrtf(SQ(sp78.y) + sp58); // Total distance from tip to hand
+
+        // 3. Rotate the matrix so its Z-axis points directly at Link's hand
         Matrix_RotateY(Math_FAtan2F(sp78.x, sp78.z), MTXMODE_APPLY);
         Matrix_RotateX(Math_FAtan2F(-sp78.y, sp5C), MTXMODE_APPLY);
-        if (CVarGetInteger(CVAR_ENHANCEMENT("EquipmentAlwaysVisible"), 0) &&
-            CVarGetInteger(CVAR_ENHANCEMENT("ScaleAdultEquipmentAsChild"), 0) && LINK_IS_CHILD) {
-            Matrix_Scale(0.012f, 0.012f, sqrtf(SQ(sp78.y) + sp58) * 0.01f, MTXMODE_APPLY);
-        } else {
-            Matrix_Scale(0.015f, 0.015f, sqrtf(SQ(sp78.y) + sp58) * 0.01f, MTXMODE_APPLY);
-        }
-        gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gSPDisplayList(POLY_OPA_DISP++, gLinkAdultHookshotChainDL);
+
+        // ONLY DRAW THE CHAIN IF WE ARE ACTIVELY SHOOTING OR RETRACTING
+        if (this->actionFunc == ArmsHook_Shoot && totalDist > this->speed) {
+
+            // --- SETUP FOR UNTEXTURED 3D GEOMETRY ---
+            gDPSetCombineMode(POLY_OPA_DISP++, G_CC_SHADE, G_CC_SHADE);
+            gDPSetRenderMode(POLY_OPA_DISP++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
+            
+            f32 zStep = 8.0f; 
+            f32 yOffset = -1.5f; // Better centered on the barrel and chain
+            f32 startOffsetZ = -3.0f; // Just behind the tip
+            int numLinks = (int)(totalDist / zStep) + 1;
+
+            if (numLinks > 150) {
+                numLinks = 150; // Crash prevention
+            }
+            
+            for (int i = 0; i < numLinks; i++) {
+                Matrix_Push();
+                
+                f32 zOffset = startOffsetZ + (i * zStep);
+                Matrix_Translate(0.0f, yOffset, zOffset, MTXMODE_APPLY);
+
+                if (i % 2 != 0) {
+                    Matrix_RotateZ(1.5708f, MTXMODE_APPLY); 
+                }
+
+                Matrix_Scale(0.10f, 0.06f, 0.10f, MTXMODE_APPLY);
+
+                gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+                
+                // --- DRAW THE 3D CHAIN LINK DYNAMICALLY ---
+                // Load all 24 vertices into the RSP cache
+                gSPVertex(POLY_OPA_DISP++, sCustom3DChainLinkVtx, 24, 0);
+                
+                // Front Face
+                gSP2Triangles(POLY_OPA_DISP++,  0,  1,  9, 0,  0,  9,  8, 0);
+                gSP1Triangle(POLY_OPA_DISP++,   1,  2,  9, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  2,  3, 10, 0,  2, 10,  9, 0);
+                gSP1Triangle(POLY_OPA_DISP++,   3,  4, 10, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  4,  5, 11, 0,  4, 11, 10, 0);
+                gSP1Triangle(POLY_OPA_DISP++,   5,  6, 11, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  6,  7,  8, 0,  6,  8, 11, 0);
+                gSP1Triangle(POLY_OPA_DISP++,   7,  0,  8, 0);
+                
+                // Back Face
+                gSP2Triangles(POLY_OPA_DISP++, 12, 21, 13, 0, 12, 20, 21, 0);
+                gSP1Triangle(POLY_OPA_DISP++,  13, 21, 14, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 14, 22, 15, 0, 14, 21, 22, 0);
+                gSP1Triangle(POLY_OPA_DISP++,  15, 22, 16, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 16, 23, 17, 0, 16, 22, 23, 0);
+                gSP1Triangle(POLY_OPA_DISP++,  17, 23, 18, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 18, 20, 19, 0, 18, 23, 20, 0);
+                gSP1Triangle(POLY_OPA_DISP++,  19, 20, 12, 0);
+                
+                // Outer Walls
+                gSP2Triangles(POLY_OPA_DISP++,  1,  0, 12, 0,  1, 12, 13, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  2,  1, 13, 0,  2, 13, 14, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  3,  2, 14, 0,  3, 14, 15, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  4,  3, 15, 0,  4, 15, 16, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  5,  4, 16, 0,  5, 16, 17, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  6,  5, 17, 0,  6, 17, 18, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  7,  6, 18, 0,  7, 18, 19, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  0,  7, 19, 0,  0, 19, 12, 0);
+                
+                // Inner Walls
+                gSP2Triangles(POLY_OPA_DISP++,  8,  9, 21, 0,  8, 21, 20, 0);
+                gSP2Triangles(POLY_OPA_DISP++,  9, 10, 22, 0,  9, 22, 21, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 10, 11, 23, 0, 10, 23, 22, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 11,  8, 20, 0, 11, 20, 23, 0);
+                
+                Matrix_Pop();
+            }
+            
+            // --- CLEANUP PIPELINE STATE ---
+            gDPSetCombineMode(POLY_OPA_DISP++, G_CC_MODULATEI_PRIM, G_CC_MODULATEI_PRIM);
+        } // End of conditional chain draw
 
         CLOSE_DISPS(play->state.gfxCtx);
     }
 }
+
+// Use this with the custom DL
+// // --- DRAW THE CUSTOM SINGLE-LINK CHAIN ---
+//         f32 uniformScale = 0.015f;
+//         if (CVarGetInteger(CVAR_ENHANCEMENT("EquipmentAlwaysVisible"), 0) &&
+//             CVarGetInteger(CVAR_ENHANCEMENT("ScaleAdultEquipmentAsChild"), 0) && LINK_IS_CHILD) {
+//             uniformScale = 0.012f;
+//         }
+
+//         // Define the exact length of your custom single link model (scaled).
+//         // You will need to tweak this value to match your specific custom model's length
+//         // so that they touch end-to-end perfectly.
+//         f32 linkLength = 10.0f;
+
+//         // Calculate the number of links needed.
+//         // The +1 ensures the chain always fully reaches the hand.
+//         // The slight excess will harmlessly clip inside Link's wrist/gun.
+//         int numLinks = (int)(totalDist / linkLength) + 1;
+
+//         for (int i = 0; i < numLinks; i++) {
+//             Matrix_Push();
+
+//             // Push each link end-to-end down the Z-axis
+//             f32 zOffset = i * linkLength;
+//             Matrix_Translate(0.0f, 0.0f, zOffset, MTXMODE_APPLY);
+
+//             // Rotate every other link 90 degrees (1.5708 radians) for a realistic interlocking chain look
+//             if (i % 2 != 0) {
+//                 Matrix_RotateZ(1.5708f, MTXMODE_APPLY);
+//             }
+
+//             // Apply uniform scale in all directions (no stretching/squashing!)
+//             Matrix_Scale(uniformScale, uniformScale, uniformScale, MTXMODE_APPLY);
+
+//             gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD |
+//             G_MTX_MODELVIEW);
+
+//             // Replace this with your custom display list variable
+//             gSPDisplayList(POLY_OPA_DISP++, gCustomSingleLinkDL);
+
+//             Matrix_Pop();
+//         }
+
+//         CLOSE_DISPS(play->state.gfxCtx);
+//     }
+// }
+
+// void ArmsHook_Draw(Actor* thisx, PlayState* play) {
+//     s32 pad;
+//     ArmsHook* this = (ArmsHook*)thisx;
+//     Player* player = GET_PLAYER(play);
+//     Vec3f sp78;
+//     Vec3f sp6C;
+//     Vec3f sp60;
+//     f32 sp5C;
+//     f32 sp58;
+
+//     if ((player->actor.draw != NULL) && (player->rightHandType == PLAYER_MODELTYPE_RH_HOOKSHOT)) {
+//         OPEN_DISPS(play->state.gfxCtx);
+
+//         if ((ArmsHook_Shoot != this->actionFunc) || (this->timer <= 0)) {
+//             Matrix_MultVec3f(&D_80865B70, &this->unk_1E8);
+//             Matrix_MultVec3f(&D_80865B88, &sp6C);
+//             Matrix_MultVec3f(&D_80865B94, &sp60);
+//             this->hookInfo.active = 0;
+//         } else {
+//             Matrix_MultVec3f(&D_80865B7C, &this->unk_1E8);
+//             Matrix_MultVec3f(&D_80865BA0, &sp6C);
+//             Matrix_MultVec3f(&D_80865BAC, &sp60);
+//         }
+
+//         func_80090480(play, &this->collider, &this->hookInfo, &sp6C, &sp60);
+//         Gfx_SetupDL_25Opa(play->state.gfxCtx);
+//         if (CVarGetInteger(CVAR_ENHANCEMENT("EquipmentAlwaysVisible"), 0) &&
+//             CVarGetInteger(CVAR_ENHANCEMENT("ScaleAdultEquipmentAsChild"), 0) && LINK_IS_CHILD) {
+//             Matrix_Scale(0.8, 0.8, 0.8, MTXMODE_APPLY);
+//         }
+//         gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+//         gSPDisplayList(POLY_OPA_DISP++, gLinkAdultHookshotTipDL);
+//         Matrix_Translate(this->actor.world.pos.x, this->actor.world.pos.y, this->actor.world.pos.z, MTXMODE_NEW);
+//         Math_Vec3f_Diff(&player->unk_3C8, &this->actor.world.pos, &sp78);
+//         sp58 = SQ(sp78.x) + SQ(sp78.z);
+//         sp5C = sqrtf(sp58);
+//         Matrix_RotateY(Math_FAtan2F(sp78.x, sp78.z), MTXMODE_APPLY);
+//         Matrix_RotateX(Math_FAtan2F(-sp78.y, sp5C), MTXMODE_APPLY);
+//         if (CVarGetInteger(CVAR_ENHANCEMENT("EquipmentAlwaysVisible"), 0) &&
+//             CVarGetInteger(CVAR_ENHANCEMENT("ScaleAdultEquipmentAsChild"), 0) && LINK_IS_CHILD) {
+//             Matrix_Scale(0.012f, 0.012f, sqrtf(SQ(sp78.y) + sp58) * 0.01f, MTXMODE_APPLY);
+//         } else {
+//             Matrix_Scale(0.015f, 0.015f, sqrtf(SQ(sp78.y) + sp58) * 0.01f, MTXMODE_APPLY);
+//         }
+//         gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+//         gSPDisplayList(POLY_OPA_DISP++, gLinkAdultHookshotChainDL);
+
+//         CLOSE_DISPS(play->state.gfxCtx);
+//     }
+// }

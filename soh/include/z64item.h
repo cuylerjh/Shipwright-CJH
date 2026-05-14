@@ -461,6 +461,9 @@ typedef enum {
     /* 0x7B */ GI_BULLET_BAG_50,
     /* 0x7C */ GI_ICE_TRAP, // freezes link when opened from a chest
     /* 0x7D */ GI_TEXT_0,   // no model appears over Link, shows text id 0 (pocket egg)
+               GI_SWORD_MASTER,
+               GI_TUNIC_KOKIRI,
+               GI_BOOTS_KOKIRI,
     /* 0x84 */ GI_MAX
 } GetItemID;
 
@@ -595,6 +598,9 @@ typedef enum {
     /* 0x7C */ GID_TRIFORCE_PIECE,
     /* 0x7C */ GID_ROCS_FEATHER,
     /*      */ GID_FISHING_POLE,
+               GID_SWORD_MASTER,
+               GID_TUNIC_KOKIRI,
+               GID_BOOTS_KOKIRI,
     /* 0x7C */ GID_MAXIMUM
 
 } GetItemDrawID;

@@ -275,6 +275,8 @@ typedef enum PlayerModelGroup {
     /* 0x0D */ PLAYER_MODELGROUP_OOT, // ocarina of time
     /* 0x0E */ PLAYER_MODELGROUP_BOTTLE, // bottles (drawn separately)
     /* 0x0F */ PLAYER_MODELGROUP_SWORD, // hold sword and no shield, even if one is equipped
+               //PLAYER_MODELGROUP_BGS_AND_SHIELD, // hold BGS one-handed with shield
+               //PLAYER_MODELGROUP_HAMMER_AND_SHIELD, // hold hammer one-handed with shield
     /* 0x10 */ PLAYER_MODELGROUP_MAX
 } PlayerModelGroup;
 
@@ -872,6 +874,10 @@ typedef struct Player {
     /* 0x0846 */ u8 controlStickDataIndex; // cycles between 0 - 3. Used to index `controlStickSpinAngles` and `controlStickDirections`
     /* 0x0847 */ s8 controlStickSpinAngles[4]; // Stores a modified version of the control stick angle for the last 4 frames. Used for checking spins.
     /* 0x084B */ s8 controlStickDirections[4]; // Stores the control stick direction (relative to shape yaw) for the last 4 frames. See `PlayerStickDirection`.
+                 u16 slimeTimer;
+                 u8 swallowed;
+                 Actor* boomTargets[5];
+                 u8 boomTargetCount;
 
     /* 0x084F */ union {
         s8 actionVar1;

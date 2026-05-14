@@ -68,7 +68,7 @@ static DamageTable sDamageTablePresets[] = {
         /* Master jump   */ DMG_ENTRY(0, 0x0),
         /* Unknown 1     */ DMG_ENTRY(0, 0x0),
         /* Unblockable   */ DMG_ENTRY(0, 0x0),
-        /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+        /* Hammer jump   */ DMG_ENTRY(2, 0xF),
         /* Unknown 2     */ DMG_ENTRY(0, 0x0),
     } },
     { {
@@ -103,7 +103,7 @@ static DamageTable sDamageTablePresets[] = {
         /* Master jump   */ DMG_ENTRY(8, 0x0),
         /* Unknown 1     */ DMG_ENTRY(0, 0x0),
         /* Unblockable   */ DMG_ENTRY(0, 0x0),
-        /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+        /* Hammer jump   */ DMG_ENTRY(4, 0x0),
         /* Unknown 2     */ DMG_ENTRY(0, 0x0),
     } },
     { {
@@ -138,7 +138,7 @@ static DamageTable sDamageTablePresets[] = {
         /* Master jump   */ DMG_ENTRY(2, 0x0),
         /* Unknown 1     */ DMG_ENTRY(0, 0x0),
         /* Unblockable   */ DMG_ENTRY(0, 0x0),
-        /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+        /* Hammer jump   */ DMG_ENTRY(2, 0x0),
         /* Unknown 2     */ DMG_ENTRY(0, 0x0),
     } },
     { {
@@ -173,7 +173,7 @@ static DamageTable sDamageTablePresets[] = {
         /* Master jump   */ DMG_ENTRY(8, 0x0),
         /* Unknown 1     */ DMG_ENTRY(0, 0x0),
         /* Unblockable   */ DMG_ENTRY(0, 0x0),
-        /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+        /* Hammer jump   */ DMG_ENTRY(4, 0x0),
         /* Unknown 2     */ DMG_ENTRY(0, 0x0),
     } },
     { {
@@ -208,7 +208,7 @@ static DamageTable sDamageTablePresets[] = {
         /* Master jump   */ DMG_ENTRY(0, 0x0),
         /* Unknown 1     */ DMG_ENTRY(0, 0x0),
         /* Unblockable   */ DMG_ENTRY(0, 0x0),
-        /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+        /* Hammer jump   */ DMG_ENTRY(1, 0x0),
         /* Unknown 2     */ DMG_ENTRY(0, 0x0),
     } },
     { {
@@ -348,7 +348,7 @@ static DamageTable sDamageTablePresets[] = {
         /* Master jump   */ DMG_ENTRY(8, 0x0),
         /* Unknown 1     */ DMG_ENTRY(0, 0x0),
         /* Unblockable   */ DMG_ENTRY(0, 0x0),
-        /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+        /* Hammer jump   */ DMG_ENTRY(4, 0x0),
         /* Unknown 2     */ DMG_ENTRY(0, 0x0),
     } },
     { {
@@ -523,7 +523,7 @@ static DamageTable sDamageTablePresets[] = {
         /* Master jump   */ DMG_ENTRY(8, 0x0),
         /* Unknown 1     */ DMG_ENTRY(0, 0x0),
         /* Unblockable   */ DMG_ENTRY(0, 0x0),
-        /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+        /* Hammer jump   */ DMG_ENTRY(4, 0x0),
         /* Unknown 2     */ DMG_ENTRY(0, 0x0),
     } },
     { {
@@ -593,7 +593,7 @@ static DamageTable sDamageTablePresets[] = {
         /* Master jump   */ DMG_ENTRY(8, 0x0),
         /* Unknown 1     */ DMG_ENTRY(0, 0x0),
         /* Unblockable   */ DMG_ENTRY(0, 0x0),
-        /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+        /* Hammer jump   */ DMG_ENTRY(4, 0x0),
         /* Unknown 2     */ DMG_ENTRY(0, 0x0),
     } },
     { {

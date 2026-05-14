@@ -1462,7 +1462,7 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
                         .DefaultValue(1.0f)
                         .ShowButtons(true));
     CVarSliderInt("Camera Distance: %d", CVAR_SETTING("FreeLook.MaxCameraDistance"),
-                  IntSliderOptions().Color(THEME_COLOR).Min(100).Max(900).DefaultValue(185).ShowButtons(true));
+                  IntSliderOptions().Color(THEME_COLOR).Min(25).Max(900).DefaultValue(185).ShowButtons(true));
     CVarSliderInt("Camera Transition Speed: %d", CVAR_SETTING("FreeLook.TransitionSpeed"),
                   IntSliderOptions().Color(THEME_COLOR).Min(0).Max(900).DefaultValue(25).ShowButtons(true));
     Ship::GuiWindow::EndGroupPanel(0);

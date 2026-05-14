@@ -96,7 +96,7 @@ static DamageTable sDamageTable = {
     /* Master jump   */ DMG_ENTRY(4, 0xF),
     /* Unknown 1     */ DMG_ENTRY(0, 0x0),
     /* Unblockable   */ DMG_ENTRY(0, 0x0),
-    /* Hammer jump   */ DMG_ENTRY(0, 0x0),
+    /* Hammer jump   */ DMG_ENTRY(4, 0xF),
     /* Unknown 2     */ DMG_ENTRY(0, 0x0),
 };
 
@@ -192,7 +192,8 @@ void func_80ABCE38(EnNy* this) {
 }
 
 void func_80ABCE50(EnNy* this, PlayState* play) {
-    if (this->actor.xyzDistToPlayerSq <= 25600.0f) {
+    Player* player = GET_PLAYER(play);
+    if (this->actor.xyzDistToPlayerSq <= 25600.0f && !(player->swallowed)) {
         func_80ABCD94(this);
     }
 }

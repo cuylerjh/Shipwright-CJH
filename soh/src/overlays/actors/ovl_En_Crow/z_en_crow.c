@@ -285,7 +285,8 @@ void EnCrow_FlyIdle(EnCrow* this, PlayState* play) {
     }
     if ((this->timer == 0) && (this->actor.xzDistToPlayer < 300.0f) &&
         !(player->stateFlags1 & PLAYER_STATE1_ON_HORSE) && (this->actor.yDistToWater < -40.0f) &&
-        (Player_GetMask(play) != PLAYER_MASK_SKULL) && GameInteractor_Should(VB_GUAY_DO_DIVE_ATTACK, true, this)) {
+        (Player_GetMask(play) != PLAYER_MASK_SKULL) && GameInteractor_Should(VB_GUAY_DO_DIVE_ATTACK, true, this) &&
+        !(player->swallowed)) {
         EnCrow_SetupDiveAttack(this);
     }
 }

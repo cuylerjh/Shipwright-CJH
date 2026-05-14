@@ -296,7 +296,7 @@ void EnZf_Init(Actor* thisx, PlayState* play) {
 
     ActorShape_Init(&thisx->shape, 0.0f, ActorShadow_DrawFeet, 90.0f);
     this->unk_3E0 = 0;
-    thisx->colChkInfo.mass = MASS_HEAVY;
+    thisx->colChkInfo.mass = 140;
     thisx->colChkInfo.damageTable = &sDamageTable;
 
     blureInit.p1StartColor[0] = blureInit.p1StartColor[1] = blureInit.p1StartColor[2] = blureInit.p1StartColor[3] =
@@ -571,7 +571,8 @@ void func_80B44DC4(EnZf* this, PlayState* play) {
 
     if (angleDiff >= 0x1B58) {
         func_80B483E4(this, play);
-    } else if ((this->actor.xzDistToPlayer <= 100.0f) && ((play->gameplayFrames % 8) != 0) &&
+    } else if ((this->actor.xzDistToPlayer <= 100.0f) && (this->actor.yDistToPlayer <= 80.0f) &&
+               (this->actor.yDistToPlayer >= -40.0f) && ((play->gameplayFrames % 8) != 0) &&
                EnZf_CanAttack(play, this)) {
         EnZf_SetupSlash(this);
     } else {
@@ -582,9 +583,14 @@ void func_80B44DC4(EnZf* this, PlayState* play) {
 s32 EnZf_ChooseAction(PlayState* play, EnZf* this) {
     s16 angleToWall;
     Actor* explosive;
+    Player* player = GET_PLAYER(play);
 
     angleToWall = this->actor.wallYaw - this->actor.shape.rot.y;
     angleToWall = ABS(angleToWall);
+
+    if (player->swallowed) {
+        return false;
+    }
 
     if (func_800354B4(play, &this->actor, 100.0f, 0x5DC0, 0x2AA8, this->actor.shape.rot.y)) {
         this->actor.shape.rot.y = this->actor.world.rot.y = this->actor.yawTowardsPlayer;
@@ -862,7 +868,8 @@ void EnZf_ApproachPlayer(EnZf* this, PlayState* play) {
                 } else {
                     func_80B45384(this);
                 }
-            } else if (this->actor.xzDistToPlayer < 100.0f) {
+            } else if (this->actor.xzDistToPlayer < 100.0f && this->actor.yDistToPlayer < 80.0f &&
+                       this->actor.yDistToPlayer > -40.0f) {
                 if ((Rand_ZeroOne() > 0.05f) && EnZf_CanAttack(play, this)) {
                     EnZf_SetupSlash(this);
                 } else if (Rand_ZeroOne() > 0.5f) {
@@ -1146,7 +1153,8 @@ void func_80B463E4(EnZf* this, PlayState* play) {
         if ((Math_CosS(angleBehindPlayer - this->actor.shape.rot.y) < -0.85f) || (this->unk_3F0 == 0)) {
             this->actor.world.rot.y = this->actor.shape.rot.y;
 
-            if ((this->actor.xzDistToPlayer <= 100.0f) && ((play->gameplayFrames % 4) == 0) &&
+            if ((this->actor.xzDistToPlayer <= 100.0f) && (this->actor.yDistToPlayer <= 80.0f) &&
+                (this->actor.yDistToPlayer >= -40.0f) && ((play->gameplayFrames % 4) == 0) &&
                 EnZf_CanAttack(play, this)) {
                 EnZf_SetupSlash(this);
             } else {
@@ -1334,7 +1342,8 @@ void EnZf_Stunned(EnZf* this, PlayState* play) {
                 } else if (!EnZf_DodgeRangedEngaging(play, this)) {
                     if (this->actor.params != ENZF_TYPE_DINOLFOS) {
                         func_80B44DC4(this, play);
-                    } else if ((this->actor.xzDistToPlayer <= 100.0f) && ((play->gameplayFrames % 4) != 0) &&
+                    } else if ((this->actor.xzDistToPlayer <= 100.0f) && (this->actor.yDistToPlayer <= 80.0f) &&
+                               (this->actor.yDistToPlayer >= -40.0f) && ((play->gameplayFrames % 4) != 0) &&
                                EnZf_CanAttack(play, this)) {
                         EnZf_SetupSlash(this);
                     } else {
@@ -1658,7 +1667,8 @@ void EnZf_Damaged(EnZf* this, PlayState* play) {
 
                 if (!EnZf_PrimaryFloorCheck(this, play, 135.0f) && (this->actor.xzDistToPlayer < 90.0f)) {
                     EnZf_SetupJumpUp(this);
-                } else if ((this->actor.xzDistToPlayer <= 100.0f) && ((play->gameplayFrames % 4) == 0)) {
+                } else if ((this->actor.xzDistToPlayer <= 100.0f) && (this->actor.yDistToPlayer <= 80.0f) &&
+                           (this->actor.yDistToPlayer >= -40.0f) && ((play->gameplayFrames % 4) == 0)) {
                     EnZf_SetupSlash(this);
                 } else {
                     func_80B44DC4(this, play);
@@ -1678,12 +1688,14 @@ void EnZf_Damaged(EnZf* this, PlayState* play) {
 
                     if (!EnZf_PrimaryFloorCheck(this, play, 135.0f) && (this->actor.xzDistToPlayer < 90.0f)) {
                         EnZf_SetupJumpUp(this);
-                    } else if ((this->actor.xzDistToPlayer <= 100.0f) && ((play->gameplayFrames % 4) == 0)) {
+                    } else if ((this->actor.xzDistToPlayer <= 100.0f) && (this->actor.yDistToPlayer <= 80.0f) &&
+                               (this->actor.yDistToPlayer >= -40.0f) && ((play->gameplayFrames % 4) == 0)) {
                         EnZf_SetupSlash(this);
                     } else {
                         func_80B44DC4(this, play);
                     }
-                } else if ((this->actor.xzDistToPlayer <= 100.0f) && ((play->gameplayFrames % 4) == 0) &&
+                } else if ((this->actor.xzDistToPlayer <= 100.0f) && (this->actor.yDistToPlayer <= 80.0f) &&
+                           (this->actor.yDistToPlayer >= -40.0f) && ((play->gameplayFrames % 4) == 0) &&
                            EnZf_CanAttack(play, this)) {
                     EnZf_SetupSlash(this);
                 } else {
@@ -1867,13 +1879,14 @@ void EnZf_CircleAroundPlayer(EnZf* this, PlayState* play) {
             } else {
                 this->actor.world.rot.y = this->actor.shape.rot.y;
 
-                if ((this->actor.xzDistToPlayer <= 100.0f) && ((play->gameplayFrames % 4) == 0) &&
+                if ((this->actor.xzDistToPlayer <= 100.0f) && (this->actor.yDistToPlayer <= 80.0f) &&
+                    (this->actor.yDistToPlayer >= -40.0f) && ((play->gameplayFrames % 4) == 0) &&
                     EnZf_CanAttack(play, this)) {
                     EnZf_SetupSlash(this);
                 } else if ((this->actor.xzDistToPlayer < 280.0f) && (this->actor.xzDistToPlayer > 240.0f) &&
                            !EnZf_PrimaryFloorCheck(this, play, 191.9956f) && ((play->gameplayFrames % 2) == 0)) {
                     EnZf_SetupJumpForward(this);
-                } else {
+                } else if (this->actor.xzDistToPlayer < 1000.0f) {
                     EnZf_SetupApproachPlayer(this, play);
                 }
             }

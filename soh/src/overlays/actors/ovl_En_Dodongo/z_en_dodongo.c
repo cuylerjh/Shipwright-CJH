@@ -321,7 +321,7 @@ void EnDodongo_Init(Actor* thisx, PlayState* play) {
     Actor_SetScale(&this->actor, 0.01875f);
     SkelAnime_Init(play, &this->skelAnime, &gDodongoSkel, &gDodongoWaitAnim, this->jointTable, this->morphTable, 31);
     this->actor.colChkInfo.health = 4;
-    this->actor.colChkInfo.mass = MASS_HEAVY;
+    this->actor.colChkInfo.mass = 150;
     this->actor.colChkInfo.damageTable = &sDamageTable;
     Collider_InitQuad(play, &this->colliderAT);
     Collider_InitTris(play, &this->colliderHard);
@@ -567,7 +567,8 @@ void EnDodongo_Walk(EnDodongo* this, PlayState* play) {
     if (Math_Vec3f_DistXZ(&this->actor.home.pos, &player->actor.world.pos) < 400.0f) {
         Math_SmoothStepToS(&this->actor.world.rot.y, this->actor.yawTowardsPlayer, 1, 0x1F4, 0);
         this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED;
-        if ((this->actor.xzDistToPlayer < 100.0f) && (yawDiff < 0x1388) && (this->actor.yDistToPlayer < 60.0f)) {
+        if ((this->actor.xzDistToPlayer < 100.0f) && (yawDiff < 0x1388) && (this->actor.yDistToPlayer < 60.0f) &&
+            !(player->swallowed)) {
             EnDodongo_SetupBreatheFire(this);
         }
     } else {

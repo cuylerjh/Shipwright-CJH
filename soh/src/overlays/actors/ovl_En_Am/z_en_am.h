@@ -22,6 +22,7 @@ typedef struct EnAm {
     /* 0x0260 */ s16 deathTimer; // explode after reaching 0
     /* 0x0262 */ s16 panicSpinRot; // used when panicking before death
     /* 0x0264 */ s16 unk_264;
+                 u8 hammerDeath;
     /* 0x0266 */ u8 textureBlend; // 0 = statue textures; 255 = enemy textures
     /* 0x0267 */ u8 damageEffect;
     /* 0x0267 */ Vec3f shakeOrigin; // center point to shake around when waking up

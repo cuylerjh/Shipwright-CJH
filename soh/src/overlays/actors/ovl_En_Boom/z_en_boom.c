@@ -7,6 +7,8 @@
 #include "z_en_boom.h"
 #include "objects/gameplay_keep/gameplay_keep.h"
 
+extern void Player_DrawBoomerangTargetArrow(PlayState* play, Actor* actor);
+
 #define FLAGS (ACTOR_FLAG_UPDATE_CULLING_DISABLED | ACTOR_FLAG_DRAW_CULLING_DISABLED)
 
 void EnBoom_Init(Actor* thisx, PlayState* play);
@@ -63,6 +65,7 @@ void EnBoom_Init(Actor* thisx, PlayState* play) {
     EffectBlureInit1 blure;
 
     this->actor.room = -1;
+    this->speed = 20.0f;
 
     Actor_ProcessInitChain(&this->actor, sInitChain);
 
@@ -91,7 +94,15 @@ void EnBoom_Init(Actor* thisx, PlayState* play) {
     blure.calcMode = 0;
     blure.trailType = TRAIL_TYPE_BOOMERANG;
 
-    Effect_Add(play, &this->effectIndex, EFFECT_BLURE1, 0, 0, &blure);
+    Effect_Add(play, &this->effectIndex1, EFFECT_BLURE1, 0, 0, &blure);
+    Effect_Add(play, &this->effectIndex2, EFFECT_BLURE1, 0, 0, &blure);
+
+    this->targetCount = 0; // Will be overwritten by the player in a millisecond
+    this->currentTargetIndex = 0;
+
+    Player* player = GET_PLAYER(play);
+    s16 pYaw = player->actor.shape.rot.y;
+    Vec3f* pPos = &player->actor.world.pos;
 
     Collider_InitQuad(play, &this->collider);
     Collider_SetQuad(play, &this->collider, &this->actor, &sQuadInit);
@@ -102,63 +113,97 @@ void EnBoom_Init(Actor* thisx, PlayState* play) {
 void EnBoom_Destroy(Actor* thisx, PlayState* play) {
     EnBoom* this = (EnBoom*)thisx;
 
-    Effect_Delete(play, this->effectIndex);
+    Effect_Delete(play, this->effectIndex1);
+    Effect_Delete(play, this->effectIndex2);
     Collider_DestroyQuad(play, &this->collider);
+}
+
+void EnBoom_Caught(EnBoom* this, PlayState* play) {
+    if (this->returnTimer == 0) {
+        Actor_Kill(&this->actor);
+    } else {
+        this->returnTimer--;
+    }
 }
 
 void EnBoom_Fly(EnBoom* this, PlayState* play) {
     Actor* target;
-    Player* player;
+    Player* player = GET_PLAYER(play);
     s32 collided;
     s16 yawTarget;
     s16 yawDiff;
     s16 pitchTarget;
     s16 pitchDiff;
-    s32 pad1;
     f32 distXYZScale;
     f32 distFromLink;
     DynaPolyActor* hitActor;
     s32 hitDynaID;
     Vec3f hitPoint;
-    s32 pad2;
+    Vec3f targetPos;
+    Actor* currentTarget = NULL;
+    u8 isReturning = false;
 
-    player = GET_PLAYER(play);
-    target = this->moveTo;
+    // --- 1. DETERMINE CURRENT DESTINATION & STATE ---
+    // Use a while loop to instantly burn through any targets that have died or been reached
+    while (this->currentTargetIndex < this->targetCount) {
+        currentTarget = this->targetActors[this->currentTargetIndex];
 
-    // If the boomerang is moving toward a targeted actor, handle setting the proper x and y angle to fly toward it.
-    if (target != NULL) {
-        yawTarget = Actor_WorldYawTowardPoint(&this->actor, &target->focus.pos);
+        // Failsafe: If the actor was destroyed or deactivated, skip it immediately
+        if (currentTarget == NULL || currentTarget->update == NULL) {
+            this->currentTargetIndex++;
+        } else {
+            targetPos = currentTarget->focus.pos;
+
+            // If we hit the target physically (distance check is a secondary failsafe)
+            if (Math_Vec3f_DistXYZ(&this->actor.world.pos, &targetPos) < 40.0f) {
+                this->currentTargetIndex++;
+                this->returnTimer = 30; // Refresh timer
+            } else {
+                // Target is valid, living, and hasn't been reached yet. Break the loop!
+                break; 
+            }
+        }
+    }
+
+    if (this->returnTimer == 0 || player->boomerangQuickRecall || (this->targetCount > 0 && this->currentTargetIndex >= this->targetCount)) {
+        isReturning = true;
+        this->returnTimer = 0; // Lock the timer at 0 to ensure it stays returning
+    }
+
+    // --- 2. STEER TOWARD DESTINATION ---
+    if (isReturning || (this->currentTargetIndex < this->targetCount && currentTarget != NULL)) {
+        
+        if (isReturning) {
+            targetPos = player->actor.focus.pos; // Aim at Link
+        } else {
+            targetPos = currentTarget->focus.pos; // Aim at Target
+        }
+
+        yawTarget = Actor_WorldYawTowardPoint(&this->actor, &targetPos);
         yawDiff = this->actor.world.rot.y - yawTarget;
 
-        pitchTarget = Actor_WorldPitchTowardPoint(&this->actor, &target->focus.pos);
+        pitchTarget = Actor_WorldPitchTowardPoint(&this->actor, &targetPos);
         pitchDiff = this->actor.world.rot.x - pitchTarget;
 
-        distXYZScale = (200.0f - Math_Vec3f_DistXYZ(&this->actor.world.pos, &target->focus.pos)) * 0.005f;
+        distXYZScale = (200.0f - Math_Vec3f_DistXYZ(&this->actor.world.pos, &targetPos)) * 0.005f;
         if (distXYZScale < 0.12f) {
             distXYZScale = 0.12f;
         }
 
-        if ((target != &player->actor) && ((target->update == NULL) || (ABS(yawDiff) > 0x4000))) {
-            //! @bug  This condition is why the boomerang will randomly fly off in a the down left direction sometimes.
-            //      If the actor targetted is not Link and the difference between the 2 y angles is greater than 0x4000,
-            //      the moveTo pointer is nulled and it flies off in a seemingly random direction.
-            this->moveTo = NULL;
-        } else {
-            Math_ScaledStepToS(&this->actor.world.rot.y, yawTarget, (s16)(ABS(yawDiff) * distXYZScale));
-            Math_ScaledStepToS(&this->actor.world.rot.x, pitchTarget, (s16)(ABS(pitchDiff) * distXYZScale));
-        }
+        Math_ScaledStepToS(&this->actor.world.rot.y, yawTarget, (s16)(ABS(yawDiff) * distXYZScale));
+        Math_ScaledStepToS(&this->actor.world.rot.x, pitchTarget, (s16)(ABS(pitchDiff) * distXYZScale));
     }
-
-    // Set xyz speed, move forward, and play the boomerang sound
-    Actor_SetProjectileSpeed(&this->actor, 12.0f);
+    
+    // ... [Actor_SetProjectileSpeed logic follows below as usual] ...
+    // Set xyz speed, move forward, and play sound
+    Actor_SetProjectileSpeed(&this->actor, this->speed);
     Actor_MoveXZGravity(&this->actor);
     func_8002F974(&this->actor, NA_SE_IT_BOOMERANG_FLY - SFX_FLAG);
 
-    // If the boomerang collides with EnItem00 or a Skulltula token, set grabbed pointer to pick it up
-    collided = this->collider.base.atFlags & AT_HIT;
-    collided = !!(collided);
+    // --- 3. GRAB AND COLLISION LOGIC ---
+    collided = !!(this->collider.base.atFlags & AT_HIT);
     if (collided) {
-        if (((this->collider.base.at->id == ACTOR_EN_ITEM00) || (this->collider.base.at->id == ACTOR_EN_SI))) {
+        if ((this->collider.base.at->id == ACTOR_EN_ITEM00) || (this->collider.base.at->id == ACTOR_EN_SI)) {
             this->grabbed = this->collider.base.at;
             if (this->collider.base.at->id == ACTOR_EN_SI) {
                 this->collider.base.at->flags |= ACTOR_FLAG_HOOKSHOT_ATTACHED;
@@ -166,20 +211,18 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
         }
     }
 
-    // Decrement the return timer and check if it's 0. If it is, check if Link can catch it and handle accordingly.
-    // Otherwise handle grabbing and colliding.
+    // --- 4. RETURN AND CATCH LOGIC ---
     if (DECR(this->returnTimer) == 0 || player->boomerangQuickRecall) {
         distFromLink = Math_Vec3f_DistXYZ(&this->actor.world.pos, &player->actor.focus.pos);
+
+        this->currentTargetIndex = this->targetCount;
         this->moveTo = &player->actor;
 
-        // If the boomerang is less than 40 units away from Link, he can catch it.
-        if (distFromLink < 40.0f || player->boomerangQuickRecall) {
+        if (distFromLink <= this->speed || player->boomerangQuickRecall) {
             target = this->grabbed;
             if (target != NULL) {
                 Math_Vec3f_Copy(&target->world.pos, &player->actor.world.pos);
 
-                // If the grabbed actor is EnItem00 (HP/Key etc) set gravity and flags so it falls in front of Link.
-                // Otherwise if it's a Skulltula Token, just set flags so he collides with it to collect it.
                 if (target->id == ACTOR_EN_ITEM00) {
                     target->gravity = -0.9f;
                     target->bgCheckFlags &= ~0x03;
@@ -187,47 +230,66 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
                     target->flags &= ~ACTOR_FLAG_HOOKSHOT_ATTACHED;
                 }
             }
-            // Set player flags and kill the boomerang beacause Link caught it.
             player->stateFlags1 &= ~PLAYER_STATE1_BOOMERANG_THROWN;
             player->boomerangQuickRecall = false;
-            Actor_Kill(&this->actor);
+            this->actor.draw = NULL;
+            this->returnTimer = 8;
+            EnBoom_SetupAction(this, EnBoom_Caught);
         }
     } else {
-        collided = (this->collider.base.atFlags & AT_HIT);
-        collided = (!!(collided));
-        if (collided) {
-            // Copy the position from the prevous frame to the boomerang to start the bounce back.
-            Math_Vec3f_Copy(&this->actor.world.pos, &this->actor.prevPos);
-        } else {
-            collided = BgCheck_EntityLineTest1(&play->colCtx, &this->actor.prevPos, &this->actor.world.pos, &hitPoint,
+        // Check our collision types
+        s32 atHit = !!(this->collider.base.atFlags & AT_HIT);
+        s32 bouncedOffHard = !!(this->collider.base.atFlags & AT_BOUNCED); // Check for AC_HARD
+        s32 hitWall = 0;
+
+        if (atHit) {
+            if (bouncedOffHard) {
+                // The boomerang hit a shield or armored enemy! 
+                hitWall = true; 
+            } else {
+                // --- WIND WAKER ADVANCE ON HIT ---
+                // We hit an enemy! If it's our current target, move on!
+                if (this->currentTargetIndex < this->targetCount && this->collider.base.at == currentTarget) {
+                    this->currentTargetIndex++;
+                    
+                    if (this->currentTargetIndex >= this->targetCount) {
+                        this->returnTimer = 0; // Trigger return phase
+                    } else {
+                        this->returnTimer = 30; // Refresh timer for the next target
+                    }
+                }
+                
+                // Note: We intentionally REMOVED the momentum stall here!
+                // The boomerang will now smoothly slice through the enemy instead of getting trapped.
+            }
+        } 
+        
+        // If we haven't already decided to bounce, check for background walls
+        if (!hitWall && !atHit) {
+            hitWall = BgCheck_EntityLineTest1(&play->colCtx, &this->actor.prevPos, &this->actor.world.pos, &hitPoint,
                                                &this->actor.wallPoly, true, true, true, true, &hitDynaID);
 
-            if (collided) {
-                // If the boomerang collides with something and it's is a Jabu Object actor with params equal to 0, then
-                // set collided to 0 so that the boomerang will go through the wall.
-                // Otherwise play a clank sound and keep collided set to bounce back.
+            if (hitWall) {
                 if (func_8002F9EC(play, &this->actor, this->actor.wallPoly, hitDynaID, &hitPoint) != 0 ||
                     (hitDynaID != BGCHECK_SCENE && ((hitActor = DynaPoly_GetActor(&play->colCtx, hitDynaID)) != NULL) &&
                      hitActor->actor.id == ACTOR_BG_BDAN_OBJECTS && hitActor->actor.params == 0)) {
-                    collided = false;
+                    hitWall = false;
                 } else {
                     CollisionCheck_SpawnShieldParticlesMetal(play, &hitPoint);
                 }
             }
         }
 
-        // If the boomerang needs to bounce back, set x and y angle accordingly.
-        // Set timer to 0 and set return actor to player so it goes back to Link.
-        if (collided) {
+        // --- RESTORED WALL/HARD BOUNCE LOGIC ---
+        if (hitWall) {
             this->actor.world.rot.x = -this->actor.world.rot.x;
             this->actor.world.rot.y += 0x8000;
+            this->currentTargetIndex = this->targetCount; // Forfeit remaining targets
             this->moveTo = &player->actor;
             this->returnTimer = 0;
         }
     }
 
-    // If the actor the boomerang is holding has a null update function, set grabbed to null.
-    // Otherwise, copy the position from the boomerang to the actor to move it.
     target = this->grabbed;
     if (target != NULL) {
         if (target->update == NULL) {
@@ -237,7 +299,6 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
         }
     }
 }
-
 void EnBoom_Update(Actor* thisx, PlayState* play) {
     EnBoom* this = (EnBoom*)thisx;
     Player* player = GET_PLAYER(play);
@@ -245,34 +306,68 @@ void EnBoom_Update(Actor* thisx, PlayState* play) {
     if (!(player->stateFlags1 & PLAYER_STATE1_IN_CUTSCENE)) {
         this->actionFunc(this, play);
         Actor_SetFocus(&this->actor, 0.0f);
-        this->activeTimer = this->activeTimer + 1;
+        this->activeTimer++;
     }
 }
 
 void EnBoom_Draw(Actor* thisx, PlayState* play) {
-    static Vec3f sMultVec1 = { -960.0f, 0.0f, 0.0f };
-    static Vec3f sMultVec2 = { 960.0f, 0.0f, 0.0f };
+    // Vectors for the physical damage hitbox (full width)
+    static Vec3f sHitbox_v1 = { -960.0f, 0.0f, 0.0f };
+    static Vec3f sHitbox_v2 = { 960.0f, 0.0f, 0.0f };
+
+    // Vectors for Trail 1 (Inner set to -400, outer set to 800)
+    static Vec3f sTrail1_Inner = { -400.0f, 0.0f, 0.0f };
+    static Vec3f sTrail1_Outer = { 800.0f, 0.0f, 0.0f };
+
+    // Vectors for Trail 2 (Inner set to 400, outer set to -800)
+    static Vec3f sTrail2_Inner = { 400.0f, 0.0f, 0.0f };
+    static Vec3f sTrail2_Outer = { -800.0f, 0.0f, 0.0f };
+
     EnBoom* this = (EnBoom*)thisx;
-    Vec3f vec1;
-    Vec3f vec2;
+    Vec3f hitbox_v1, hitbox_v2;
+    Vec3f trail1_v1, trail1_v2;
+    Vec3f trail2_v1, trail2_v2;
 
     OPEN_DISPS(play->state.gfxCtx);
 
     Matrix_RotateY(this->actor.world.rot.y * (M_PI / 0x8000), MTXMODE_APPLY);
     Matrix_RotateZ(0x1F40 * (M_PI / 0x8000), MTXMODE_APPLY);
     Matrix_RotateX(this->actor.world.rot.x * (M_PI / 0x8000), MTXMODE_APPLY);
-    Matrix_MultVec3f(&sMultVec1, &vec1);
-    Matrix_MultVec3f(&sMultVec2, &vec2);
 
-    if (func_80090480(play, &this->collider, &this->boomerangInfo, &vec1, &vec2) != 0) {
-        EffectBlure_AddVertex(Effect_GetByIndex(this->effectIndex), &vec1, &vec2);
+    // Spin the boomerang
+    Matrix_RotateY((this->activeTimer * 8000) * (M_PI / 0x8000), MTXMODE_APPLY);
+
+    // 1. Calculate the full-width vectors for the hitbox
+    Matrix_MultVec3f(&sHitbox_v1, &hitbox_v1);
+    Matrix_MultVec3f(&sHitbox_v2, &hitbox_v2);
+
+    // 2. Calculate the smaller vectors for the two distinct visual trails
+    Matrix_MultVec3f(&sTrail1_Inner, &trail1_v1);
+    Matrix_MultVec3f(&sTrail1_Outer, &trail1_v2);
+    Matrix_MultVec3f(&sTrail2_Inner, &trail2_v1);
+    Matrix_MultVec3f(&sTrail2_Outer, &trail2_v2);
+
+    // Pass the full-size HITBOX vectors to the collision checker
+    if (func_80090480(play, &this->collider, &this->boomerangInfo, &hitbox_v1, &hitbox_v2) != 0) {
+        // Swap v2 (outer) and v1 (inner) so the bright p1StartColor goes to the outer edge
+        EffectBlure_AddVertex(Effect_GetByIndex(this->effectIndex1), &trail1_v2, &trail1_v1);
+        EffectBlure_AddVertex(Effect_GetByIndex(this->effectIndex2), &trail2_v2, &trail2_v1);
     }
 
     Gfx_SetupDL_25Opa(play->state.gfxCtx);
-    Matrix_RotateY((this->activeTimer * 12000) * (M_PI / 0x8000), MTXMODE_APPLY);
 
     gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     gSPDisplayList(POLY_OPA_DISP++, gBoomerangRefDL);
 
     CLOSE_DISPS(play->state.gfxCtx);
+
+    // --- WIND WAKER IN-FLIGHT TARGET ARROWS ---
+    // Loop through the targets starting at the CURRENT index.
+    // When the boomerang hits a target and increments the index, the arrow is naturally skipped!
+    for (int i = this->currentTargetIndex; i < this->targetCount; i++) {
+        Actor* lockedActor = this->targetActors[i];
+        if (lockedActor != NULL && lockedActor->update != NULL) {
+            Player_DrawBoomerangTargetArrow(play, lockedActor);
+        }
+    }
 }

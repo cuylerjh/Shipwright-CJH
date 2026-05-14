@@ -213,10 +213,10 @@ static DamageTable sDamageTable = {
     /* Deku nut      */ DMG_ENTRY(0, STALFOS_DMGEFF_STUN),
     /* Deku stick    */ DMG_ENTRY(2, STALFOS_DMGEFF_NORMAL),
     /* Slingshot     */ DMG_ENTRY(1, STALFOS_DMGEFF_SLING),
-    /* Explosive     */ DMG_ENTRY(2, STALFOS_DMGEFF_NORMAL),
+    /* Explosive     */ DMG_ENTRY(4, STALFOS_DMGEFF_NORMAL),
     /* Boomerang     */ DMG_ENTRY(0, STALFOS_DMGEFF_STUN),
     /* Normal arrow  */ DMG_ENTRY(2, STALFOS_DMGEFF_NORMAL),
-    /* Hammer swing  */ DMG_ENTRY(2, STALFOS_DMGEFF_NORMAL),
+    /* Hammer swing  */ DMG_ENTRY(3, STALFOS_DMGEFF_NORMAL),
     /* Hookshot      */ DMG_ENTRY(0, STALFOS_DMGEFF_STUN),
     /* Kokiri sword  */ DMG_ENTRY(1, STALFOS_DMGEFF_NORMAL),
     /* Master sword  */ DMG_ENTRY(2, STALFOS_DMGEFF_NORMAL),
@@ -240,7 +240,7 @@ static DamageTable sDamageTable = {
     /* Master jump   */ DMG_ENTRY(4, STALFOS_DMGEFF_NORMAL),
     /* Unknown 1     */ DMG_ENTRY(0, STALFOS_DMGEFF_NORMAL),
     /* Unblockable   */ DMG_ENTRY(0, STALFOS_DMGEFF_NORMAL),
-    /* Hammer jump   */ DMG_ENTRY(4, STALFOS_DMGEFF_NORMAL),
+    /* Hammer jump   */ DMG_ENTRY(6, STALFOS_DMGEFF_NORMAL),
     /* Unknown 2     */ DMG_ENTRY(0, STALFOS_DMGEFF_NORMAL),
 };
 
@@ -282,7 +282,7 @@ void EnTest_Init(Actor* thisx, PlayState* play) {
     Collider_InitQuad(play, &this->swordCollider);
     Collider_SetQuad(play, &this->swordCollider, &this->actor, &sSwordColliderInit);
 
-    this->actor.colChkInfo.mass = MASS_HEAVY;
+    this->actor.colChkInfo.mass = 140;
     this->actor.colChkInfo.health = 10;
 
     slashBlure.p1StartColor[0] = slashBlure.p1StartColor[1] = slashBlure.p1StartColor[2] = slashBlure.p1StartColor[3] =
@@ -399,14 +399,15 @@ void EnTest_ChooseAction(EnTest* this, PlayState* play) {
                 this->actor.world.rot.y = this->actor.yawTowardsPlayer;
                 EnTest_SetupJumpBack(this);
             } else if ((this->actor.xzDistToPlayer < 220.0f) && (this->actor.xzDistToPlayer > 170.0f)) {
-                if (Actor_IsFacingPlayer(&this->actor, 0x71C) && !Actor_IsTargeted(play, &this->actor)) {
+                if (Actor_IsFacingPlayer(&this->actor, 0x71C) && !Actor_IsTargeted(play, &this->actor) &&
+                    !(player->swallowed)) {
                     EnTest_SetupJumpslash(this);
                 }
             } else {
                 EnTest_SetupWalkAndBlock(this);
             }
         } else {
-            if (this->actor.xzDistToPlayer < 110.0f) {
+            if (this->actor.xzDistToPlayer < 110.0f && !(player->swallowed)) {
                 if (Rand_ZeroOne() > 0.2f) {
                     if (player->stateFlags1 & PLAYER_STATE1_HOSTILE_LOCK_ON) {
                         if (this->actor.isTargeted) {
@@ -686,13 +687,14 @@ void EnTest_WalkAndBlock(EnTest* this, PlayState* play) {
             this->actor.shape.rot.y = this->actor.world.rot.y = this->actor.yawTowardsPlayer;
         }
 
-        if (!Actor_IsFacingPlayer(&this->actor, 0x11C7)) {
+        if (!Actor_IsFacingPlayer(&this->actor, 0x11C7) ||
+            (player->swallowed)) {
             EnTest_SetupIdle(this);
             this->timer = (Rand_ZeroOne() * 10.0f) + 10.0f;
             return;
         }
 
-        if (this->actor.xzDistToPlayer < 110.0f) {
+        if (this->actor.xzDistToPlayer < 110.0f && !(player->swallowed)) {
             if (Rand_ZeroOne() > 0.2f) {
                 if (player->stateFlags1 & PLAYER_STATE1_HOSTILE_LOCK_ON) {
                     if (this->actor.isTargeted) {
@@ -1046,6 +1048,7 @@ void EnTest_SetupJumpBack(EnTest* this) {
 }
 
 void EnTest_JumpBack(EnTest* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
     Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 1, 0xBB8, 1);
 
     if (this->timer == 0) {
@@ -1057,14 +1060,16 @@ void EnTest_JumpBack(EnTest* this, PlayState* play) {
     if (SkelAnime_Update(&this->skelAnime)) {
         if (!EnTest_ReactToProjectile(play, this)) {
             if (this->actor.xzDistToPlayer <= 100.0f) {
-                if (Actor_IsFacingPlayer(&this->actor, 0x1555)) {
+                if (Actor_IsFacingPlayer(&this->actor, 0x1555) &&
+                    !(player->swallowed)) {
                     EnTest_SetupSlashDown(this);
                 } else {
                     EnTest_SetupIdle(this);
                     this->timer = (Rand_ZeroOne() * 5.0f) + 5.0f;
                 }
             } else {
-                if ((this->actor.xzDistToPlayer <= 220.0f) && Actor_IsFacingPlayer(&this->actor, 0xE38)) {
+                if ((this->actor.xzDistToPlayer <= 220.0f) && Actor_IsFacingPlayer(&this->actor, 0xE38) &&
+                    !(player->swallowed)) {
                     EnTest_SetupJumpslash(this);
                 } else {
                     EnTest_SetupIdle(this);

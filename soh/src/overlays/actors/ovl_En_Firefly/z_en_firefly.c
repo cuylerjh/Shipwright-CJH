@@ -374,6 +374,7 @@ s32 EnFirefly_SeekTorch(EnFirefly* this, PlayState* play) {
 void EnFirefly_FlyIdle(EnFirefly* this, PlayState* play) {
     s32 skelanimeUpdated;
     f32 rand;
+    Player* player = GET_PLAYER(play);
 
     SkelAnime_Update(&this->skelAnime);
     if (this->timer != 0) {
@@ -416,7 +417,7 @@ void EnFirefly_FlyIdle(EnFirefly* this, PlayState* play) {
         Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.wallYaw, 2, 0xC00, 0x300);
     }
     if ((this->timer == 0) && (this->actor.xzDistToPlayer < 200.0f) && (Player_GetMask(play) != PLAYER_MASK_SKULL) &&
-        GameInteractor_Should(VB_KEESE_DO_DIVE_ATTACK, true, this)) {
+        GameInteractor_Should(VB_KEESE_DO_DIVE_ATTACK, true, this) && !(player->swallowed)) {
         EnFirefly_SetupDiveAttack(this);
     }
 }

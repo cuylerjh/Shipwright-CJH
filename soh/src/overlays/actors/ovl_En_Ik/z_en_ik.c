@@ -15,6 +15,20 @@
 
 typedef void (*EnIkDrawFunc)(struct EnIk*, PlayState*);
 
+typedef enum {
+    /* 0x0 */ IK_DMG_NONE,
+    /* 0x1 */ IK_DMG_STUN,
+    /* 0x2 */ IK_DMG_FIRE,
+    /* 0x3 */ IK_DMG_ICE,
+    /* 0x4 */ IK_DMG_LIGHT_MAGIC,
+
+    /* 0xB */ IK_DMG_LIGHT_ARROW = 11,
+    /* 0xC */ IK_DMG_SHDW_ARROW,
+    /* 0xD */ IK_DMG_WIND_ARROW,
+    /* 0xE */ IK_DMG_SPRT_ARROW,
+    /* 0xF */ IK_DMG_NORMAL
+} EnIkDamageEffect;
+
 void EnIk_Init(Actor* thisx, PlayState* play);
 void EnIk_Destroy(Actor* thisx, PlayState* play);
 void EnIk_Update(Actor* thisx, PlayState* play);
@@ -139,7 +153,7 @@ static DamageTable sDamageTable = {
     /* Explosive     */ DMG_ENTRY(2, 0xF),
     /* Boomerang     */ DMG_ENTRY(0, 0xD),
     /* Normal arrow  */ DMG_ENTRY(2, 0xE),
-    /* Hammer swing  */ DMG_ENTRY(2, 0xF),
+    /* Hammer swing  */ DMG_ENTRY(3, 0x5),
     /* Hookshot      */ DMG_ENTRY(0, 0xD),
     /* Kokiri sword  */ DMG_ENTRY(1, 0xF),
     /* Master sword  */ DMG_ENTRY(2, 0xF),
@@ -163,7 +177,7 @@ static DamageTable sDamageTable = {
     /* Master jump   */ DMG_ENTRY(4, 0xF),
     /* Unknown 1     */ DMG_ENTRY(10, 0xF),
     /* Unblockable   */ DMG_ENTRY(0, 0x0),
-    /* Hammer jump   */ DMG_ENTRY(4, 0xF),
+    /* Hammer jump   */ DMG_ENTRY(6, 0x5),
     /* Unknown 2     */ DMG_ENTRY(0, 0x0),
 };
 
@@ -330,11 +344,13 @@ void func_80A7489C(EnIk* this) {
 }
 
 void func_80A7492C(EnIk* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
     s32 phi_a0 = (this->unk_2FB == 0) ? 0xAAA : 0x3FFC;
     s16 yawDiff = this->actor.yawTowardsPlayer - this->actor.shape.rot.y;
 
     if ((ABS(yawDiff) <= phi_a0) && (this->actor.xzDistToPlayer < 100.0f) &&
-        (ABS(this->actor.yDistToPlayer) < 150.0f)) {
+        (ABS(this->actor.yDistToPlayer) < 150.0f) &&
+        !(player->swallowed)) {
         if ((play->gameplayFrames & 1)) {
             func_80A74E2C(this);
         } else {
@@ -366,6 +382,7 @@ void func_80A74AAC(EnIk* this) {
 }
 
 void func_80A74BA4(EnIk* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
     s16 temp_t0;
     s16 temp_a1;
     s16 yawDiff;
@@ -393,7 +410,8 @@ void func_80A74BA4(EnIk* this, PlayState* play) {
     }
     this->actor.shape.rot.y = this->actor.world.rot.y;
     yawDiff = this->actor.yawTowardsPlayer - this->actor.shape.rot.y;
-    if ((ABS(yawDiff) <= temp_t0) && (this->actor.xzDistToPlayer < 100.0f)) {
+    if ((ABS(yawDiff) <= temp_t0) && (this->actor.xzDistToPlayer < 100.0f) &&
+        !(player->swallowed)) {
         if (ABS(this->actor.yDistToPlayer) < 150.0f) {
             if ((play->gameplayFrames & 1)) {
                 func_80A74E2C(this);
@@ -587,10 +605,12 @@ void func_80A755F0(EnIk* this) {
 }
 
 void func_80A7567C(EnIk* this, PlayState* play) {
+    Player* player = GET_PLAYER(play);
     CollisionCheck_SetAC(play, &play->colChkCtx, &this->shieldCollider.base);
     if (SkelAnime_Update(&this->skelAnime)) {
         if ((ABS((s16)(this->actor.yawTowardsPlayer - this->actor.shape.rot.y)) <= 0x4000) &&
-            (this->actor.xzDistToPlayer < 100.0f) && (ABS(this->actor.yDistToPlayer) < 150.0f)) {
+            (this->actor.xzDistToPlayer < 100.0f) && (ABS(this->actor.yDistToPlayer) < 150.0f) &&
+            !(player->swallowed)) {
             if ((play->gameplayFrames & 1)) {
                 func_80A74E2C(this);
             } else {
@@ -757,6 +777,10 @@ void func_80A75C38(EnIk* this, PlayState* play) {
         }
         func_80A75790(this);
         return;
+    } else if (this->actor.colChkInfo.damageEffect == 0x5) {
+        Audio_PlayActorSound2(&this->actor, NA_SE_EN_IRONNACK_ARMOR_HIT);
+        Audio_PlayActorSound2(&this->actor, NA_SE_EN_IRONNACK_DAMAGE);
+        func_80A75790(this);
     }
     Audio_PlayActorSound2(&this->actor, NA_SE_EN_IRONNACK_ARMOR_HIT);
     Audio_PlayActorSound2(&this->actor, NA_SE_EN_IRONNACK_DAMAGE);

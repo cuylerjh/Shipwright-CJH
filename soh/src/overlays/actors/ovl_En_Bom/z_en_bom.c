@@ -200,8 +200,8 @@ void EnBom_Explode(EnBom* this, PlayState* play) {
     }
 
     if (CVarGetInteger(CVAR_ENHANCEMENT("StaticExplosionRadius"), 0)) {
-        // 72 is the maximum radius of an OoT bomb explosion
-        this->explosionCollider.elements[0].dim.worldSphere.radius = 72;
+        // 72 is the maximum radius of an OoT bomb explosion; MM's is 100
+        this->explosionCollider.elements[0].dim.worldSphere.radius = 100;
     } else {
         this->explosionCollider.elements[0].dim.worldSphere.radius += this->actor.shape.rot.z + 8;
     }

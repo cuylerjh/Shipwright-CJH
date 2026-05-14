@@ -298,10 +298,12 @@ static s16 sCurlRot[41] = {
     0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,  4, 8, 8, 8, 9, 9, 9,
     9, 9, 9, 12, 15, 15, 15, 15, 15, 15, 15, 20, 20, 20, 0, 0, 0, 0, 0, 0,
 };
+
 static s16 sGrabRot[41] = {
     0, 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0, 0, -5, -5, -5,
     0, 5, 10, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 0, 0, 0, 0,  0,
 };
+
 static s16 sAttackRot[41] = {
     0, 5, 6, 7, 8, 8, 7, 6, 6, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -729,21 +731,11 @@ void BossMo_Tentacle(BossMo* this, PlayState* play) {
             }
             for (indS1 = 0; indS1 < 41; indS1++) {
                 if (this->timers[0] > 25) {
-                    if (!this->linkToLeft) {
-                        Math_ApproachS(&this->tentRot[indS1].z, sCurlRot[indS1] * 0x100, 1.0f / this->tentMaxAngle,
-                                       this->tentSpeed);
-                    } else {
-                        Math_ApproachS(&this->tentRot[indS1].z, sCurlRot[indS1] * -0x100, 1.0f / this->tentMaxAngle,
-                                       this->tentSpeed);
-                    }
+                    Math_ApproachS(&this->tentRot[indS1].z, sCurlRot[indS1] * (this->linkToLeft ? -0x100 : 0x100),
+                                   1.0f / this->tentMaxAngle, this->tentSpeed);
                 } else {
-                    if (!this->linkToLeft) {
-                        Math_ApproachS(&this->tentRot[indS1].z, sGrabRot[indS1] * 0x100, 1.0f / this->tentMaxAngle,
-                                       this->tentSpeed);
-                    } else {
-                        Math_ApproachS(&this->tentRot[indS1].z, sGrabRot[indS1] * -0x100, 1.0f / this->tentMaxAngle,
-                                       this->tentSpeed);
-                    }
+                    Math_ApproachS(&this->tentRot[indS1].z, sGrabRot[indS1] * (this->linkToLeft ? -0x100 : 0x100),
+                                   1.0f / this->tentMaxAngle, this->tentSpeed);
                 }
             }
             Math_ApproachF(&this->tentMaxAngle, 0.1f, 1.0f, 0.01f);
@@ -785,9 +777,9 @@ void BossMo_Tentacle(BossMo* this, PlayState* play) {
             if (this->work[MO_TENT_ACTION_STATE] == MO_TENT_GRAB) {
                 player->av2.actionVar2 = 0xA;
                 player->actor.speedXZ = player->actor.velocity.y = 0;
-                Math_ApproachF(&player->actor.world.pos.x, this->grabPosRot.pos.x, 0.5f, 20.0f);
-                Math_ApproachF(&player->actor.world.pos.y, this->grabPosRot.pos.y, 0.5f, 20.0f);
-                Math_ApproachF(&player->actor.world.pos.z, this->grabPosRot.pos.z, 0.5f, 20.0f);
+                Math_StepToF(&player->actor.world.pos.x, this->grabPosRot.pos.x, 50.0f);
+                Math_StepToF(&player->actor.world.pos.y, this->grabPosRot.pos.y, 50.0f);
+                Math_StepToF(&player->actor.world.pos.z, this->grabPosRot.pos.z, 50.0f);
                 Math_ApproachS(&player->actor.shape.rot.x, this->grabPosRot.rot.x, 2, 0x7D0);
                 Math_ApproachS(&player->actor.shape.rot.y, this->grabPosRot.rot.y, 2, 0x7D0);
                 Math_ApproachS(&player->actor.shape.rot.z, this->grabPosRot.rot.z, 2, 0x7D0);
@@ -820,8 +812,8 @@ void BossMo_Tentacle(BossMo* this, PlayState* play) {
                 ShrinkWindow_SetVal(0);
                 Interface_ChangeAlpha(0xB);
             }
-            if ((this->timers[0] % 8) == 0) {
-                play->damagePlayer(play, -1);
+            if ((this->timers[0] % 16) == 0) {
+                play->damagePlayer(play, -2);
             }
             Math_ApproachF(&this->waterLevelMod, -5.0f, 0.1f, 0.4f);
             sp1B4 = this->tentRot[15].x;
