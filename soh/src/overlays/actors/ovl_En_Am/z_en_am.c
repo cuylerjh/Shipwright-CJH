@@ -675,7 +675,9 @@ void EnAm_Statue(EnAm* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     f32 temp158f = this->dyna.unk_158;
     s16 moveDir = 0;
-    s32 blockSpeed = CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0);
+    s32 strengthBoost = CVarGetInteger(CVAR_ENHANCEMENT("StrengthBoost"), 0) ? Player_GetStrength() : 0;
+    s32 blockSpeed =
+        CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) + strengthBoost;
 
     if (this->unk_258 == 0) {
         if (this->dyna.unk_150 != 0.0f) {

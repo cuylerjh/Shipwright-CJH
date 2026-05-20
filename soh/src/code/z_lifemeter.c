@@ -393,14 +393,10 @@ void HealthMeter_Draw(PlayState* play) {
     InterfaceContext* interfaceCtx = &play->interfaceCtx;
     GraphicsContext* gfxCtx = play->state.gfxCtx;
     Vtx* sp154 = interfaceCtx->beatingHeartVtx;
-    s32 curHeartFraction = gSaveContext.health % FULL_HEART_HEALTH;
-    s16 totalHeartCount = gSaveContext.healthCapacity / FULL_HEART_HEALTH;
-    s16 fullHeartCount = gSaveContext.health / FULL_HEART_HEALTH;
     s32 pad2;
     f32 sp144 = interfaceCtx->unk_22A * 0.1f;
     s32 curCombineModeSet = 0;
     u8* curBgImgLoaded = NULL;
-    s32 ddHeartCountMinusOne = gSaveContext.isDoubleDefenseAcquired ? totalHeartCount - 1 : -1;
     f32 HeartsScale = 0.7f;
     if (CVarGetInteger(CVAR_COSMETIC("HUD.HeartsCount.PosType"), 0) != ORIGINAL_LOCATION) {
         HeartsScale = CVarGetFloat(CVAR_COSMETIC("HUD.HeartsCount.Scale"), 0.7f);
@@ -408,9 +404,34 @@ void HealthMeter_Draw(PlayState* play) {
     static u32 epoch = 0;
     epoch++;
 
+    static sVisualHealth = -1;
+
+    if (sVisualHealth == -1 || sVisualHealth < gSaveContext.health) {
+        sVisualHealth = gSaveContext.health;
+    }
+
+    if (sVisualHealth > gSaveContext.health) {
+        sVisualHealth -= 4; 
+
+        if (sVisualHealth < gSaveContext.health) {
+            sVisualHealth = gSaveContext.health;
+        }
+        
+        if (sVisualHealth > gSaveContext.healthCapacity) {
+            sVisualHealth = gSaveContext.health;
+        }
+    }
+
+    s16 healthDrawVar = CVarGetInteger(CVAR_ENHANCEMENT("VisualHeartUpdate"), 0) ? sVisualHealth : gSaveContext.health;
+    s32 curHeartFraction = healthDrawVar % FULL_HEART_HEALTH;
+    s16 totalHeartCount = gSaveContext.healthCapacity / FULL_HEART_HEALTH;
+    s16 fullHeartCount = healthDrawVar / FULL_HEART_HEALTH;
+
+    s32 ddHeartCountMinusOne = gSaveContext.isDoubleDefenseAcquired ? totalHeartCount - 1 : -1;
+
     OPEN_DISPS(gfxCtx);
 
-    if (!(gSaveContext.health % FULL_HEART_HEALTH)) {
+    if (!(healthDrawVar % FULL_HEART_HEALTH)) {
         fullHeartCount--;
     }
 
@@ -493,7 +514,23 @@ void HealthMeter_Draw(PlayState* play) {
             if (i < fullHeartCount) {
                 heartBgImg = gHeartFullTex;
             } else if (i == fullHeartCount) {
-                heartBgImg = sHeartTextures[curHeartFraction];
+                if (CVarGetInteger(CVAR_ENHANCEMENT("TrueQuarterHearts"), 0)) {
+                    if (curHeartFraction >= 1 && curHeartFraction <= 4) {
+                        heartBgImg = gHeartQuarterTex;
+                    } else if (curHeartFraction >= 5 && curHeartFraction <= 8) {
+                        heartBgImg = gHeartHalfTex;
+                    } else if (curHeartFraction >= 9 && curHeartFraction <= 12) {
+                        heartBgImg = gHeartThreeQuarterTex;
+                    } else if (curHeartFraction >= 13 && i == totalHeartCount - 1) {
+                        // EXCEPTION: If this is the final heart in the meter and we are missing 1-3 HP,
+                        // force it to 3/4 so the player knows they aren't at 100% max health.
+                        heartBgImg = gHeartThreeQuarterTex;
+                    } else {
+                        heartBgImg = gHeartFullTex; 
+                    }
+                } else {
+                    heartBgImg = sHeartTextures[curHeartFraction];
+                }
             } else {
                 heartBgImg = gHeartEmptyTex;
             }
@@ -536,7 +573,22 @@ void HealthMeter_Draw(PlayState* play) {
             if (i < fullHeartCount) {
                 heartBgImg = gDefenseHeartFullTex;
             } else if (i == fullHeartCount) {
-                heartBgImg = sHeartDDTextures[curHeartFraction];
+                if (CVarGetInteger(CVAR_ENHANCEMENT("TrueQuarterHearts"), 0)) {
+                    if (curHeartFraction >= 1 && curHeartFraction <= 4) {
+                        heartBgImg = gDefenseHeartQuarterTex;
+                    } else if (curHeartFraction >= 5 && curHeartFraction <= 8) {
+                        heartBgImg = gDefenseHeartHalfTex;
+                    } else if (curHeartFraction >= 9 && curHeartFraction <= 12) {
+                        heartBgImg = gDefenseHeartThreeQuarterTex;
+                    } else if (curHeartFraction >= 13 && i == totalHeartCount - 1) {
+                        // EXCEPTION: Show 3/4 on the final DD heart if not at true 100% max health
+                        heartBgImg = gDefenseHeartThreeQuarterTex;
+                    } else {
+                        heartBgImg = gDefenseHeartFullTex;
+                    }
+                } else {
+                    heartBgImg = sHeartDDTextures[curHeartFraction];
+                }
             } else {
                 heartBgImg = gDefenseHeartEmptyTex;
             }

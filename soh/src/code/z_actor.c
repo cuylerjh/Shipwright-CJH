@@ -445,7 +445,7 @@ void func_8002C124(TargetContext* targetCtx, PlayState* play) {
 
     OPEN_DISPS(play->state.gfxCtx);
 
-    if (targetCtx->unk_48 != 0) {
+    if (targetCtx->unk_48 != 0 && !CVarGetInteger(CVAR_ENHANCEMENT("ImmersiveZTargeting"), 0)) {
         TargetContextEntry* entry;
         Player* player;
         s16 spCE;
@@ -484,8 +484,10 @@ void func_8002C124(TargetContext* targetCtx, PlayState* play) {
 
         func_8002BE04(play, &targetCtx->targetCenterPos, &spBC, &spB4);
 
-        spBC.x = (160 * (spBC.x * spB4)) * var1;
-        spBC.x = CLAMP(spBC.x, -320.0f, 320.0f);
+        f32 aspectMultiplier = Ship_GetExtendedAspectRatioMultiplier();
+
+        spBC.x = ((160.0f * aspectMultiplier) * (spBC.x * spB4)) * var1;
+        spBC.x = CLAMP(spBC.x, -320.0f * aspectMultiplier, 320.0f * aspectMultiplier);
 
         spBC.y = (120 * (spBC.y * spB4)) * var1;
         spBC.y = CLAMP(spBC.y, -240.0f, 240.0f);
@@ -539,7 +541,8 @@ void func_8002C124(TargetContext* targetCtx, PlayState* play) {
     }
 
     actor = targetCtx->unk_94;
-    if ((actor != NULL) && !(actor->flags & ACTOR_FLAG_LOCK_ON_DISABLED)) {
+    if ((actor != NULL) && !(actor->flags & ACTOR_FLAG_LOCK_ON_DISABLED) &&
+        (!CVarGetInteger(CVAR_ENHANCEMENT("ImmersiveZTargeting"), 0))) {
         FrameInterpolation_RecordOpenChild(actor, 1);
         NaviColor* naviColor = &sNaviColorList[actor->category];
 
@@ -636,7 +639,9 @@ void func_8002C7BC(TargetContext* targetCtx, Player* player, Actor* actorArg, Pl
             lockOnSfxId = CHECK_FLAG_ALL(actorArg->flags, ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE)
                               ? NA_SE_SY_LOCK_ON
                               : NA_SE_SY_LOCK_ON_HUMAN;
-            Sfx_PlaySfxCentered(lockOnSfxId);
+            if (!CVarGetInteger(CVAR_ENHANCEMENT("ImmersiveZTargeting"), 0)) {
+                Sfx_PlaySfxCentered(lockOnSfxId);
+            }
         }
 
         targetCtx->targetCenterPos.x = actorArg->world.pos.x;
@@ -1885,20 +1890,34 @@ PosRot* Actor_GetWorldPosShapeRot(PosRot* arg0, Actor* actor) {
 f32 func_8002EFC0(Actor* actor, Player* player, s16 arg2) {
     s16 yawTemp = (s16)(actor->yawTowardsPlayer - 0x8000) - arg2;
     s16 yawTempAbs = ABS(yawTemp);
+    
+    // SoH: Check if our 360-targeting CVar is active
+    bool targetBehindEnabled = CVarGetInteger(CVAR_ENHANCEMENT("TargetBehind"), 0) != 0;
 
     if (player->focusActor != NULL) {
-        if ((yawTempAbs > 0x4000) || (actor->flags & ACTOR_FLAG_LOCK_ON_DISABLED)) {
+        // Respect the lock-on disabled flag
+        if (actor->flags & ACTOR_FLAG_LOCK_ON_DISABLED) {
+            return FLT_MAX;
+        }
+        
+        // Bypass the 90-degree FOV cap if enhancement is enabled
+        if (!targetBehindEnabled && yawTempAbs > 0x4000) {
             return FLT_MAX;
         } else {
-            f32 ret =
-                actor->xyzDistToPlayerSq - actor->xyzDistToPlayerSq * 0.8f * ((0x4000 - yawTempAbs) * (1.0f / 0x8000));
-
-            return ret;
+            // Vanilla math: Naturally prioritizes front over back
+            return actor->xyzDistToPlayerSq - actor->xyzDistToPlayerSq * 0.8f * ((0x4000 - yawTempAbs) * (1.0f / 0x8000));
         }
     }
 
-    if (yawTempAbs > 0x2AAA) {
+    // Bypass the tighter 60-degree FOV cap for initial targets if enhancement is enabled
+    if (!targetBehindEnabled && yawTempAbs > 0x2AAA) {
         return FLT_MAX;
+    }
+
+    // SoH: If enhanced, apply the angle-based scoring to initial targets too.
+    // This ensures front actors get the arrow instead of back actors.
+    if (targetBehindEnabled) {
+        return actor->xyzDistToPlayerSq - actor->xyzDistToPlayerSq * 0.8f * ((0x4000 - yawTempAbs) * (1.0f / 0x8000));
     }
 
     return actor->xyzDistToPlayerSq;
@@ -2715,7 +2734,9 @@ void Actor_UpdateAll(PlayState* play, ActorContext* actorCtx) {
         actor = NULL;
         if (actorCtx->targetCtx.unk_4B != 0) {
             actorCtx->targetCtx.unk_4B = 0;
-            Sfx_PlaySfxCentered(NA_SE_SY_LOCK_OFF);
+            if (!CVarGetInteger(CVAR_ENHANCEMENT("ImmersiveZTargeting"), 0)) {
+                Sfx_PlaySfxCentered(NA_SE_SY_LOCK_OFF);
+            }
         }
     }
 
@@ -3583,7 +3604,10 @@ void func_800328D4(PlayState* play, ActorContext* actorCtx, Player* player, u32 
 
             if (actor != sp84) {
                 var = func_8002EFC0(actor, player, D_8015BBFC);
-                if ((var < D_8015BBF0) && func_8002F090(actor, var) && func_80032880(play, actor) &&
+                bool targetBehindEnabled = CVarGetInteger(CVAR_ENHANCEMENT("TargetBehind"), 0) != 0;
+                bool isOnScreen = func_80032880(play, actor);
+
+                if ((var < D_8015BBF0) && func_8002F090(actor, var) && (targetBehindEnabled || isOnScreen) &&
                     (!BgCheck_CameraLineTest1(&play->colCtx, &player->actor.focus.pos, &actor->focus.pos, &sp70, &sp80,
                                               1, 1, 1, 1, &sp7C) ||
                      SurfaceType_IsIgnoredByProjectiles(&play->colCtx, sp80, sp7C))) {

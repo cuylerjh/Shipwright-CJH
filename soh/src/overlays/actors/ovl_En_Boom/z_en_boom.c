@@ -144,24 +144,18 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
     u8 isReturning = false;
 
     // --- 1. DETERMINE CURRENT DESTINATION & STATE ---
-    // Use a while loop to instantly burn through any targets that have died or been reached
     while (this->currentTargetIndex < this->targetCount) {
         currentTarget = this->targetActors[this->currentTargetIndex];
 
-        // Failsafe: If the actor was destroyed or deactivated, skip it immediately
+        // Failsafe: If the actor was destroyed or deactivated before we reached it, skip it
         if (currentTarget == NULL || currentTarget->update == NULL) {
             this->currentTargetIndex++;
         } else {
+            // Target is valid and living! Set the destination and break the loop.
+            // We NO LONGER check the distance here. The boomerang MUST physically 
+            // strike the target (triggering AT_HIT below) to advance the index!
             targetPos = currentTarget->focus.pos;
-
-            // If we hit the target physically (distance check is a secondary failsafe)
-            if (Math_Vec3f_DistXYZ(&this->actor.world.pos, &targetPos) < 40.0f) {
-                this->currentTargetIndex++;
-                this->returnTimer = 30; // Refresh timer
-            } else {
-                // Target is valid, living, and hasn't been reached yet. Break the loop!
-                break; 
-            }
+            break; 
         }
     }
 
@@ -174,9 +168,9 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
     if (isReturning || (this->currentTargetIndex < this->targetCount && currentTarget != NULL)) {
         
         if (isReturning) {
-            targetPos = player->actor.focus.pos; // Aim at Link
+            targetPos = player->actor.focus.pos; 
         } else {
-            targetPos = currentTarget->focus.pos; // Aim at Target
+            targetPos = currentTarget->focus.pos; 
         }
 
         yawTarget = Actor_WorldYawTowardPoint(&this->actor, &targetPos);
@@ -189,12 +183,15 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
         if (distXYZScale < 0.12f) {
             distXYZScale = 0.12f;
         }
+        
+        // --- TURN RADIUS BOOST ---
+        // Increase the turning responsiveness by 15% to prevent undershooting
+        distXYZScale *= 1.15f; 
 
         Math_ScaledStepToS(&this->actor.world.rot.y, yawTarget, (s16)(ABS(yawDiff) * distXYZScale));
         Math_ScaledStepToS(&this->actor.world.rot.x, pitchTarget, (s16)(ABS(pitchDiff) * distXYZScale));
     }
     
-    // ... [Actor_SetProjectileSpeed logic follows below as usual] ...
     // Set xyz speed, move forward, and play sound
     Actor_SetProjectileSpeed(&this->actor, this->speed);
     Actor_MoveXZGravity(&this->actor);
@@ -244,10 +241,8 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
 
         if (atHit) {
             if (bouncedOffHard) {
-                // The boomerang hit a shield or armored enemy! 
                 hitWall = true; 
             } else {
-                // --- WIND WAKER ADVANCE ON HIT ---
                 // We hit an enemy! If it's our current target, move on!
                 if (this->currentTargetIndex < this->targetCount && this->collider.base.at == currentTarget) {
                     this->currentTargetIndex++;
@@ -255,16 +250,21 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
                     if (this->currentTargetIndex >= this->targetCount) {
                         this->returnTimer = 0; // Trigger return phase
                     } else {
-                        this->returnTimer = 30; // Refresh timer for the next target
+                        // --- WIND WAKER DYNAMIC TIMER ---
+                        Actor* nextTarget = this->targetActors[this->currentTargetIndex];
+                        if (nextTarget != NULL && nextTarget->update != NULL) { 
+                            f32 distToNext = Math_Vec3f_DistXYZ(&this->actor.world.pos, &nextTarget->focus.pos);
+                            // Time = Distance / Speed. Add 15 frames for curve buffer!
+                            this->returnTimer = (u8)(distToNext / this->speed) + 15; 
+                        } else {
+                            this->returnTimer = 30; // Fallback
+                        }
                     }
                 }
-                
-                // Note: We intentionally REMOVED the momentum stall here!
-                // The boomerang will now smoothly slice through the enemy instead of getting trapped.
             }
         } 
         
-        // If we haven't already decided to bounce, check for background walls
+        // Background wall check
         if (!hitWall && !atHit) {
             hitWall = BgCheck_EntityLineTest1(&play->colCtx, &this->actor.prevPos, &this->actor.world.pos, &hitPoint,
                                                &this->actor.wallPoly, true, true, true, true, &hitDynaID);
@@ -280,11 +280,11 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
             }
         }
 
-        // --- RESTORED WALL/HARD BOUNCE LOGIC ---
+        // Restored wall/hard bounce logic
         if (hitWall) {
             this->actor.world.rot.x = -this->actor.world.rot.x;
             this->actor.world.rot.y += 0x8000;
-            this->currentTargetIndex = this->targetCount; // Forfeit remaining targets
+            this->currentTargetIndex = this->targetCount; 
             this->moveTo = &player->actor;
             this->returnTimer = 0;
         }
@@ -299,6 +299,7 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
         }
     }
 }
+
 void EnBoom_Update(Actor* thisx, PlayState* play) {
     EnBoom* this = (EnBoom*)thisx;
     Player* player = GET_PLAYER(play);

@@ -1589,10 +1589,14 @@ u8 func_80090480(PlayState* play, ColliderQuad* collider, WeaponInfo* weaponInfo
 void Player_UpdateShieldCollider(PlayState* play, Player* this, ColliderQuad* collider, Vec3f* quadSrc) {
     static u8 shieldColTypes[PLAYER_SHIELD_MAX] = {
         COLTYPE_METAL,
-        COLTYPE_METAL, // Deku, modded for Hero
+        COLTYPE_WOOD, 
         COLTYPE_METAL,
         COLTYPE_METAL,
     };
+
+    if (CVarGetInteger(CVAR_ENHANCEMENT("MetalDekuShield"), 0) && this->currentShield == PLAYER_SHIELD_DEKU) {
+         shieldColTypes[PLAYER_SHIELD_DEKU] = COLTYPE_METAL;
+    }
 
     if (this->stateFlags1 & PLAYER_STATE1_SHIELDING) {
         Vec3f quadDest[4];
@@ -1845,7 +1849,9 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
                                   (actor->id == ACTOR_OBJ_KIBAKO) || 
                                   (actor->id == ACTOR_EN_KUSA) || 
                                   (actor->id == ACTOR_EN_KANBAN) ||
-                                  (actor->id == ACTOR_OBJ_SWITCH && (actor->params == 3 || actor->params == 4)); 
+                                  (actor->id == ACTOR_EN_ITEM00) || // Rupees, Hearts, Ammo
+                                  (actor->id == ACTOR_EN_SI) ||     // Skulltula Tokens
+                                  (actor->id == ACTOR_OBJ_SWITCH && (actor->params == 3 || actor->params == 4));
 
                 if (isTargetable) {
                     
@@ -1909,21 +1915,59 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
     }
 }
 
+extern void func_8002BE04(PlayState* play, Vec3f* src, Vec3f* dest, f32* invW);
+
 void Player_DrawBoomerangTargetArrow(PlayState* play, Actor* actor) {
+    Vec3f center = actor->focus.pos;
+    Vec3f screenPos;
+    f32 invW;
+
+    // 1. Project to 2D Screen Space using the native engine function!
+    func_8002BE04(play, &center, &screenPos, &invW);
+
+    // If the target is behind the camera, don't draw
+    if (invW <= 0.0f) {
+        return;
+    }
+
+    // 2. Exact vanilla screen clamping math
+    screenPos.x = (160.0f * (screenPos.x * invW));
+    screenPos.x = CLAMP(screenPos.x, -320.0f, 320.0f);
+    screenPos.y = (120.0f * (screenPos.y * invW));
+    screenPos.y = CLAMP(screenPos.y, -240.0f, 240.0f);
+
     OPEN_DISPS(play->state.gfxCtx);
 
-    POLY_XLU_DISP = Gfx_SetupDL(POLY_XLU_DISP, 0x7);
+    OVERLAY_DISP = Gfx_SetupDL(OVERLAY_DISP, 0x39);
 
-    Matrix_Translate(actor->focus.pos.x, actor->focus.pos.y + (actor->targetArrowOffset * actor->scale.y) + 17.0f,
-                     actor->focus.pos.z, MTXMODE_NEW);
-    Matrix_Scale((iREG(27) + 35) / 1000.0f, (iREG(28) + 60) / 1000.0f, (iREG(29) + 50) / 1000.0f, MTXMODE_APPLY);
+    // 3. Center the matrix on screen
+    Matrix_Translate(screenPos.x, screenPos.y, 0.0f, MTXMODE_NEW);
+    Matrix_Scale(0.15f, 0.15f, 1.0f, MTXMODE_APPLY);
 
-    gDPSetPrimColor(POLY_XLU_DISP++, 0, 0, 255, 255, 0, 255);
-    gSPMatrix(POLY_XLU_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_MODELVIEW | G_MTX_LOAD);
-    gSPDisplayList(POLY_XLU_DISP++, gZTargetArrowDL);
+    // 4. Color the brackets Wind Waker yellow
+    gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 0, 255);
+
+    // 5. Spin animation (Replacing targetCtx->unk_4B with gameplayFrames)
+    Matrix_RotateZ((play->gameplayFrames & 0x7F) * (M_PI / 64.0f), MTXMODE_APPLY);
+
+    // 6. The exact vanilla 4-triangle draw loop
+    for (int i = 0; i < 4; i++) {
+        Matrix_RotateZ(M_PI / 2.0f, MTXMODE_APPLY);
+        Matrix_Push();
+        
+        // Push outward (120.0f is the standard "locked" distance)
+        Matrix_Translate(120.0f, 120.0f, 0.0f, MTXMODE_APPLY);
+        
+        gSPMatrix(OVERLAY_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_MODELVIEW | G_MTX_LOAD);
+        gSPDisplayList(OVERLAY_DISP++, gZTargetLockOnTriangleDL);
+        
+        Matrix_Pop();
+    }
 
     CLOSE_DISPS(play->state.gfxCtx);
 }
+
+extern s32 func_808358F0(Player* this, PlayState* play);
 
 void Player_DrawHookshotReticle(PlayState* play, Player* this, f32 hookshotRange) {
     static Vec3f D_801260C8 = { -500.0f, -100.0f, 0.0f };
@@ -1941,7 +1985,7 @@ void Player_DrawHookshotReticle(PlayState* play, Player* this, f32 hookshotRange
     Matrix_MultVec3f(&D_801260C8, &hookshotEnd);
 
     // --- WIND WAKER BOOMERANG TARGET SCANNER ---
-    if (this->heldItemAction == PLAYER_IA_BOOMERANG && Player_AimsBoomerang(this)) {
+    if (this->heldItemAction == PLAYER_IA_BOOMERANG && this->upperActionFunc == func_808358F0) {
 
         // 1. FAILSAFE: Sanitize garbage memory from savestates!
         if (this->boomTargetCount > 5) {

@@ -92,10 +92,11 @@ void BgMoriKaitenkabe_Wait(BgMoriKaitenkabe* this, PlayState* play) {
     Vec3f leverArm;
     Vec3f torque;
     Player* player = GET_PLAYER(play);
+    s32 strengthBoost = CVarGetInteger(CVAR_ENHANCEMENT("StrengthBoost"), 0) ? Player_GetStrength() : 0;
 
     if (this->dyna.unk_150 > 0.001f) {
         this->timer++;
-        if ((this->timer > (28 - CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 4)) &&
+        if ((this->timer > (28 - CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 4) - strengthBoost * 4) &&
             !Player_InCsMode(play)) {
             BgMoriKaitenkabe_SetupRotate(this);
             if (GameInteractor_Should(VB_FREEZE_LINK_FOR_FOREST_PILLARS, true)) {
@@ -121,8 +122,9 @@ void BgMoriKaitenkabe_Wait(BgMoriKaitenkabe* this, PlayState* play) {
 }
 
 void BgMoriKaitenkabe_SetupRotate(BgMoriKaitenkabe* this) {
+    s32 strengthBoost = CVarGetInteger(CVAR_ENHANCEMENT("StrengthBoost"), 0) ? Player_GetStrength() : 0;
     this->actionFunc = BgMoriKaitenkabe_Rotate;
-    this->rotSpeed = CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.1f;
+    this->rotSpeed = CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.1f + strengthBoost * 0.1f;
     this->rotYdeg = 0.0f;
 }
 

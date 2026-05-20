@@ -2758,3 +2758,10 @@ static void RandomizerRegisterHooks() {
 }
 
 static RegisterShipInitFunc initFunc_RegisterHooks(RandomizerRegisterHooks);
+
+extern "C" {
+    // This securely reaches into the C++ randomizer logic and passes the struct back to C
+    GetItemEntry CBridge_GetItemEntryFromRG(int rgId) {
+        return Rando::StaticData::RetrieveItem(static_cast<RandomizerGet>(rgId)).GetGIEntry_Copy();
+    }
+}

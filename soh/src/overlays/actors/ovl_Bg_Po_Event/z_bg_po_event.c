@@ -387,11 +387,14 @@ void BgPoEvent_BlockPush(BgPoEvent* this, PlayState* play) {
     f32 displacement;
     s32 blockStop;
     Player* player = GET_PLAYER(play);
+    s32 strengthBoost = CVarGetInteger(CVAR_ENHANCEMENT("StrengthBoost"), 0) ? Player_GetStrength() : 0;
 
+    this->dyna.actor.speedXZ = this->dyna.actor.speedXZ +
+                               (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.3) +
+                               strengthBoost * 0.3 + 0.5f;
     this->dyna.actor.speedXZ =
-        this->dyna.actor.speedXZ + (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.3) + 0.5f;
-    this->dyna.actor.speedXZ =
-        CLAMP_MAX(this->dyna.actor.speedXZ, 2.0f + (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.5));
+        CLAMP_MAX(this->dyna.actor.speedXZ,
+                  2.0f + (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.5) + strengthBoost * 0.5);
     blockStop = Math_StepToF(&sBgPoEventblockPushDist, 20.0f, this->dyna.actor.speedXZ);
     displacement = this->direction * sBgPoEventblockPushDist;
     this->dyna.actor.world.pos.x = (Math_SinS(this->dyna.unk_158) * displacement) + this->dyna.actor.home.pos.x;
@@ -406,7 +409,7 @@ void BgPoEvent_BlockPush(BgPoEvent* this, PlayState* play) {
         this->dyna.actor.home.pos.z = this->dyna.actor.world.pos.z;
         sBgPoEventblockPushDist = 0.0f;
         this->dyna.actor.speedXZ = 0.0f;
-        this->direction = 5 - ((CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 3) / 5);
+        this->direction = 5 - ((CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 3) / 5) - (strengthBoost * 3) / 5;
         sBgPoEventBlocksAtRest++;
         this->actionFunc = BgPoEvent_BlockIdle;
         if (this->type == 1) {

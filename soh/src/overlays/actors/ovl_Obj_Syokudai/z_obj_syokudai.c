@@ -119,12 +119,14 @@ void ObjSyokudai_Init(Actor* thisx, PlayState* play) {
     Collider_SetCylinder(play, &this->colliderStand, &this->actor, &sCylInitStand);
     this->colliderStand.base.colType = sColTypesStand[this->actor.params >> 0xC];
 
-    //Collider_InitCylinder(play, &this->colliderFlame);
-    //Collider_SetCylinder(play, &this->colliderFlame, &this->actor, &sCylInitFlame);
-
-    Collider_InitJntSph(play, &this->colliderFlameSph);
-    Collider_SetJntSph(play, &this->colliderFlameSph, &this->actor, &sJntSphInitFlame, this->flameSphItems);
-    this->colliderFlameSph.elements[0].dim.worldSphere.radius = sJntSphInitFlame.elements[0].dim.modelSphere.radius;
+    if (!CVarGetInteger(CVAR_ENHANCEMENT("MQTorchFix"), 0)) {
+        Collider_InitCylinder(play, &this->colliderFlame);
+        Collider_SetCylinder(play, &this->colliderFlame, &this->actor, &sCylInitFlame);
+    } else {
+        Collider_InitJntSph(play, &this->colliderFlameSph);
+        Collider_SetJntSph(play, &this->colliderFlameSph, &this->actor, &sJntSphInitFlame, this->flameSphItems);
+        this->colliderFlameSph.elements[0].dim.worldSphere.radius = sJntSphInitFlame.elements[0].dim.modelSphere.radius;
+    }
 
     this->actor.colChkInfo.mass = MASS_IMMOVABLE;
 
@@ -155,7 +157,7 @@ void ObjSyokudai_Destroy(Actor* thisx, PlayState* play) {
     ObjSyokudai* this = (ObjSyokudai*)thisx;
 
     Collider_DestroyCylinder(play, &this->colliderStand);
-    //Collider_DestroyCylinder(play, &this->colliderFlame);
+    Collider_DestroyCylinder(play, &this->colliderFlame);
     Collider_DestroyJntSph(play, &this->colliderFlameSph);
     LightContext_RemoveLight(play, &play->lightCtx, this->lightNode);
 }
@@ -213,12 +215,13 @@ void ObjSyokudai_Update(Actor* thisx, PlayState* play2) {
                 this->litTimer = 20;
             }
         }
-        // if (this->colliderFlame.base.acFlags & AC_HIT) {
-        //     dmgFlags = this->colliderFlame.info.acHitInfo->toucher.dmgFlags;
-        //     if (dmgFlags & 0x20820) {
-        //         interactionType = 1;
-        //     }
-        if (this->colliderFlameSph.base.acFlags & AC_HIT) {
+
+        if (this->colliderFlame.base.acFlags & AC_HIT) {
+            dmgFlags = this->colliderFlame.info.acHitInfo->toucher.dmgFlags;
+            if (dmgFlags & 0x20820) {
+                interactionType = 1;
+           } 
+        } else if (this->colliderFlameSph.base.acFlags & AC_HIT) {
             dmgFlags = this->colliderFlameSph.elements[0].info.acHitInfo->toucher.dmgFlags;
             if (dmgFlags & 0x20820) {
                 interactionType = 1;
@@ -242,7 +245,11 @@ void ObjSyokudai_Update(Actor* thisx, PlayState* play2) {
                         player->unk_860 = 200;
                     }
                 } else if (dmgFlags & 0x20) {
-                    arrow = (EnArrow*)this->colliderFlameSph.base.ac;
+                    if (!CVarGetInteger(CVAR_ENHANCEMENT("MQTorchFix"), 0)) {
+                        arrow = (EnArrow*)this->colliderFlame.base.ac;
+                    } else {
+                        arrow = (EnArrow*)this->colliderFlameSph.base.ac;
+                    }
                     if ((arrow->actor.update != NULL) && (arrow->actor.id == ACTOR_EN_ARROW)) {
                         arrow->actor.params = 0;
                         arrow->collider.info.toucher.dmgFlags = 0x800;
@@ -283,27 +290,29 @@ void ObjSyokudai_Update(Actor* thisx, PlayState* play2) {
     CollisionCheck_SetOC(play, &play->colChkCtx, &this->colliderStand.base);
     CollisionCheck_SetAC(play, &play->colChkCtx, &this->colliderStand.base);
 
-    //Collider_UpdateCylinder(&this->actor, &this->colliderFlame);
-    //CollisionCheck_SetAC(play, &play->colChkCtx, &this->colliderFlame.base);
+    if (!CVarGetInteger(CVAR_ENHANCEMENT("MQTorchFix"), 0)) {
+        Collider_UpdateCylinder(&this->actor, &this->colliderFlame);
+        CollisionCheck_SetAC(play, &play->colChkCtx, &this->colliderFlame.base);
+    } else {
+        // Manually calculate the flame's tilted position
+        Vec3f localFlameCenter = { 0.0f, 67.0f, 0.0f };
+        Vec3f worldFlameCenter;
 
-    // Manually calculate the flame's tilted position
-    Vec3f localFlameCenter = { 0.0f, 67.0f, 0.0f }; 
-    Vec3f worldFlameCenter;
+        // 1. Replicate the actor's base matrix state (Position + Rotation)
+        Matrix_Translate(this->actor.world.pos.x, this->actor.world.pos.y, this->actor.world.pos.z, MTXMODE_NEW);
+        Matrix_RotateZYX(this->actor.shape.rot.x, this->actor.shape.rot.y, this->actor.shape.rot.z, MTXMODE_APPLY);
 
-    // 1. Replicate the actor's base matrix state (Position + Rotation)
-    Matrix_Translate(this->actor.world.pos.x, this->actor.world.pos.y, this->actor.world.pos.z, MTXMODE_NEW);
-    Matrix_RotateZYX(this->actor.shape.rot.x, this->actor.shape.rot.y, this->actor.shape.rot.z, MTXMODE_APPLY);
-    
-    // 2. Apply our local offset to get the exact world position
-    Matrix_MultVec3f(&localFlameCenter, &worldFlameCenter);
+        // 2. Apply our local offset to get the exact world position
+        Matrix_MultVec3f(&localFlameCenter, &worldFlameCenter);
 
-    // 3. Manually update the joint sphere's world coordinates
-    this->colliderFlameSph.elements[0].dim.worldSphere.center.x = worldFlameCenter.x;
-    this->colliderFlameSph.elements[0].dim.worldSphere.center.y = worldFlameCenter.y;
-    this->colliderFlameSph.elements[0].dim.worldSphere.center.z = worldFlameCenter.z;
+        // 3. Manually update the joint sphere's world coordinates
+        this->colliderFlameSph.elements[0].dim.worldSphere.center.x = worldFlameCenter.x;
+        this->colliderFlameSph.elements[0].dim.worldSphere.center.y = worldFlameCenter.y;
+        this->colliderFlameSph.elements[0].dim.worldSphere.center.z = worldFlameCenter.z;
 
-    // 4. Register the AC collision check
-    CollisionCheck_SetAC(play, &play->colChkCtx, &this->colliderFlameSph.base);
+        // 4. Register the AC collision check
+        CollisionCheck_SetAC(play, &play->colChkCtx, &this->colliderFlameSph.base);
+    }
 
     if (GameInteractor_Should(VB_SWITCH_TIMER_TICK, this->litTimer > 0, this, &this->litTimer)) {
         this->litTimer--;

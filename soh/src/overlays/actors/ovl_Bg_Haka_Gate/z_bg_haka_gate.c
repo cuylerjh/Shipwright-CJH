@@ -191,6 +191,7 @@ void BgHakaGate_StatueTurn(BgHakaGate* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     s32 turnFinished;
     s16 turnAngle;
+    s32 strengthBoost = CVarGetInteger(CVAR_ENHANCEMENT("StrengthBoost"), 0) ? Player_GetStrength() : 0;
 
     this->vTurnRateDeg10++;
     this->vTurnRateDeg10 = CLAMP_MAX(this->vTurnRateDeg10, 10);
@@ -211,9 +212,11 @@ void BgHakaGate_StatueTurn(BgHakaGate* this, PlayState* play) {
     if (turnFinished) {
         player->stateFlags2 &= ~PLAYER_STATE2_MOVING_DYNAPOLY;
         this->vRotYDeg10 = (this->vRotYDeg10 + turnAngle) % 3600;
-        this->vTurnRateDeg10 = CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 2;
+        this->vTurnRateDeg10 = CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 2 +
+                               strengthBoost * 2;
         this->vTurnAngleDeg10 = 0;
-        this->vTimer = 5 - ((CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 3) / 5);
+        this->vTimer = 5 - ((CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 3) / 5) -
+                       (strengthBoost * 3) / 5;
         this->actionFunc = BgHakaGate_StatueIdle;
         this->dyna.unk_150 = 0.0f;
     }

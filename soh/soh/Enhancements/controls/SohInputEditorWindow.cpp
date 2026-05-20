@@ -1414,7 +1414,7 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
         }
     }
     if (CVarGetInteger(CVAR_SETTING("FirstPersonCameraSensitivity.Enabled"), 0)) {
-        CVarSliderFloat("Aiming/First-Person Horizontal Sensitivity: %.0f %%",
+        CVarSliderFloat("Aiming/First-Person Horizontal Sensitivity: ",
                         CVAR_SETTING("FirstPersonCameraSensitivity.X"),
                         FloatSliderOptions()
                             .Color(THEME_COLOR)
@@ -1423,7 +1423,7 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
                             .Max(5.0f)
                             .DefaultValue(1.0f)
                             .ShowButtons(true));
-        CVarSliderFloat("Aiming/First-Person Vertical Sensitivity: %.0f %%",
+        CVarSliderFloat("Aiming/First-Person Vertical Sensitivity: ",
                         CVAR_SETTING("FirstPersonCameraSensitivity.Y"),
                         FloatSliderOptions()
                             .Color(THEME_COLOR)
@@ -1445,26 +1445,45 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
     CVarCheckbox(
         "Invert Camera Y Axis", CVAR_SETTING("FreeLook.InvertYAxis"),
         CheckboxOptions().Color(THEME_COLOR).DefaultValue(true).Tooltip("Inverts the Camera Y Axis in:\n-Free look"));
-    CVarSliderFloat("Third-Person Horizontal Sensitivity: %.0f %%", CVAR_SETTING("FreeLook.CameraSensitivity.X"),
+    CVarSliderFloat("Third-Person Horizontal Sensitivity: ", CVAR_SETTING("FreeLook.CameraSensitivity.X"),
                     FloatSliderOptions()
                         .Color(THEME_COLOR)
                         .IsPercentage()
                         .Min(0.01f)
-                        .Max(5.0f)
+                        .Max(2.0f)
                         .DefaultValue(1.0f)
                         .ShowButtons(true));
-    CVarSliderFloat("Third-Person Vertical Sensitivity: %.0f %%", CVAR_SETTING("FreeLook.CameraSensitivity.Y"),
+    CVarSliderFloat("Third-Person Vertical Sensitivity: ", CVAR_SETTING("FreeLook.CameraSensitivity.Y"),
                     FloatSliderOptions()
                         .Color(THEME_COLOR)
                         .IsPercentage()
                         .Min(0.01f)
-                        .Max(5.0f)
+                        .Max(2.0f)
                         .DefaultValue(1.0f)
                         .ShowButtons(true));
-    CVarSliderInt("Camera Distance: %d", CVAR_SETTING("FreeLook.MaxCameraDistance"),
-                  IntSliderOptions().Color(THEME_COLOR).Min(25).Max(900).DefaultValue(185).ShowButtons(true));
-    CVarSliderInt("Camera Transition Speed: %d", CVAR_SETTING("FreeLook.TransitionSpeed"),
-                  IntSliderOptions().Color(THEME_COLOR).Min(0).Max(900).DefaultValue(25).ShowButtons(true));
+    CVarSliderFloat("Camera Max Zoom: ", CVAR_SETTING("FreeLook.MaxZoom"),
+                    FloatSliderOptions()
+                        .Color(THEME_COLOR)
+                        .IsPercentage()
+                        .Min(1.0f)
+                        .Max(5.0f)
+                        .DefaultValue(2.0f)
+                        .ShowButtons(true));
+    CVarSliderFloat("Camera Min Zoom: ", CVAR_SETTING("FreeLook.MinZoom"),
+                    FloatSliderOptions()
+                        .Color(THEME_COLOR)
+                        .IsPercentage()
+                        .Min(0.1f)
+                        .Max(1.0f)
+                        .DefaultValue(0.5f)
+                        .ShowButtons(true));
+    CVarSliderInt("Camera Pitch Range (Degrees): ", CVAR_SETTING("FreeLook.PitchRange"),
+                    IntSliderOptions()
+                        .Color(THEME_COLOR)
+                        .Min(5)
+                        .Max(80)
+                        .DefaultValue(45)
+                        .ShowButtons(true));
     Ship::GuiWindow::EndGroupPanel(0);
 }
 
@@ -1616,7 +1635,7 @@ void SohInputEditorWindow::DrawLinkTab() {
                 Ship::GuiWindow::BeginGroupPanel("Walk Modifier", ImGui::GetContentRegionAvail());
                 CVarCheckbox("Don't affect jump distance/velocity", CVAR_SETTING("WalkModifier.DoesntChangeJump"),
                              CheckboxOptions().Color(THEME_COLOR));
-                CVarSliderFloat("Walk Modifier 1: %.0f %%", CVAR_SETTING("WalkModifier.Mapping1"),
+                CVarSliderFloat("Walk Modifier 1: ", CVAR_SETTING("WalkModifier.Mapping1"),
                                 FloatSliderOptions()
                                     .Color(THEME_COLOR)
                                     .IsPercentage()
@@ -1624,7 +1643,7 @@ void SohInputEditorWindow::DrawLinkTab() {
                                     .Max(5.0f)
                                     .DefaultValue(1.0f)
                                     .ShowButtons(true));
-                CVarSliderFloat("Walk Modifier 2: %.0f %%", CVAR_SETTING("WalkModifier.Mapping2"),
+                CVarSliderFloat("Walk Modifier 2: ", CVAR_SETTING("WalkModifier.Mapping2"),
                                 FloatSliderOptions()
                                     .Color(THEME_COLOR)
                                     .IsPercentage()
@@ -1634,7 +1653,7 @@ void SohInputEditorWindow::DrawLinkTab() {
                                     .ShowButtons(true));
                 Ship::GuiWindow::EndGroupPanel(0);
                 Ship::GuiWindow::BeginGroupPanel("Swim Modifier", ImGui::GetContentRegionAvail());
-                CVarSliderFloat("Swim Modifier 1: %.0f %%", CVAR_SETTING("WalkModifier.SwimMapping1"),
+                CVarSliderFloat("Swim Modifier 1: ", CVAR_SETTING("WalkModifier.SwimMapping1"),
                                 FloatSliderOptions()
                                     .Color(THEME_COLOR)
                                     .IsPercentage()
@@ -1642,7 +1661,7 @@ void SohInputEditorWindow::DrawLinkTab() {
                                     .Max(5.0f)
                                     .DefaultValue(1.0f)
                                     .ShowButtons(true));
-                CVarSliderFloat("Swim Modifier 2: %.0f %%", CVAR_SETTING("WalkModifier.SwimMapping2"),
+                CVarSliderFloat("Swim Modifier 2: ", CVAR_SETTING("WalkModifier.SwimMapping2"),
                                 FloatSliderOptions()
                                     .Color(THEME_COLOR)
                                     .IsPercentage()

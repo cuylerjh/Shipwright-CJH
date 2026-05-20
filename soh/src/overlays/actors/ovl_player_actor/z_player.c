@@ -2453,7 +2453,8 @@ s32 Player_FriendlyLockOnOrParallel(Player* this) {
  */
 s32 Player_UpdateHostileLockOn(Player* this) {
     if ((this->focusActor != NULL) &&
-        CHECK_FLAG_ALL(this->focusActor->flags, ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE)) {
+        (CHECK_FLAG_ALL(this->focusActor->flags, ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE) ||
+         this->focusActor == ACTOR_EN_BOOM)) {
         this->stateFlags1 |= PLAYER_STATE1_HOSTILE_LOCK_ON;
         return true;
     } else {
@@ -2651,7 +2652,15 @@ void Player_StartChangingHeldItem(Player* this, PlayState* play) {
     }
 
     if (heldItemAction != PLAYER_IA_NONE) {
-        playSpeed *= 2.0f;
+        if (!CVarGetInteger(CVAR_ENHANCEMENT("PeacefulDraw"), 0) || 
+            (heldItemAction != PLAYER_IA_SWORD_KOKIRI && heldItemAction != PLAYER_IA_SWORD_MASTER && heldItemAction != PLAYER_IA_SWORD_BIGGORON) ||
+            (this->focusActor != NULL && (this->focusActor->flags & ACTOR_FLAG_HOSTILE)) ||
+            (play->actorCtx.targetCtx.arrowPointedActor != NULL && (play->actorCtx.targetCtx.arrowPointedActor->flags & ACTOR_FLAG_HOSTILE))) {
+            
+            playSpeed *= 2.0f;
+        } else {
+            playSpeed *= 1.5f;
+        }
     }
 
     LinkAnimation_Change(play, &this->upperSkelAnime, anim, playSpeed, startFrame, endFrame, ANIMMODE_ONCE, 0.0f);
@@ -2710,7 +2719,7 @@ s32 func_8083442C(Player* this, PlayState* play) {
 
     if ((this->heldItemAction >= PLAYER_IA_BOW_FIRE) && (this->heldItemAction <= PLAYER_IA_BOW_0E) &&
         (gSaveContext.magicState != MAGIC_STATE_IDLE)) {
-        Sfx_PlaySfxCentered(NA_SE_SY_ERROR);
+        Sfx_PlaySfxCentered(NA_SE_SY_ERROR); 
     } else {
         Player_SetUpperActionFunc(this, func_808351D4);
 
@@ -2870,7 +2879,12 @@ s32 Player_UpperAction_ChangeHeldItem(Player* this, PlayState* play) {
     if (LinkAnimation_Update(play, &this->upperSkelAnime) ||
         ((Player_ItemToItemAction(this->heldItemId) == this->heldItemAction) &&
          (sUseHeldItem =
-              (sUseHeldItem || ((this->modelAnimType != PLAYER_ANIMTYPE_3) && (play->shootingGalleryStatus == 0)))))) {
+              (sUseHeldItem || ((this->modelAnimType != PLAYER_ANIMTYPE_3) && (play->shootingGalleryStatus == 0) &&
+                                (!CVarGetInteger(CVAR_ENHANCEMENT("PeacefulDraw"), 0) ||
+                                 (this->heldItemAction != PLAYER_IA_SWORD_KOKIRI && this->heldItemAction != PLAYER_IA_SWORD_MASTER && this->heldItemAction != PLAYER_IA_SWORD_BIGGORON) ||
+                                 (this->focusActor != NULL && (this->focusActor->flags & ACTOR_FLAG_HOSTILE)) ||
+                                 (play->actorCtx.targetCtx.arrowPointedActor != NULL && (play->actorCtx.targetCtx.arrowPointedActor->flags & ACTOR_FLAG_HOSTILE)))))))) {
+        
         Player_SetUpperActionFunc(this, sItemActionUpdateFuncs[this->heldItemAction]);
         this->unk_834 = 0;
         this->idleType = PLAYER_IDLE_DEFAULT;
@@ -3333,9 +3347,12 @@ s32 func_808359FC(Player* this, PlayState* play) {
 
             this->stateFlags1 |= PLAYER_STATE1_BOOMERANG_THROWN;
 
-            if (!Player_CheckHostileLockOn(this)) {
+            if (!Player_CheckHostileLockOn(this) && !play->manualCamera) {
                 Player_SetParallel(this);
-            }
+                if (boomerang->actor.xzDistToPlayer > boomerang->speed) {
+                    this->focusActor = boomerang;
+                }
+            } 
 
             this->unk_A73 = 4;
             Player_PlaySfx(this, NA_SE_IT_BOOMERANG_THROW);
@@ -3949,8 +3966,43 @@ void Player_UpdateZTargeting(Player* this, PlayState* play) {
             if (this->focusActor != NULL) {
                 if ((this->actor.category == ACTORCAT_PLAYER) && (this->focusActor != this->autoLockOnActor) &&
                     func_8002F0C8(this->focusActor, this, ignoreLeash)) {
-                    Player_ReleaseLockOn(this);
-                    this->stateFlags1 |= PLAYER_STATE1_LOCK_ON_FORCED_TO_RELEASE;
+
+                    // SoH: Determine if the lock break is due to the enemy dying/despawning
+                    // rather than just walking out of the leash range.
+                    bool targetDied =
+                        (this->focusActor->update == NULL) || !(this->focusActor->flags & ACTOR_FLAG_ATTENTION_ENABLED);
+                    bool swappedTarget = false;
+                    bool isGrabbed = (this->stateFlags2 & PLAYER_STATE2_GRABBED_BY_ENEMY) != 0;
+
+                    // --- SoH TP Auto-Lock Execution ---
+                    if (CVarGetInteger(CVAR_ENHANCEMENT("TPAutoRetarget"), 0) && targetDied) {
+
+                        // Check current Z-Target settings (0 = Switch, 1 = Hold)
+                        bool usingHoldTargeting = (gSaveContext.zTargetSetting != 0);
+
+                        // If we are using Switch, OR we are using Hold AND still holding the Z button
+                        if (!usingHoldTargeting || zButtonHeld) {
+                            // Grab the secondary target the game engine already calculated for us
+                            Actor* nextTarget = play->actorCtx.targetCtx.unk_94;
+
+                            // If a valid secondary target exists, seamlessly transition to it!
+                            if (nextTarget != NULL && !(nextTarget->flags & ACTOR_FLAG_LOCK_ON_DISABLED) &&
+                                CHECK_FLAG_ALL(nextTarget->flags, ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE)) {
+                                this->focusActor = nextTarget;
+
+                                // Reset the targeting timer to give the camera time to swing over smoothly
+                                this->zTargetActiveTimer = 15;
+                                swappedTarget = true;
+                            }
+                        }
+                    }
+                    // If we didn't swap to a new target, drop the lock normally
+                    if (!swappedTarget) {
+                        Player_ReleaseLockOn(this);
+                        this->stateFlags1 |= PLAYER_STATE1_LOCK_ON_FORCED_TO_RELEASE;
+                    }
+                    // ----------------------------------
+
                 } else if (this->focusActor != NULL) {
                     this->focusActor->targetPriority = 40;
                 }
@@ -4860,8 +4912,11 @@ s32 func_808382DC(Player* this, PlayState* play) {
             }
 
             this->actor.colChkInfo.damage += this->knockbackDamage;
+            s32 invincibilityTimer = CVarGetInteger(CVAR_ENHANCEMENT("KnockbackInvincibility"), 0) != 0
+                                         ? 0
+                                         : 20 * CVarGetFloat(CVAR_ENHANCEMENT("InvincibilityTimerMulti"), 1.0f);
             func_80837C0C(play, this, knockbackResponse[this->knockbackType - 1], this->knockbackSpeed,
-                          this->knockbackYVelocity, this->knockbackRot, 10);
+                          this->knockbackYVelocity, this->knockbackRot, invincibilityTimer);
         } else {
             sp64 = (this->shieldQuad.base.acFlags & AC_BOUNCED) != 0;
 
@@ -4948,7 +5003,8 @@ s32 func_808382DC(Player* this, PlayState* play) {
                     sp4C = PLAYER_HIT_RESPONSE_NONE;
                 }
 
-                func_80837C0C(play, this, sp4C, 4.0f, 5.0f, Actor_WorldYawTowardActor(ac, &this->actor), 10);
+                func_80837C0C(play, this, sp4C, 4.0f, 5.0f, Actor_WorldYawTowardActor(ac, &this->actor),
+                              20 * CVarGetFloat(CVAR_ENHANCEMENT("InvincibilityTimerMultiplier"), 1.0f));
             } else if (this->invincibilityTimer != 0) {
                 return 0;
             } else {
@@ -4965,7 +5021,8 @@ s32 func_808382DC(Player* this, PlayState* play) {
                       (this->floorTypeTimer >= D_808544F4[sp48])))) {
                     this->floorTypeTimer = 0;
                     this->actor.colChkInfo.damage = 4;
-                    func_80837C0C(play, this, PLAYER_HIT_RESPONSE_NONE, 4.0f, 5.0f, this->actor.shape.rot.y, 10);
+                    func_80837C0C(play, this, PLAYER_HIT_RESPONSE_NONE, 4.0f, 5.0f, this->actor.shape.rot.y,
+                                  20 * CVarGetFloat(CVAR_ENHANCEMENT("InvincibilityTimerMultiplier"), 1.0f));
                 } else {
                     return 0;
                 }
@@ -6196,7 +6253,7 @@ s32 Player_ActionHandler_13(Player* this, PlayState* play) {
             } else if (func_8083AD4C(play, this)) {
                 if (!(this->stateFlags1 & PLAYER_STATE1_ON_HORSE)) {
                     Player_SetupAction(play, this, Player_Action_8084B1D8, 1);
-                    this->av2.actionVar2 = 13;
+                    this->av2.actionVar2 = CVarGetInteger(CVAR_ENHANCEMENT("FasterFirstPerson"), 0) ? 5 : 13;
                     func_8083B010(this);
                 }
                 this->stateFlags1 |= PLAYER_STATE1_FIRST_PERSON;
@@ -6416,6 +6473,65 @@ void func_8083BCD0(Player* this, PlayState* play, s32 controlStickDirection) {
     Player_PlaySfx(this, ((controlStickDirection << 0xE) == 0x8000) ? NA_SE_PL_ROLL : NA_SE_PL_SKIP);
 }
 
+extern f32 sMeleeWeaponLengths[];
+
+void Player_SetDynamicJumpslashSpeed(Player* this, PlayState* play) {
+    if (this->focusActor == NULL) {
+        return;
+    }
+
+    float MAX_Y_DROP = -1000.0f; 
+    float MAX_JUMP_SPEED = 15.0f;
+
+    // 1. Get the current weapon index
+    s32 weaponIndex = Player_GetMeleeWeaponHeld(this);
+    
+    // Array bounds safety check (fallback to Kokiri Sword length if something goes wrong)
+    if (weaponIndex < 0 || weaponIndex > 5) {
+        weaponIndex = 1; 
+    }
+
+    // 2. Convert raw length to world units (assuming 0.01f scale) and find the center
+    float weaponLengthWorld = sMeleeWeaponLengths[weaponIndex] * 0.01f;
+    float idealHitDistance = weaponLengthWorld / 2.0f;
+
+    // 3. Calculate distance and apply the weapon offset
+    float rawDistXZ = Math_Vec3f_DistXZ(&this->actor.world.pos, &this->focusActor->world.pos);
+    float targetDistXZ = rawDistXZ - idealHitDistance;
+
+    // 4. Prevent backward jumps if Link is already too close
+    if (targetDistXZ < 0.0f) {
+        targetDistXZ = 0.0f;
+    }
+    // --------------------------
+
+    float deltaY = this->focusActor->world.pos.y - this->actor.world.pos.y;
+    float vy = 5.0f; 
+    float g = 1.0f; 
+
+    if (deltaY > MAX_Y_DROP) {
+        float t = 0.0f;
+        float discriminant = (vy * vy) - (2.0f * g * deltaY);
+        
+        if (discriminant >= 0.0f) {
+            t = (vy + sqrtf(discriminant)) / g;
+        } else {
+            t = (2.0f * vy) / g;
+        }
+        
+        if (t > 0.0f) {
+            // Use our newly adjusted targetDistXZ instead of the raw distance
+            float requiredSpeedXZ = targetDistXZ / t;
+            
+            if (requiredSpeedXZ > MAX_JUMP_SPEED) {
+                this->linearVelocity = MAX_JUMP_SPEED;
+            } else {
+                this->linearVelocity = requiredSpeedXZ;
+            }
+        }
+    }
+}
+
 s32 Player_ActionHandler_10(Player* this, PlayState* play) {
     s32 controlStickDirection;
 
@@ -6435,6 +6551,10 @@ s32 Player_ActionHandler_10(Player* this, PlayState* play) {
                 } else {
                     if ((Player_GetMeleeWeaponHeld(this) != 0) && Player_CanUpdateItems(this)) {
                         func_8083BA90(play, this, PLAYER_MWA_JUMPSLASH_START, 5.0f, 5.0f);
+
+                        if (CVarGetInteger(CVAR_ENHANCEMENT("TPJumpSlash"), 0) && (this->focusActor != NULL)) {
+                            Player_SetDynamicJumpslashSpeed(this, play);
+                        }
                     } else {
                         Player_SetupRoll(this, play);
                     }
@@ -9331,7 +9451,7 @@ s32 func_80842DF4(PlayState* play, Player* this) {
                 if (this->actor.colChkInfo.atHitEffect == 1) {
                     this->actor.colChkInfo.damage = 8;
                     func_80837C0C(play, this, PLAYER_HIT_RESPONSE_ELECTRIC_SHOCK, 0.0f, 0.0f, this->actor.shape.rot.y,
-                                  10);
+                                  20 * CVarGetFloat(CVAR_ENHANCEMENT("InvincibilityTimerMultiplier"), 1.0f));
                     return 1;
                 }
             }
@@ -9715,7 +9835,7 @@ s32 func_80843E64(PlayState* play, Player* this) {
             return -1;
         }
 
-        Player_SetIntangibility(this, 40);
+        Player_SetIntangibility(this, 40 * CVarGetFloat(CVAR_ENHANCEMENT("InvincibilityTimerMult"), 1.0f));
         Player_RequestQuake(play, 32967, 2, 30);
         Player_RequestRumble(this, impactInfo->rumbleStrength, impactInfo->rumbleDuration,
                              impactInfo->rumbleDecreaseRate, 0);
@@ -12779,7 +12899,8 @@ void Player_Draw(Actor* thisx, PlayState* play2) {
         Gfx_SetupDL_25Xlu(play->state.gfxCtx);
 
         if (this->invincibilityTimer > 0) {
-            this->damageFlickerAnimCounter += CLAMP(50 - this->invincibilityTimer, 8, 40);
+            f32 invMult = CVarGetFloat(CVAR_ENHANCEMENT("InvincibilityTimerMult"), 1.0f);
+            this->damageFlickerAnimCounter += CLAMP(50 * invMult - this->invincibilityTimer * invMult, 8 * invMult, 40 * invMult);
             POLY_OPA_DISP = Gfx_SetFog2(POLY_OPA_DISP, 255, 0, 0, 0, 0,
                                         4000 - (s32)(Math_CosS(this->damageFlickerAnimCounter * 256) * 2000.0f));
         } else if (this->slimeTimer != 0) {
@@ -13541,7 +13662,9 @@ void Player_Action_8084BF1C(Player* this, PlayState* play) {
         phi_f2 = -1.0f;
     }
 
-    this->skelAnime.playSpeed = phi_f2 * phi_f0 + phi_f2 * (CVarGetInteger(CVAR_ENHANCEMENT("ClimbSpeed"), 0) + Player_GetStrength());
+    s16 strengthBoost = CVarGetInteger(CVAR_ENHANCEMENT("StrengthBoost"), 0) ? Player_GetStrength() : 0;
+    this->skelAnime.playSpeed =
+        phi_f2 * phi_f0 + phi_f2 * (CVarGetInteger(CVAR_ENHANCEMENT("ClimbSpeed"), 0) + strengthBoost);
 
     if (this->av2.actionVar2 >= 0) {
         if ((this->actor.wallPoly != NULL) && (this->actor.wallBgId != BGCHECK_SCENE)) {
@@ -14649,7 +14772,8 @@ void Player_Action_8084E6D4(Player* this, PlayState* play) {
                     func_8083C0E8(this, play);
                 } else {
                     this->actor.colChkInfo.damage = 0;
-                    func_80837C0C(play, this, PLAYER_HIT_RESPONSE_ICE_TRAP, 0.0f, 0.0f, 0, 10);
+                    func_80837C0C(play, this, PLAYER_HIT_RESPONSE_ICE_TRAP, 0.0f, 0.0f, 0,
+                                  20 * CVarGetFloat(CVAR_ENHANCEMENT("InvincibilityTimerMult"), 1.0f));
                 }
                 return;
             }

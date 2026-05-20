@@ -297,9 +297,6 @@ void SohMenu::AddMenuEnhancements() {
         .Options(CheckboxOptions().Tooltip(
             "Fisherman asks if you want to quit at the door if you try to leave the Fishing Pond "
             "while still holding the Fishing Rod."));
-    AddWidget(path, "Instant Putaway", WIDGET_CVAR_CHECKBOX)
-        .CVar(CVAR_ENHANCEMENT("InstantPutaway"))
-        .Options(CheckboxOptions().Tooltip("Allow Link to put items away without having to wait around."));
     AddWidget(path, "Navi Timer Resets on Scene Change", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("ResetNaviTimer"))
         .Options(
@@ -336,6 +333,29 @@ void SohMenu::AddMenuEnhancements() {
                 "This setting is disabled because a randomizer savefile with \"Jabu-Jabu: Open\" is loaded.";
         })
         .Options(CheckboxOptions().Tooltip("Allow Link to enter Jabu-Jabu without feeding him a fish."));
+
+    AddWidget(path, "Refinement", WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, "Instant Putaway", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("InstantPutaway"))
+        .Options(CheckboxOptions().Tooltip("Allow Link to put items away without having to wait around."));
+    AddWidget(path, "Peaceful Sword Draw", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("PeacefulDraw"))
+        .Options(CheckboxOptions().Tooltip("Allow Link to draw his sword without swinging it if no enemies are nearby."));
+    AddWidget(path, "Faster First Person Transition", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("FasterFirstPerson"))
+        .Options(CheckboxOptions().Tooltip("Allow Link to aim much sooner after entering First-Person."));
+    AddWidget(path, "360 Targeting", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("TargetBehind"))
+        .Options(CheckboxOptions().Tooltip(
+            "Allows Link to target actors that are behind him. May require a room reload if toggled during gameplay."));
+    AddWidget(path, "Enemy Auto-Retarget", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("TPAutoRetarget"))
+        .Options(CheckboxOptions().Tooltip("Allows Link to target the next hostile actor (if any) upon defeating the "
+                                           "current target. May require a room reload if toggled during gameplay."));
+    AddWidget(path, "Target Jump Slash", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("TPJumpSlash"))
+        .Options(CheckboxOptions().Tooltip("Jump slashes while locked on will attempt to jump to the target. "
+                                           "May require a room reload if toggled during gameplay."));
 
     // Skips & Speed-ups
     path.sidebarName = "Skips & Speed-ups";
@@ -591,6 +611,11 @@ void SohMenu::AddMenuEnhancements() {
         .RaceDisable(false)
         .Options(CheckboxOptions().Tooltip(
             "Replaces most 2D items and projectiles on the overworld with their equivalent 3D models."));
+    AddWidget(path, "Refined Dropped Items", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("RefinedDrops"))
+        .RaceDisable(false)
+        .Options(CheckboxOptions().Tooltip(
+            "Adds a snappier bounce and sound effects to dropped items."));
     AddWidget(path, "Animated Link in Pause Menu", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("PauseMenuAnimatedLink"))
         .RaceDisable(false)
@@ -629,6 +654,10 @@ void SohMenu::AddMenuEnhancements() {
         .CVar(CVAR_ENHANCEMENT("MinimalUI"))
         .Options(CheckboxOptions().Tooltip("Hides most of the UI when not needed.\n"
                                            "NOTE: Doesn't activate until scene transition."));
+    AddWidget(path, "Immersive Z-Targeting", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("ImmersiveZTargeting"))
+        .Options(CheckboxOptions().Tooltip("Hides the nearby target and lock-on Z-Targeting arrows "
+                                           "and mutes the associated sounds."));
     AddWidget(path, "Disable Hot/Underwater Warning Text", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("DisableTunicWarningText"))
         .Options(CheckboxOptions().Tooltip("Disables warning text when you don't have on the Goron/Zora Tunic "
@@ -648,6 +677,14 @@ void SohMenu::AddMenuEnhancements() {
         .CVar(CVAR_ENHANCEMENT("NoHUDHeartAnimation"))
         .RaceDisable(false)
         .Options(CheckboxOptions().Tooltip("Disables the Beating Animation of the Hearts on the HUD."));
+    AddWidget(path, "Delayed Health Update Visuals", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("VisualHeartUpdate"))
+        .RaceDisable(false)
+        .Options(CheckboxOptions().Tooltip("HUD updates hearts over time instead of instantly."));
+    AddWidget(path, "True Quarter Heart Values", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("TrueQuarterHearts"))
+        .RaceDisable(false)
+        .Options(CheckboxOptions().Tooltip("Heart fractions are accurately divided into 4 units per quarter."));
     AddWidget(path, "Glitch Line-up Tick", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("DrawLineupTick"))
         .Options(CheckboxOptions().Tooltip(
@@ -953,6 +990,19 @@ void SohMenu::AddMenuEnhancements() {
     AddWidget(path, "Rebottle Blue Fire", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("RebottleBlueFire"))
         .Options(CheckboxOptions().Tooltip("Blue Fire dropped from bottle can be bottled."));
+    
+    AddWidget(path, "Equipment", WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, "Strength Block Push/Climb Speed", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("StrengthBoost"))
+        .Options(CheckboxOptions().Tooltip("Each strength upgrade increases block pushing and climbing speed."));
+    AddWidget(path, "Enhanced Golden Gauntlets", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("SuperGoldGauntlets"))
+        .Options(CheckboxOptions().Tooltip(
+            "Gold Gauntlets grant additional bonuses, like wielding two-handed weapons in one hand."));
+    AddWidget(path, "Enhanced Iron Boots", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("SuperIronBoots"))
+        .Options(CheckboxOptions().Tooltip(
+            "Increases underwater sinking speed, allows the use of melee weapons, and can open chests underwater."));
 
     // Fixes
     path.sidebarName = "Fixes";
@@ -1048,6 +1098,10 @@ void SohMenu::AddMenuEnhancements() {
         })
         .Options(
             CheckboxOptions().Tooltip("Fixes the Broken Giant's Knife flag not being reset when Medigoron fixes it."));
+    AddWidget(path, "Fix Angled Torch Collision", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("MQTorchFix"))
+        .Options(CheckboxOptions().Tooltip("Changes the shape of and better aligns the lightable torch collision "
+                                           "to torches. Most notable in MQ Fire and Water Temple."));
 
     AddWidget(path, "Camera Fixes", WIDGET_SEPARATOR_TEXT);
     AddWidget(path, "Fix Camera Drift", WIDGET_CVAR_CHECKBOX)
@@ -1250,6 +1304,12 @@ void SohMenu::AddMenuEnhancements() {
                      .ComboMap(bonkDamageValues)
                      .DefaultIndex(BONK_DAMAGE_NONE)
                      .Tooltip("Modifies Damage taken after Bonking."));
+    AddWidget(path, "Invincibility Timer Multiplier: %.2fx", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_ENHANCEMENT("InvincibilityTimerMult"))
+        .Options(FloatSliderOptions().Format("%.2f").Min(0.1f).Max(5.0f).DefaultValue(1.0f));
+    AddWidget(path, "No Knockdown Invulnerability", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("KnockdownInvulnerability"))
+        .Options(CheckboxOptions().Tooltip("Removes invincibility granted after being knocked down."));
     AddWidget(path, "Spawn with Full Health", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("FullHealthSpawn"))
         .Options(CheckboxOptions().Tooltip("Respawn with Full Health instead of 3 hearts."));
@@ -1717,6 +1777,9 @@ void SohMenu::AddMenuEnhancements() {
     AddWidget(path, "Fireproof Deku Shield", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_CHEAT("FireproofDekuShield"))
         .Options(CheckboxOptions().Tooltip("Prevents the Deku Shield from burning on contact with fire."));
+    AddWidget(path, "Metal Deku Shield", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_CHEAT("MetalDekuShield"))
+        .Options(CheckboxOptions().Tooltip("Changes Deku Shield's properties to metal. Useful for mods."));
     AddWidget(path, "Shield with Two-Handed Weapons", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_CHEAT("ShieldTwoHanded"))
         .Options(CheckboxOptions().Tooltip(

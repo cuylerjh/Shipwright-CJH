@@ -125,7 +125,8 @@ void func_8088B268(BgHidanRock* this, PlayState* play) {
     f32 sp2C;
     s32 temp_v1;
     s32 frame;
-    Player* player = GET_PLAYER(play);
+    Player* player = GET_PLAYER(play);    
+    s32 strengthBoost = CVarGetInteger(CVAR_ENHANCEMENT("StrengthBoost"), 0) ? Player_GetStrength() : 0;
 
     if (this->dyna.unk_150 != 0.0f) {
         if (this->timer == 0) {
@@ -137,10 +138,12 @@ void func_8088B268(BgHidanRock* this, PlayState* play) {
                 }
             }
 
-            this->dyna.actor.speedXZ =
-                this->dyna.actor.speedXZ + (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.3) + 0.5f;
+            this->dyna.actor.speedXZ = this->dyna.actor.speedXZ +
+                                       (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.3) +
+                                       strengthBoost * 0.3 + 0.5f;
             this->dyna.actor.speedXZ = CLAMP_MAX(this->dyna.actor.speedXZ,
-                                                 2.0f + (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.5));
+                                                 2.0f + (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.5) +
+                                                     strengthBoost * 0.5);
 
             if (D_8088BFC0 > 0.0f) {
                 temp_v1 = Math_StepToF(&D_8088BFC0, 20.0f, this->dyna.actor.speedXZ);
@@ -158,7 +161,8 @@ void func_8088B268(BgHidanRock* this, PlayState* play) {
                 this->dyna.actor.home.pos.z = this->dyna.actor.world.pos.z;
                 D_8088BFC0 = 0.0f;
                 this->dyna.actor.speedXZ = 0.0f;
-                this->timer = 5 - ((CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 3) / 5);
+                this->timer =
+                    5 - ((CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 3) / 5 - (strengthBoost * 3 / 5));
             }
 
             func_8002F974(&this->dyna.actor, NA_SE_EV_ROCK_SLIDE - SFX_FLAG);

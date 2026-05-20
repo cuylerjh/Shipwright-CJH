@@ -9,6 +9,7 @@
 #include "vt.h"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include <assert.h>
+#include "soh/Enhancements/custom-message/CustomMessageTypes.h"
 
 #define FLAGS                                                                                 \
     (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_UPDATE_CULLING_DISABLED | \
@@ -164,31 +165,6 @@ static ColliderJntSphInit sEnRrJntSphInit = {
     sbodySphElementsInit,
 };
 
-static ColliderQuadInit sMouthQuadInit = {
-    {
-        COLTYPE_HIT0,
-        AT_NONE,
-        AC_ON | AC_HARD,
-        AC_TYPE_PLAYER,
-        OC1_ON | OC1_NO_PUSH | OC1_TYPE_ALL,
-        OC2_TYPE_1,
-    },
-    {
-        ELEMTYPE_UNK0,
-        { 0xFFCFFFFF, 0x00, 0x08 },
-        { 0xFFCFFFFF, 0x00, 0x00 },
-        TOUCH_ON | TOUCH_SFX_NONE,
-        BUMP_ON | BUMP_HOOKABLE,
-        OCELEM_ON,
-    },
-    { {
-        { 0.0f, 0.0f, 0.0f },
-        { 0.0f, 0.0f, 0.0f },
-        { 0.0f, 0.0f, 0.0f },
-        { 0.0f, 0.0f, 0.0f },
-    } },
-};
-
 static DamageTable sDamageTable = {
     /* Deku nut      */ DMG_ENTRY(0, RR_DMG_NONE),
     /* Deku stick    */ DMG_ENTRY(2, RR_DMG_NORMAL),
@@ -240,8 +216,6 @@ void EnRr_Init(Actor* thisx, PlayState* play) {
     Collider_SetCylinderType1(play, &this->cylinder, &this->actor, &sCylinderInit1);
     Collider_InitJntSph(play, &this->bodySph);
     Collider_SetJntSph(play, &this->bodySph, &this->actor, &sEnRrJntSphInit, this->bodySphItems);
-    Collider_InitQuad(play, &this->mouthQuad);
-    Collider_SetQuad(play, &this->mouthQuad, &this->actor, &sMouthQuadInit);
     this->bodySph.elements[0].dim.worldSphere.radius = sEnRrJntSphInit.elements[0].dim.modelSphere.radius;
     this->bodySph.elements[1].dim.worldSphere.radius = sEnRrJntSphInit.elements[1].dim.modelSphere.radius;
     this->bodySph.elements[2].dim.worldSphere.radius = sEnRrJntSphInit.elements[2].dim.modelSphere.radius;
@@ -311,7 +285,6 @@ void EnRr_Destroy(Actor* thisx, PlayState* play) {
 
     Collider_DestroyCylinder(play, &this->cylinder);
     Collider_DestroyJntSph(play, &this->bodySph);
-    Collider_DestroyQuad(play, &this->mouthQuad);
 }
 
 void EnRr_SetDefaultMotionParams(EnRr* this, f32 rate) {
@@ -904,9 +877,8 @@ s32 EnRr_CollisionCheck(EnRr* this, PlayState* play) {
     ColliderCylinder* acHit;
     s32 flag1 = (this->cylinder.base.acFlags & AC_HIT) != 0 && this->invincibilityTimer == 0;
     s32 flag2 = (this->bodySph.base.acFlags & AC_HIT) != 0 && this->invincibilityTimer == 0;
-    s32 flag3 = (this->mouthQuad.base.acFlags & AC_HIT) != 0 && this->invincibilityTimer == 0;
 
-    if (flag1 || flag2 || flag3) {
+    if (flag1 || flag2) {
         if (flag1) {
             acHit = &this->cylinder;
         } else if (flag2) {
@@ -914,9 +886,6 @@ s32 EnRr_CollisionCheck(EnRr* this, PlayState* play) {
             if (this->bodySph.base.acFlags & AC_HARD) {
                 return;
             }
-        } else if (flag3) {
-            acHit = &this->mouthQuad;
-            return;
         }
 
         this->cylinder.base.acFlags &= ~AC_HIT;
@@ -973,13 +942,10 @@ void EnRr_PlayerCollisionCheck(EnRr* this, PlayState* play) {
 
     if ((this->regrabTimer == 0) && (this->actor.colorFilterTimer == 0) && !(player->swallowed) &&
         (player->invincibilityTimer == 0) &&
-        (((this->cylinder.base.ocFlags1 & OC1_HIT) || (this->bodySph.base.ocFlags1 & OC1_HIT) ||
-          (this->mouthQuad.base.ocFlags1 & OC1_HIT)) &&
-         ((this->cylinder.base.oc == &player->actor) || (this->bodySph.base.oc == &player->actor) ||
-          (this->mouthQuad.base.oc == &player->actor)))) {
+        (((this->cylinder.base.ocFlags1 & OC1_HIT) || (this->bodySph.base.ocFlags1 & OC1_HIT)) &&
+         ((this->cylinder.base.oc == &player->actor) || (this->bodySph.base.oc == &player->actor)))) {
         this->cylinder.base.ocFlags1 &= ~OC1_HIT;
         this->bodySph.base.ocFlags1 &= ~OC1_HIT;
-        this->mouthQuad.base.ocFlags1 &= ~OC1_HIT;
 
         if (play->grabPlayer(play, player)) {
             player->actor.parent = &this->actor;
@@ -1126,7 +1092,7 @@ void EnRr_Approach(EnRr* this, PlayState* play) {
     // Moves towards player if in range.
     f32 range = (TYPE_INVERT(this) ? 500.0f : 350.0f) + this->actor.scale.y * 5000.0f;
 
-    if ((this->actor.xyzDistToPlayerSq < SQ(range)) && !(player->swallowed)) {
+    if (((this->actor.xyzDistToPlayerSq < SQ(range)) || (this->actor.isTargeted)) && !(player->swallowed)) {
 
         // Only check to reach when in movement range and only every other frame.
         if ((this->frameCount & 1) == 0) {
@@ -1284,13 +1250,13 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     Math_StepToF(&player->actor.world.pos.z, this->bodySphPos[3].z, snapRateXZ);
     f32 decRate = ((this->heightRef / 30.0f) * (1.0f - (this->actor.scale.y * 15.0f)));
     f32 vacuumMod = this->vacuumCooldown ? 1.35f : 1.0f; // Getting caught during a vacuum speeds up descent.
-    f32 offsetTarget = (!TYPE_INVERT(this)) ? -this->heightRef * 0.9f : this->heightRef * 0.05f;
+    f32 offsetTarget = (!TYPE_INVERT(this)) ? -this->heightRef * 0.8f : this->heightRef * 0.05f;
     if (this->actionFunc != EnRr_ScoopPlayer) {
         Math_StepToF(&this->swallowOffset, offsetTarget, decRate * vacuumMod);
     }
 
     if (this->actor.scale.y <= 0.015f && (LINK_IS_ADULT)) {
-        f32 playerScaleTarget = 0.00875f;
+        f32 playerScaleTarget = 0.0085f;
         Math_StepToF(&player->actor.scale.x, playerScaleTarget,
                      (0.01f - playerScaleTarget) / (this->transitionRate * 2.0f));
         Math_StepToF(&player->actor.scale.y, playerScaleTarget,
@@ -1832,6 +1798,32 @@ void EnRr_Damage(EnRr* this, PlayState* play) {
     }
 }
 
+extern GetItemEntry CBridge_GetItemEntryFromRG(int rgId);
+
+void EnRr_DropStolenItem(PlayState* play, Vec3f* spawnPos, s32 rgId) {
+    // 1. Drop the _GI suffix here! Use the silent pickup parameter.
+    EnItem00* drop = (EnItem00*)Actor_Spawn(&play->actorCtx, play, ACTOR_EN_ITEM00, 
+                                            spawnPos->x, spawnPos->y, spawnPos->z, 
+                                            0, 0, 0, 
+                                            ITEM00_SOH_GIVE_ITEM_ENTRY, true);
+
+    if (drop != NULL) {
+        // 2. REMOVE the drop->getItemId assignment completely!
+        
+        // Fetch the struct through the bridge
+        drop->itemEntry = CBridge_GetItemEntryFromRG(rgId); 
+        
+        // Apply bouncy drop physics
+        drop->actor.velocity.y = 8.0f;
+        drop->actor.speedXZ = 2.0f;
+        drop->actor.gravity = -0.9f;
+        drop->actor.world.rot.y = Rand_CenteredFloat(65536.0f);
+        
+        drop->actor.flags |= ACTOR_FLAG_UPDATE_CULLING_DISABLED;
+        drop->unk_15A = 220; 
+    }
+}
+
 void EnRr_Death(EnRr* this, PlayState* play) {
     EnRrStruct* segment;
     s16 i;
@@ -1848,97 +1840,66 @@ void EnRr_Death(EnRr* this, PlayState* play) {
     }
 
     if (this->frameCount >= 95) {
-        switch (this->eatenShield) {
-            case 1:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_SHIELD_DEKU);
-                break;
-            case 2:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_SHIELD_HYLIAN);
-                break;
-            case 3:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_SHIELD_MIRROR);
-                break;
-        }
-        switch (this->eatenTunic) {
-            case 1:
-                // Item_DropCollectible(play, &this->actor.world.pos, ITEM00_TUNIC_KOKIRI);
-                break;
-            case 2:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_TUNIC_GORON);
-                break;
-            case 3:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_TUNIC_ZORA);
-                break;
-        }
-        switch (this->eatenBoots) {
-            case 1:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOOTS_KOKIRI);
-                break;
-            case 2:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOOTS_IRON);
-                break;
-            case 3:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOOTS_HOVER);
-                break;
-        }
-        switch (this->eatenSword) {
-            case 1:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_SWORD_KOKIRI);
-                break;
-            case 2:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_SWORD_MASTER);
-                break;
-            case 3:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_SWORD_BGS);
-                break;
-        }
+        // 1. Collect all stolen items into an array
+        s32 itemsToDrop[6]; // Max possible stolen items at once
+        u8 dropCount = 0;
+
+        // Shields
+        if (this->eatenShield == 1) itemsToDrop[dropCount++] = RG_DEKU_SHIELD;
+        else if (this->eatenShield == 2) itemsToDrop[dropCount++] = RG_HYLIAN_SHIELD;
+        else if (this->eatenShield == 3) itemsToDrop[dropCount++] = RG_MIRROR_SHIELD;
+
+        // Tunics
+        // if (this->eatenTunic == 1) itemsToDrop[dropCount++] = RG_KOKIRI_TUNIC;
+        if (this->eatenTunic == 2) itemsToDrop[dropCount++] = RG_GORON_TUNIC;
+        else if (this->eatenTunic == 3) itemsToDrop[dropCount++] = RG_ZORA_TUNIC;
+
+        // Boots
+        //if (this->eatenBoots == 1) itemsToDrop[dropCount++] = RG_KOKIRI_BOOTS;
+        if (this->eatenBoots == 2) itemsToDrop[dropCount++] = RG_IRON_BOOTS;
+        else if (this->eatenBoots == 3) itemsToDrop[dropCount++] = RG_HOVER_BOOTS;
+
+        // Swords
+        if (this->eatenSword == 1) itemsToDrop[dropCount++] = RG_KOKIRI_SWORD;
+        else if (this->eatenSword == 2) itemsToDrop[dropCount++] = RG_MASTER_SWORD;
+        else if (this->eatenSword == 3) itemsToDrop[dropCount++] = RG_BIGGORON_SWORD;
+
+        // Bottles
         switch (this->eatenBottle) {
-            case 20:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOTTLE);
-                break;
-            case 21:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOTTLE_RED_POTION);
-                break;
-            case 22:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOTTLE_GREEN_POTION);
-                break;
-            case 23:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOTTLE_BLUE_POTION);
-                break;
-            case 24:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOTTLE_FAIRY);
-                break;
-            case 25:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOTTLE_FISH);
-                break;
-            case 26:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOTTLE_MILK);
-                break;
-            case 29:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOTTLE_BUGS);
-                break;
-            case 32:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOTTLE_POE);
-                break;
-        }
-        switch (this->eatenItem) {
-            case 10:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_HOOKSHOT);
-                break;
-            case 11:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_LONGSHOT);
-                break;
-            case 14:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_BOOMERANG);
-                break;
-            case 15:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_LENS);
-                break;
-            case 17:
-                Item_DropCollectible(play, &this->actor.world.pos, ITEM00_HAMMER);
-                break;
+            case 20: itemsToDrop[dropCount++] = RG_EMPTY_BOTTLE; break;
+            case 21: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_RED_POTION; break;
+            case 22: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_GREEN_POTION; break;
+            case 23: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_BLUE_POTION; break;
+            case 24: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_FAIRY; break;
+            case 25: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_FISH; break;
+            case 26: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_MILK; break;
+            case 29: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_BUGS; break;
+            case 32: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_POE; break;
         }
 
+        // Equipment/Items
+        switch (this->eatenItem) {
+            case 10: itemsToDrop[dropCount++] = RG_HOOKSHOT; break;
+            case 11: itemsToDrop[dropCount++] = RG_LONGSHOT; break;
+            case 14: itemsToDrop[dropCount++] = RG_BOOMERANG; break;
+            case 15: itemsToDrop[dropCount++] = RG_LENS_OF_TRUTH; break;
+            case 17: itemsToDrop[dropCount++] = RG_MEGATON_HAMMER; break;
+        }
+
+        // 2. Spawn the stolen items with a radial burst offset
+        for (int j = 0; j < dropCount; j++) {
+            Vec3f spawnPos = this->actor.world.pos;
+            
+            if (dropCount > 1) {
+                s16 angle = (s16)(j * (65536.0f / dropCount));
+                spawnPos.x += Math_SinS(angle) * 15.0f; 
+                spawnPos.z += Math_CosS(angle) * 15.0f;
+            }
+
+            EnRr_DropStolenItem(play, &spawnPos, itemsToDrop[j]);
+        }
+
+        // 3. Keep vanilla drops tied to the Like Like's parameter variant
         switch (this->actor.params) {
             case LIKE_LIKE_NORMAL:
             case LIKE_LIKE_STATIONARY:
@@ -2199,9 +2160,7 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
         if (this->actionFunc != EnRr_Reach) {
             this->bodySph.base.acFlags &= ~AC_HARD;
         } else if (this->actionFunc == EnRr_Reach) {
-            // CollisionCheck_SetOC(play, &play->colChkCtx, &this->mouthQuad.base);
             CollisionCheck_SetAC(play, &play->colChkCtx, &this->cylinder.base);
-            // CollisionCheck_SetAC(play, &play->colChkCtx, &this->mouthQuad.base);
         }
     } else {
         this->cylinder.base.ocFlags1 &= ~OC1_HIT;
@@ -2287,7 +2246,7 @@ void EnRr_DrawBottomCap(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadi
     // CENTER VERTEX (The Singularity)
     // ==========================================
     capVtx[0].n.ob[0] = 0;
-    capVtx[0].n.ob[1] = 250;
+    capVtx[0].n.ob[1] = 200;
     capVtx[0].n.ob[2] = 0;
     capVtx[0].n.flag = 0;
 
@@ -2338,20 +2297,28 @@ void EnRr_DrawBottomCap(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadi
     gSPTexture(POLY_OPA_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
 
     gDPSetCycleType(POLY_OPA_DISP++, G_CYC_2CYCLE);
-    // 1. Swap G_RM_PASS for G_RM_FOG_SHADE_A so the hardware injects the Fog Color!
     gDPSetRenderMode(POLY_OPA_DISP++, G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2);
 
-    // 2. Fix the Alpha Combiner!
-    // We changed the Cycle 2 Alpha from "COMBINED, 0, SHADE, 0" to "0, 0, 0, COMBINED"
-    // This stops the Fog Thickness from making the model translucent!
-    gDPSetCombineLERP(POLY_OPA_DISP++, TEXEL0, 0, TEXEL1, 0, TEXEL0, 0, TEXEL1, 0, COMBINED, 0, SHADE, 0, 0, 0, 0,
-                      COMBINED);
+    // ==========================================
+    // ADD THE VANILLA COLORS:
+    // ==========================================
+    gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, 255);
+    gDPSetEnvColor(POLY_OPA_DISP++, 0, 0, 0, 160); // 160 Alpha is the blending ratio!
 
-    // Load Flesh
+    // ==========================================
+    // THE VANILLA BLEND COMBINER:
+    // ==========================================
+    gDPSetCombineLERP(POLY_OPA_DISP++, 
+        TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 
+        0, 0, 0, 1, 
+        COMBINED, 0, SHADE, 0, 
+        0, 0, 0, COMBINED);
+
+    // Load Texture 1: Flesh (Tile 0)
     gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern1Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                         G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, G_TX_NOLOD, G_TX_NOLOD);
 
-    // Load Slime
+    // Load Texture 2: Slime (Tile 1)
     gDPLoadMultiBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, 0x0100, 1, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                       G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, 0, 0);
 
@@ -2385,7 +2352,6 @@ void EnRr_DrawBody(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius, u
         currentOffset += (seg >= 5) ? 97 : 25; // 96+1 and 24+1 to close the seam
     }
 
-    // Padded allocation to prevent boundary garbage
     Vtx* vtx = Graph_Alloc(play->state.gfxCtx, 520 * sizeof(Vtx));
 
     for (int seg = 0; seg < 8; seg++) {
@@ -2406,7 +2372,6 @@ void EnRr_DrawBody(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius, u
         for (int v = 0; v <= vtxPerRing; v++) {
             int vtxIdx = offset + v;
 
-            // Basic parameterization (No clustering/lingering logic for now)
             float angle = ((float)v / vtxPerRing) * (2.0f * M_PI);
 
             float rawWave = cosf(6.0f * angle);
@@ -2469,36 +2434,35 @@ void EnRr_DrawBody(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius, u
     // ==========================================
     gSPClearGeometryMode(POLY_OPA_DISP++, G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
     gSPSetGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_SHADING_SMOOTH);
-    gSPTexture(POLY_OPA_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
 
-    // 1. Enable 2-Cycle Mode to render two textures simultaneously
+    gSPTexture(POLY_OPA_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
     gDPSetCycleType(POLY_OPA_DISP++, G_CYC_2CYCLE);
-    // 1. Swap G_RM_PASS for G_RM_FOG_SHADE_A so the hardware injects the Fog Color!
     gDPSetRenderMode(POLY_OPA_DISP++, G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2);
 
-    // 2. Fix the Alpha Combiner!
-    // We changed the Cycle 2 Alpha from "COMBINED, 0, SHADE, 0" to "0, 0, 0, COMBINED"
-    // This stops the Fog Thickness from making the model translucent!
-    gDPSetCombineLERP(POLY_OPA_DISP++, TEXEL0, 0, TEXEL1, 0, TEXEL0, 0, TEXEL1, 0, COMBINED, 0, SHADE, 0, 0, 0, 0,
-                      COMBINED);
+    // ==========================================
+    // ADD THE VANILLA COLORS:
+    // ==========================================
+    gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, 255);
+    gDPSetEnvColor(POLY_OPA_DISP++, 0, 0, 0, 160); // 160 Alpha is the blending ratio!
 
-    // 3. Load Texture 1: Flesh (Tile 0)
-    // Notice we are passing the G_TX_MIRROR flag!
+    // ==========================================
+    // THE VANILLA BLEND COMBINER:
+    // ==========================================
+    gDPSetCombineLERP(POLY_OPA_DISP++, 
+        TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 
+        0, 0, 0, 1, 
+        COMBINED, 0, SHADE, 0, 
+        0, 0, 0, COMBINED);
+
+    // Load Texture 1: Flesh (Tile 0)
     gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern1Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                         G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, G_TX_NOLOD, G_TX_NOLOD);
 
-    // 4. Load Texture 2: Slime (Tile 1)
-    // We use MultiBlock and offset TMEM by 0x0100 so it doesn't overwrite the Flesh texture in RAM.
+    // Load Texture 2: Slime (Tile 1)
     gDPLoadMultiBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, 0x0100, 1, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                       G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, 0, 0);
-
-    // 5. Execute the Scrolling Matrix!
-    // Tile 0 (Flesh) remains static: 0, 0
-    // Tile 1 (Slime) scrolls continuously on the Y-axis!
     gSPDisplayList(POLY_OPA_DISP++, Gfx_TwoTexScroll(play->state.gfxCtx, 0, 0, 0, 16, 16,    // Tile 0 Setup
                                                      1, 0, (-scrollFactor) & 0x7F, 16, 16)); // Tile 1 Setup
-
-    // [Run PHASE A, B, and C Draw Loops Here]
 
     // ==========================================
     // DRAW LOOPS
@@ -2549,6 +2513,16 @@ void EnRr_DrawBody(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius, u
         }
     }
 
+    gSPClearGeometryMode(POLY_OPA_DISP++, G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
+
+    bool isSwallowing = (this->actionFunc == EnRr_ScoopPlayer || this->actionFunc == EnRr_GrabPlayer || this->actionFunc == EnRr_ThrowPlayer);
+
+    if (isSwallowing) {
+        gSPClearGeometryMode(POLY_OPA_DISP++, G_CULL_BACK);
+    } else {
+        gSPSetGeometryMode(POLY_OPA_DISP++, G_CULL_BACK);
+    }
+
     CLOSE_DISPS(play->state.gfxCtx);
 }
 
@@ -2591,7 +2565,7 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, float baseRa
         mouthCapVtx[outIdx].n.a = 255;
 
         // ==========================================
-        // RING 1: MID STAR (The Raised Inner Shelf)
+        // RING 1: MID STAR (The Inner Mouth Recess is a Star-Shaped Prism). 
         // ==========================================
         float R_max = baseRadius * 0.575f;
         float R_min = baseRadius * 0.325f * this->innerMouthScale;
@@ -2620,12 +2594,17 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, float baseRa
         mouthCapVtx[midIdx].n.a = 255;
 
         // ==========================================
-        // RING 0: CENTER VOID (Singularity Ring)
+        // RING 0: THROAT
         // ==========================================
+        float throatRadius = this->grabState == 2 ? 0.0f : baseRadius * 0.15f * this->innerMouthScale;
+
+        float x_in = dirX * throatRadius;
+        float z_in = dirZ * throatRadius;
+
         int centerIdx = v;
-        mouthCapVtx[centerIdx].n.ob[0] = 0;
-        mouthCapVtx[centerIdx].n.ob[1] = -200;
-        mouthCapVtx[centerIdx].n.ob[2] = 0;
+        mouthCapVtx[centerIdx].n.ob[0] = (s16)x_in;
+        mouthCapVtx[centerIdx].n.ob[1] = -200 * this->innerMouthScale;
+        mouthCapVtx[centerIdx].n.ob[2] = (s16)z_in;
         mouthCapVtx[centerIdx].n.flag = 0;
         mouthCapVtx[centerIdx].n.tc[0] = (s16)sCoord;
         mouthCapVtx[centerIdx].n.tc[1] = 1024;
@@ -2640,17 +2619,35 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, float baseRa
     // ==========================================
     gSPClearGeometryMode(POLY_OPA_DISP++, G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
     gSPSetGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_SHADING_SMOOTH);
+
+    gSPSetGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_SHADING_SMOOTH);
     gSPTexture(POLY_OPA_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
 
     gDPSetCycleType(POLY_OPA_DISP++, G_CYC_2CYCLE);
     gDPSetRenderMode(POLY_OPA_DISP++, G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2);
 
-    gDPSetCombineLERP(POLY_OPA_DISP++, TEXEL0, 0, TEXEL1, 0, TEXEL0, 0, TEXEL1, 0, COMBINED, 0, SHADE, 0, 0, 0, 0,
-                      COMBINED);
+    // ==========================================
+    // ADD THE VANILLA COLORS:
+    // ==========================================
+    gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, 255);
+    gDPSetEnvColor(POLY_OPA_DISP++, 0, 0, 0, 160); // 160 Alpha is the blending ratio!
 
+    // ==========================================
+    // THE VANILLA BLEND COMBINER:
+    // ==========================================
+    // Cycle 1: Blends Flesh (TEXEL0) and Slime (TEXEL1) using the EnvColor Alpha
+    // Cycle 2: Multiplies the beautifully blended result by the 3D Lighting (SHADE)
+    gDPSetCombineLERP(POLY_OPA_DISP++, 
+        TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 
+        0, 0, 0, 1, 
+        COMBINED, 0, SHADE, 0, 
+        0, 0, 0, COMBINED);
+
+    // Load Texture 1: Flesh (Tile 0)
     gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern1Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                         G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, G_TX_NOLOD, G_TX_NOLOD);
 
+    // Load Texture 2: Slime (Tile 1)
     gDPLoadMultiBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, 0x0100, 1, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                       G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, 0, 0);
 
@@ -2682,20 +2679,31 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, float baseRa
             gSP2Triangles(POLY_OPA_DISP++, v + 13, v, v + 14, 0, v, v + 1, v + 14, 0);
         }
     }
+    
+    gSPClearGeometryMode(POLY_OPA_DISP++, G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
+
+    bool isSwallowing = (this->actionFunc == EnRr_ScoopPlayer || this->actionFunc == EnRr_GrabPlayer || this->actionFunc == EnRr_ThrowPlayer);
+
+    // Only use the if/else to turn the back-faces on and off!
+    if (isSwallowing) {
+        gSPClearGeometryMode(POLY_OPA_DISP++, G_CULL_BACK);
+    } else {
+        gSPSetGeometryMode(POLY_OPA_DISP++, G_CULL_BACK);
+    }
 
     CLOSE_DISPS(play->state.gfxCtx);
 }
 
-void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, u32 scrollFactor) {
+void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius, u32 scrollFactor) {
     OPEN_DISPS(play->state.gfxCtx);
 
     Player* player = GET_PLAYER(play);
 
     // 1. Dynamic Radius (X/Z axis volume)
-    f32 dynamicMaxRadius = player->cylinder.dim.radius / this->actor.scale.x;
+    f32 dynamicMaxRadius = (player->cylinder.dim.radius / this->actor.scale.x) * 1.2f;
 
     // 2. Dynamic Height (Y axis volume)
-    f32 playerLocalHeight = player->cylinder.dim.height / this->actor.scale.y;
+    f32 playerLocalHeight = (player->cylinder.dim.height * 0.625f) / this->actor.scale.y;
 
     // 3. The "Bag Pinch" Math
     // The stomach spans 7 full segments, which is roughly 3500 units tall natively.
@@ -2704,28 +2712,48 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, u32 scrollFactor
     f32 heightFillRatio = playerLocalHeight / 3500.0f;
     f32 bagPinchExponent = 0.5f / CLAMP(heightFillRatio, 0.1f, 2.0f);
 
-    // 8 Rings * 25 Vertices = 200 Vertices total
-    Vtx* stomVtx = Graph_Alloc(play->state.gfxCtx, 250 * sizeof(Vtx));
-    int vtxPerRing = 24;
+    // 8 Rings * 97 Vertices (96 + 1 for the seam) = 776 Vertices total. 800 is a safe allocation.
+    Vtx* stomVtx = Graph_Alloc(play->state.gfxCtx, 800 * sizeof(Vtx));
+    int vtxPerRing = 96;
 
-    for (int seg = 0; seg < 8; seg++) {
-        int offset = seg * 25;
+for (int seg = 0; seg < 8; seg++) {
+        int offset = seg * 97;
         float progress = (float)seg / 7.0f;
 
-        // Use fabsf() to prevent floating-point precision errors from passing a negative number to powf()!
         float safeSine = fabsf(sinf(progress * (float)M_PI));
-
-        // Apply our dynamic "Bag Squeeze" exponent!
         float stomRadius = powf(safeSine, bagPinchExponent) * dynamicMaxRadius;
-
         float yOffset = 0.0f;
 
         if (seg == 0) {
-            yOffset = 160.0f;
+            yOffset = 200.0f;
         } else if (seg == 7) {
-            stomRadius = 0.0f;
-            yOffset = -285.0f;
+            stomRadius = this->grabState == 2 ? 0.0f : baseRadius * 0.15f * this->innerMouthScale;
+            yOffset = -200.0f * this->innerMouthScale;
         }
+
+        // ==========================================
+        // DUAL-SOURCE BIOLUMINESCENCE
+        // ==========================================
+        
+        // 1. THE BOTTOM (Stomach Pulse)
+        // Strongest at seg 0, completely dark at seg 7
+        float pulse = (Math_SinS(this->segMovePhase) + 1.0f) * 0.5f;
+        float bottomRatio = 1.0f - ((float)seg / 7.0f);
+        float bottomIntensity = powf(bottomRatio, 2.0f);
+        float stomachGlow = pulse * bottomIntensity;
+
+        // 2. THE TOP (Outside Light Rushing In)
+        // Strongest at seg 7, completely dark at seg 0
+        float topRatio = (float)seg / 7.0f;
+        float topIntensity = powf(topRatio, 2.0f); 
+        
+        // Convert innerMouthScale (0.2 to 1.5) into a pure brightness multiplier (0.0 to 1.3)
+        float mouthFlare = this->innerMouthScale - 0.2f;
+        if (mouthFlare < 0.0f) mouthFlare = 0.0f;
+        float throatGlow = mouthFlare * topIntensity;
+
+        // 3. COMBINE THE LIGHTS!
+        float glow = stomachGlow + throatGlow;
 
         for (int v = 0; v <= vtxPerRing; v++) {
             float angle = ((float)v / vtxPerRing) * (2.0f * M_PI);
@@ -2736,19 +2764,16 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, u32 scrollFactor
             stomVtx[vtxIdx].v.ob[2] = (s16)(sinf(angle) * stomRadius);
             stomVtx[vtxIdx].v.flag = 0;
 
-            // S-coord (Horizontal)
             stomVtx[vtxIdx].v.tc[0] = (s16)(((float)v / vtxPerRing) * 1024.0f);
-
-            // T-coord (Vertical)
             stomVtx[vtxIdx].v.tc[1] = (s16)(seg * 256.0f);
 
-            stomVtx[vtxIdx].v.cn[0] = 85;
-            stomVtx[vtxIdx].v.cn[1] = 10;
-            stomVtx[vtxIdx].v.cn[2] = 30;
+            // Add the combined glow to the dark, fleshy base color
+            stomVtx[vtxIdx].v.cn[0] = 30 + (s8)(glow * 150);  // R
+            stomVtx[vtxIdx].v.cn[1] = 5  + (s8)(glow * 50);   // G
+            stomVtx[vtxIdx].v.cn[2] = 20 + (s8)(glow * 60);   // B
             stomVtx[vtxIdx].v.cn[3] = 255;
         }
     }
-
     // ==========================================
     // THE MAGIC TRICK: REVERSE CULLING
     // ==========================================
@@ -2774,19 +2799,20 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, u32 scrollFactor
     // DRAW LOOPS
     // ==========================================
     for (int seg = 0; seg < 7; seg++) {
-        for (int chunk = 0; chunk < 2; chunk++) {
+        // We now need 8 chunks of 12 to draw all 96 triangles!
+        for (int chunk = 0; chunk < 8; chunk++) {
             int startVtx = chunk * 12;
             gSPMatrix(POLY_OPA_DISP++, &segMtx[seg], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-            gSPVertex(POLY_OPA_DISP++, &stomVtx[(seg * 25) + startVtx], 13, 0);
+            gSPVertex(POLY_OPA_DISP++, &stomVtx[(seg * 97) + startVtx], 13, 0);
             gSPMatrix(POLY_OPA_DISP++, &segMtx[seg + 1], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-            gSPVertex(POLY_OPA_DISP++, &stomVtx[((seg + 1) * 25) + startVtx], 13, 13);
+            gSPVertex(POLY_OPA_DISP++, &stomVtx[((seg + 1) * 97) + startVtx], 13, 13);
+            
             for (int v = 0; v < 12; v++) {
                 gSP2Triangles(POLY_OPA_DISP++, v, v + 13, v + 1, 0, v + 1, v + 13, v + 14, 0);
             }
         }
     }
 
-    // CRITICAL: Restore G_CULL_BACK for the rest of the game!
     gSPClearGeometryMode(POLY_OPA_DISP++, G_CULL_FRONT);
     gSPSetGeometryMode(POLY_OPA_DISP++, G_CULL_BACK);
 
@@ -2797,30 +2823,62 @@ void EnRr_DrawAbyssPlane(EnRr* this, PlayState* play, Mtx* segMtx, float baseRad
     OPEN_DISPS(play->state.gfxCtx);
 
     // ==========================================
-    // TEXTURE SETTINGS 
+    // VANILLA TEXTURE SETTINGS (From the DL!)
     // ==========================================
-    int HOLE_TEX_SIZE = 64; 
-    float HOLE_UV_SCALE = HOLE_TEX_SIZE * 32.0f; 
-    int HOLE_TEX_MASK = (HOLE_TEX_SIZE == 64) ? 6 : 5; 
+    int HOLE_TEX_SIZE = 16;   // MASKS 4 / MASKT 4 = 16x16
+    int HOLE_TEX_MASK = 4;    
+    float FULL_UV = 512.0f;   // 16 pixels * 32 = 512 max UV
 
-    // We now allocate enough for 2 rings of 97 vertices (194 total)
-    Vtx* abyssVtx = Graph_Alloc(play->state.gfxCtx, 200 * sizeof(Vtx));
+    Vtx* abyssVtx = Graph_Alloc(play->state.gfxCtx, 300 * sizeof(Vtx));
+
+    float max_extent = baseRadius * 0.8f;
 
     // ==========================================
-    // EXACT MOUTH FUNNEL GEOMETRY
+    // EXACT MOUTH FUNNEL GEOMETRY (3 Rings)
     // ==========================================
     for (int v = 0; v <= 96; v++) {
-        float angle = ((float)v / 96.0f) * (2.0f * M_PI);
+        float linearProgress = (float)v / 96.0f;
+        float angle = linearProgress * (2.0f * M_PI);
+
         float dirX = cosf(angle);
         float dirZ = sinf(angle);
 
-        // --- SHARED STAR MATH ---
         float rawWaveOut = cosf(6.0f * angle);
         float waveOut = ((rawWaveOut > 0.0f) ? 1.0f : -1.0f) * powf(fabsf(rawWaveOut), 1.5f);
         float heightMod_out = (waveOut + 1.0f) * 0.5f;
 
-        float R_max = baseRadius * 0.575f * this->innerMouthScale; 
-        float R_min = baseRadius * 0.25f * this->innerMouthScale;
+        // ==========================================
+        // RING 2: OUTER LIPS
+        // ==========================================
+        float r_min_out = baseRadius * 0.6f;
+        float r_max_out = baseRadius * 0.8f;
+        float radius_out = 0.5f * (r_min_out + r_max_out) + 0.5f * (r_max_out - r_min_out) * waveOut;
+        
+        float yOffset_out = (heightMod_out * 300.0f + 1000.0f) + 3.0f; 
+        float x_out = dirX * radius_out * 0.98f;
+        float z_out = dirZ * radius_out * 0.98f;
+
+        int outIdx = v + 194;
+        abyssVtx[outIdx].v.ob[0] = (s16)x_out;
+        abyssVtx[outIdx].v.ob[1] = (s16)yOffset_out;
+        abyssVtx[outIdx].v.ob[2] = (s16)z_out;
+        abyssVtx[outIdx].v.flag = 0;
+        
+        // MIRRORED PLANAR MAP: 0 is the center, 512 is the edge.
+        // Negative physical coordinates are automatically flipped by G_TX_MIRROR!
+        abyssVtx[outIdx].v.tc[0] = (s16)((x_out / max_extent) * FULL_UV);
+        abyssVtx[outIdx].v.tc[1] = (s16)((z_out / max_extent) * FULL_UV);
+        
+        abyssVtx[outIdx].v.cn[0] = 255;
+        abyssVtx[outIdx].v.cn[1] = 255;
+        abyssVtx[outIdx].v.cn[2] = 255;
+        abyssVtx[outIdx].v.cn[3] = 255;
+
+        // ==========================================
+        // RING 1: MID STAR
+        // ==========================================
+        float R_max = baseRadius * 0.575f; 
+        float R_min = baseRadius * 0.325f * this->innerMouthScale;
         float P2_x = R_min * 0.975f;
         float P2_y = R_min * 0.5f;
         float local_angle = fmodf(angle, (float)M_PI / 3.0f);
@@ -2829,83 +2887,89 @@ void EnRr_DrawAbyssPlane(EnRr* this, PlayState* play, Mtx* segMtx, float baseRad
         }
 
         float denominator = P2_y * cosf(local_angle) + (R_max - P2_x) * sinf(local_angle);
+        float r_straight = (R_max * P2_y) / denominator; 
+        float innerScaleMod = CLAMP(1.0f - this->innerMouthScale * 0.5f, 0.25f, 1.0f);
         
-        // Z-FIGHTING FIX: We shrink the radius by 1% so it fits perfectly inside the flesh walls!
-        float r_straight = ((R_max * P2_y) / denominator) * 0.99f; 
+        float yOffset_mid = (heightMod_out * 150.0f + 800.0f * innerScaleMod) + 3.0f;
+        float x_mid = dirX * r_straight * 0.98f;
+        float z_mid = dirZ * r_straight * 0.98f;
+
+        int midIdx = v + 97;
+        abyssVtx[midIdx].v.ob[0] = (s16)x_mid;
+        abyssVtx[midIdx].v.ob[1] = (s16)yOffset_mid;
+        abyssVtx[midIdx].v.ob[2] = (s16)z_mid;
+        abyssVtx[midIdx].v.flag = 0;
         
-        // Z-FIGHTING FIX: We raise the shelf up by 2 units
-        float yOffset_mid = (heightMod_out * 200.0f + 800.0f) + 2.0f;
+        abyssVtx[midIdx].v.tc[0] = (s16)((x_mid / max_extent) * FULL_UV);
+        abyssVtx[midIdx].v.tc[1] = (s16)((z_mid / max_extent) * FULL_UV);  
+        
+        abyssVtx[midIdx].v.cn[0] = 255;
+        abyssVtx[midIdx].v.cn[1] = 255;
+        abyssVtx[midIdx].v.cn[2] = 255;
+        abyssVtx[midIdx].v.cn[3] = 255;
 
         // ==========================================
-        // RING 1: MID STAR (Outer Edge of the Shadow)
+        // RING 0: THROAT OPENING
         // ==========================================
-        int outIdx = v + 97;
-        abyssVtx[outIdx].n.ob[0] = (s16)(dirX * r_straight);
-        abyssVtx[outIdx].n.ob[1] = (s16)yOffset_mid;
-        abyssVtx[outIdx].n.ob[2] = (s16)(dirZ * r_straight);
-        abyssVtx[outIdx].n.flag = 0;
+        float throatRadius = baseRadius * 0.15f * this->innerMouthScale * 0.98f;
         
-        // Radial UVs stretch out to the transparent edges of the texture
-        abyssVtx[outIdx].n.tc[0] = (s16)(HOLE_UV_SCALE + (dirX * HOLE_UV_SCALE));
-        abyssVtx[outIdx].n.tc[1] = (s16)(HOLE_UV_SCALE + (dirZ * HOLE_UV_SCALE));
-        
-        abyssVtx[outIdx].n.n[0] = (s8)(dirX * -80.0f);
-        abyssVtx[outIdx].n.n[1] = -127;
-        abyssVtx[outIdx].n.n[2] = (s8)(dirZ * -80.0f);
-        abyssVtx[outIdx].n.a = 255;
+        float x_in = dirX * throatRadius;
+        float z_in = dirZ * throatRadius;
 
-        // ==========================================
-        // RING 0: CENTER VOID (Singularity)
-        // ==========================================
         int centerIdx = v;
-        abyssVtx[centerIdx].n.ob[0] = 0;
-        abyssVtx[centerIdx].n.ob[1] = -295; // Z-FIGHTING FIX: Lifted from -300 to -298
-        abyssVtx[centerIdx].n.ob[2] = 0;
-        abyssVtx[centerIdx].n.flag = 0;
+        abyssVtx[centerIdx].v.ob[0] = (s16)x_in;
+        abyssVtx[centerIdx].v.ob[1] = -195; 
+        abyssVtx[centerIdx].v.ob[2] = (s16)z_in;
+        abyssVtx[centerIdx].v.flag = 0;
         
-        // Pinned perfectly to the black bottom-right corner of the texture
-        abyssVtx[centerIdx].n.tc[0] = (s16)HOLE_UV_SCALE;
-        abyssVtx[centerIdx].n.tc[1] = (s16)HOLE_UV_SCALE;
+        abyssVtx[centerIdx].v.tc[0] = (s16)((x_in / max_extent) * FULL_UV);
+        abyssVtx[centerIdx].v.tc[1] = (s16)((z_in / max_extent) * FULL_UV);
         
-        abyssVtx[centerIdx].n.n[0] = 0;
-        abyssVtx[centerIdx].n.n[1] = -127;
-        abyssVtx[centerIdx].n.n[2] = 0;
-        abyssVtx[centerIdx].n.a = 255;
+        abyssVtx[centerIdx].v.cn[0] = 255;
+        abyssVtx[centerIdx].v.cn[1] = 255;
+        abyssVtx[centerIdx].v.cn[2] = 255;
+        abyssVtx[centerIdx].v.cn[3] = 255;
     }
 
     // ==========================================
-    // TEXTURE SETUP: CUSTOM INVERTED I8 ALPHA
+    // TEXTURE SETUP & STANDARD COMBINER
     // ==========================================
-    gSPClearGeometryMode(POLY_XLU_DISP++, G_LIGHTING | G_CULL_BACK | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
-    gSPSetGeometryMode(POLY_XLU_DISP++, G_SHADING_SMOOTH);
-    gSPTexture(POLY_XLU_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
+    gSPClearGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_CULL_BACK | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
+    gSPSetGeometryMode(POLY_OPA_DISP++, G_SHADING_SMOOTH);
+    gSPTexture(POLY_OPA_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
 
-    gDPSetCycleType(POLY_XLU_DISP++, G_CYC_1CYCLE);
-    gDPSetRenderMode(POLY_XLU_DISP++, G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2);
+    gDPSetCycleType(POLY_OPA_DISP++, G_CYC_1CYCLE);
+    gDPSetRenderMode(POLY_OPA_DISP++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
     
-    gDPSetEnvColor(POLY_XLU_DISP++, 255, 255, 255, 255);
-    gDPSetPrimColor(POLY_XLU_DISP++, 0, 0, 0, 0, 0, 128); 
+    // As seen in your DL trace (Line 115)
+    gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, 255);
 
-    gDPSetCombineLERP(POLY_XLU_DISP++, 
-        0, 0, 0, PRIMITIVE, 
-        ENVIRONMENT, TEXEL0, PRIMITIVE, 0, 
-        0, 0, 0, PRIMITIVE, 
-        ENVIRONMENT, TEXEL0, PRIMITIVE, 0);
+    gDPSetCombineMode(POLY_OPA_DISP++, G_CC_MODULATEIA, G_CC_MODULATEIA);
 
-    gDPLoadTextureBlock(POLY_XLU_DISP++, gLikeLikeHoleTex, G_IM_FMT_I, G_IM_SIZ_8b, HOLE_TEX_SIZE, HOLE_TEX_SIZE, 0,
-                        G_TX_MIRROR | G_TX_WRAP, G_TX_MIRROR | G_TX_WRAP, HOLE_TEX_MASK, HOLE_TEX_MASK, G_TX_NOLOD, G_TX_NOLOD);
+    // Using the exact DL settings: FMT_IA, SIZ_16b, Size 16x16, with G_TX_MIRROR on both axes!
+    gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeHoleTex, G_IM_FMT_IA, G_IM_SIZ_16b, HOLE_TEX_SIZE, HOLE_TEX_SIZE, 0,
+                        G_TX_MIRROR, G_TX_MIRROR, HOLE_TEX_MASK, HOLE_TEX_MASK, G_TX_NOLOD, G_TX_NOLOD);
 
     // ==========================================
-    // DRAW LOOP (Replicates the Inner Funnel Draw Call)
+    // DRAW LOOPS
     // ==========================================
     for (int chunk = 0; chunk < 8; chunk++) {
         int startVtx = chunk * 12;
-        gSPMatrix(POLY_XLU_DISP++, &segMtx[7], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gSPVertex(POLY_XLU_DISP++, &abyssVtx[startVtx + 0], 13, 0);    // Center Ring
-        gSPVertex(POLY_XLU_DISP++, &abyssVtx[startVtx + 97], 13, 13);  // Star Ring
-        
+        gSPMatrix(POLY_OPA_DISP++, &segMtx[7], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gSPVertex(POLY_OPA_DISP++, &abyssVtx[startVtx + 97], 13, 0);   
+        gSPVertex(POLY_OPA_DISP++, &abyssVtx[startVtx + 194], 13, 13); 
         for (int v = 0; v < 12; v++) {
-            gSP2Triangles(POLY_XLU_DISP++, v + 13, v, v + 14, 0, v, v + 1, v + 14, 0);
+            gSP2Triangles(POLY_OPA_DISP++, v + 13, v, v + 14, 0, v, v + 1, v + 14, 0);
+        }
+    }
+
+    for (int chunk = 0; chunk < 8; chunk++) {
+        int startVtx = chunk * 12;
+        gSPMatrix(POLY_OPA_DISP++, &segMtx[7], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gSPVertex(POLY_OPA_DISP++, &abyssVtx[startVtx + 0], 13, 0);    
+        gSPVertex(POLY_OPA_DISP++, &abyssVtx[startVtx + 97], 13, 13);  
+        for (int v = 0; v < 12; v++) {
+            gSP2Triangles(POLY_OPA_DISP++, v + 13, v, v + 14, 0, v, v + 1, v + 14, 0);
         }
     }
 
@@ -2927,7 +2991,6 @@ void EnRr_Draw(Actor* thisx, PlayState* play) {
     Mtx* segMtx = Graph_Alloc(play->state.gfxCtx, numRings * sizeof(Mtx));
 
     OPEN_DISPS(play->state.gfxCtx);
-    // Initialize the Opaque Pipeline State
     Gfx_SetupDL_25Opa(play->state.gfxCtx);
     Gfx_SetupDL_25Xlu(play->state.gfxCtx);
 
@@ -2966,22 +3029,6 @@ void EnRr_Draw(Actor* thisx, PlayState* play) {
     this->effectPos[0] = this->actor.world.pos;
     Matrix_MultVec3f(&zeroVec, &this->bodySphPos[3]);
 
-    f32 quadRadius = this->mouthRadiusRef * this->bodySegs[this->bodySegCount].scale * 1.25f;
-
-    Vec3f quadOffsets[4] = { { -quadRadius, 0.0f, -quadRadius },
-                             { quadRadius, 0.0f, -quadRadius },
-                             { -quadRadius, 0.0f, quadRadius },
-                             { quadRadius, 0.0f, quadRadius } };
-
-    Vec3f vA, vB, vC, vD;
-
-    Matrix_MultVec3f(&quadOffsets[0], &vA);
-    Matrix_MultVec3f(&quadOffsets[1], &vB);
-    Matrix_MultVec3f(&quadOffsets[2], &vC);
-    Matrix_MultVec3f(&quadOffsets[3], &vD);
-
-    Collider_SetQuadVertices(&this->mouthQuad, &vA, &vB, &vC, &vD);
-
     CLOSE_DISPS(play->state.gfxCtx);
 
     // ==========================================
@@ -2989,11 +3036,9 @@ void EnRr_Draw(Actor* thisx, PlayState* play) {
     // ==========================================
     EnRr_DrawBottomCap(this, play, segMtx, baseRadius, scrollControl_fixed);
     EnRr_DrawBody(this, play, segMtx, baseRadius, scrollControl_fixed);
-    if (this->playerInside) {
-        EnRr_DrawStomach(this, play, segMtx, scrollControl_fixed);
-    }
     EnRr_DrawMouthRecess(this, play, segMtx, baseRadius, scrollControl_fixed);
-    EnRr_DrawAbyssPlane(this, play, segMtx, baseRadius);
+    EnRr_DrawStomach(this, play, segMtx, baseRadius, scrollControl_fixed);
+    //EnRr_DrawAbyssPlane(this, play, segMtx, baseRadius);
 
     // ==========================================
     // VANILLA PARTICLE EFFECTS (Unchanged)
@@ -3106,4 +3151,5 @@ void EnRr_Draw(Actor* thisx, PlayState* play2) {
                                            235, 245, 255, this->drawDmgEffFrozenSteamScale);
         }
     }
-} */
+} 
+*/

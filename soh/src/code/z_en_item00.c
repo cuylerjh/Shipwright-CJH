@@ -788,6 +788,33 @@ void func_8001E304(EnItem00* this, PlayState* play) {
     s32 pad;
     Vec3f pos;
     s32 rotOffset;
+    s32 itemBounceSfxId;
+
+    switch (this->actor.params) {
+        case ITEM00_BOMBS_A:
+        case ITEM00_BOMBS_B:
+        case ITEM00_BOMBS_SPECIAL:
+        case ITEM00_BOMBCHU:
+            itemBounceSfxId = NA_SE_EV_BOMB_BOUND; 
+            break;
+        case ITEM00_RUPEE_GREEN:
+        case ITEM00_RUPEE_BLUE:
+        case ITEM00_RUPEE_RED:
+        case ITEM00_RUPEE_ORANGE:
+        case ITEM00_RUPEE_PURPLE:
+            itemBounceSfxId = NA_SE_SY_RUPY_COUNT; 
+            break;
+        case ITEM00_STICK:
+        case ITEM00_ARROWS_SMALL:
+        case ITEM00_ARROWS_MEDIUM:
+        case ITEM00_ARROWS_LARGE:
+            itemBounceSfxId = NA_SE_EV_WOOD_HIT; 
+            break;
+        default:
+            // A generic, soft thud for everything else (seeds, magic, nuts, etc.)
+            itemBounceSfxId = NA_SE_EV_BOMB_BOUND; 
+            break;
+    }
 
     this->unk_15A++;
 
@@ -830,7 +857,25 @@ void func_8001E304(EnItem00* this, PlayState* play) {
         EffectSsKiraKira_SpawnSmall(play, &pos, &sEffectVelocity, &sEffectAccel, &sEffectPrimColor, &sEffectEnvColor);
     }
 
-    if (this->actor.bgCheckFlags & 0x0003) {
+    if ((CVarGetInteger(CVAR_ENHANCEMENT("RefinedDrops"), 0) != 0)) {
+        if (!(this->actor.bgCheckFlags & 1)) {
+            Math_StepToF(&this->actor.speedXZ, 0.0f, 0.08f);
+        } else {
+            if ((this->actor.bgCheckFlags & 2) && (this->actor.velocity.y < -4.0f)) {
+                this->actor.velocity.y = 3.5f;
+                this->actor.bgCheckFlags &= ~3;
+                Audio_PlayActorSound2(&this->actor, itemBounceSfxId);
+            } else {
+                if (this->actor.velocity.y < 0.15f) {
+                    this->actor.shape.rot.z = 0;
+                    this->actor.velocity.y = 0.0f;
+                    this->actor.speedXZ = 0.0f;
+                    EnItem00_SetupAction(this, func_8001DFC8);
+                    Audio_PlayActorSound2(&this->actor, itemBounceSfxId);
+                }
+            }
+        }
+    } else if (this->actor.bgCheckFlags & 0x0003) {
         EnItem00_SetupAction(this, func_8001DFC8);
         this->actor.shape.rot.z = 0;
         this->actor.velocity.y = 0.0f;
