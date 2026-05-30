@@ -5803,3 +5803,33 @@ extern "C" u16 Randomizer_Item_Give(PlayState* play, GetItemEntry giEntry) {
 
     return Return_Item_Entry(giEntry, RG_NONE);
 }
+
+extern "C" void EnRr_SetDynamicStealMessage(const char* itemName) {
+    std::string nameStr(itemName);
+    std::string verb = (nameStr.find("Boots") != std::string::npos) ? "were" : "was";
+
+    // Ensures the table exists safely without relying on a boot hook!
+    CustomMessageManager::Instance->AddCustomMessageTable("LikeLikeMessages");
+
+    CustomMessageManager::Instance->CreateMessage(
+        "LikeLikeMessages", 0x305F, 
+        CustomMessage(
+            "Your \x05\x41" + nameStr + "\x05\x40 " + verb + " stolen!\x02",
+            "Dein \x05\x41" + nameStr + "\x05\x40 wurde gestohlen!\x02",
+            "Votre \x05\x41" + nameStr + "\x05\x40 a été volé!\x02"
+        )
+    );
+}
+
+extern "C" void EnRr_SetKnifeBrokeMessage() {
+    CustomMessageManager::Instance->AddCustomMessageTable("LikeLikeMessages");
+
+    CustomMessageManager::Instance->CreateMessage(
+        "LikeLikeMessages", 0x3060, 
+        CustomMessage(
+            "Your \x05\x41Giant's Knife\x05\x40 broke!\x02",
+            "Dein \x05\x41Messer\x05\x40 ist zerbrochen!\x02",
+            "Votre \x05\x41Lame des Géants\x05\x40 s'est brisée!\x02"
+        )
+    );
+}

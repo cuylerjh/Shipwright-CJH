@@ -11,6 +11,11 @@
 #include <assert.h>
 #include "soh/Enhancements/custom-message/CustomMessageTypes.h"
 
+#define TEXT_STOLEN_DYNAMIC 0x305F
+#define TEXT_KNIFE_BROKE    0x3060
+extern void EnRr_SetDynamicStealMessage(const char* itemName);
+extern void EnRr_SetKnifeBrokeMessage(void);
+
 #define FLAGS                                                                                 \
     (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_UPDATE_CULLING_DISABLED | \
      ACTOR_FLAG_DRAW_CULLING_DISABLED | ACTOR_FLAG_HOOKSHOT_PULLS_PLAYER)
@@ -37,7 +42,7 @@
 
 #define BREAKFREE_TARGET 100
 
-#define BASE_SEG_HEIGHT 500.0f
+#define BASE_SEG_HEIGHT 1000.0f
 
 typedef enum {
     /* 0x0 */ RR_DMG_NONE,
@@ -61,7 +66,6 @@ void EnRr_Draw(Actor* thisx, PlayState* play2);
 void EnRr_Approach(EnRr* this, PlayState* play);
 void EnRr_Reach(EnRr* this, PlayState* play);
 void EnRr_UnderwaterVacuum(EnRr* this, PlayState* play);
-void EnRr_ScoopPlayer(EnRr* ths, PlayState* play);
 void EnRr_GrabPlayer(EnRr* this, PlayState* play);
 void EnRr_ThrowPlayer(EnRr* this, PlayState* play);
 void EnRr_Death(EnRr* this, PlayState* play);
@@ -305,51 +309,68 @@ void EnRr_SetDefaultMotionParams(EnRr* this, f32 rate) {
 
 void EnRr_CalculateReachAngle(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
-    // These modify the yDist/xzDist results by factoring the player height and radius.
+    
+    // 1. Gather raw distances
     s16 playerH = player->cylinder.dim.height;
     s16 playerR = player->cylinder.dim.radius;
     f32 velocityFactor = player->actor.velocity.y < -10.0f ? player->actor.velocity.y * 5.0f : 0.0f;
-    s16 i;
 
-    // Uses weighted ratio to determine how much xz and y dist influences reach angle.
-    f32 baseHeight = (!TYPE_INVERT(this)) ? this->actor.scale.y * 4000.0f : this->actor.scale.y * 2500.0f;
-    f32 reachLengthSum = (!TYPE_INVERT(this)) ? this->actor.scale.y * 3500.0f : this->actor.scale.y * 1500.0f;
+    f32 baseHeightOffset = this->actor.scale.y * BASE_SEG_HEIGHT * 2.0f;
 
-    f32 distXZ =
-        CLAMP(this->actor.xzDistToPlayer - this->cylinder.dim.radius - playerR, 0.0f, this->actor.scale.x * 3250.0f);
-    f32 distY = this->actor.yDistToPlayer + velocityFactor;
+    // XZ Distance (Clamped so it doesn't bend backward)
+    f32 distXZ = CLAMP_MIN(this->actor.xzDistToPlayer - playerR, 1.0f);
+    
+    f32 yBias = CLAMP((this->actor.yDistToPlayer + baseHeightOffset) / (f32)playerH, -1.0f, 1.0f);
+    f32 targetFrac = 0.85f - (yBias * 0.3f);
+    f32 targetY = this->actor.yDistToPlayer + velocityFactor + (playerH * targetFrac) + baseHeightOffset;
 
-    // Biases between top or bottom of player collider based on y pos difference.
-    if ((!TYPE_INVERT(this) && distY < 0.0f) || (TYPE_INVERT(this) && distY > baseHeight)) {
-        distY *= 1.2f;
+    if (TYPE_INVERT(this)) {
+        targetY = -targetY;
     }
 
-    f32 yBias = CLAMP((this->actor.yDistToPlayer + baseHeight * 0.33f) / playerH, -1.2f, 1.2f);
-    f32 targetFrac = 0.6f - (yBias * 0.5f);
-    f32 targetPlayerY = distY + (playerH * targetFrac);
-    f32 finalTargetY = (!TYPE_INVERT(this)) ? targetPlayerY : -targetPlayerY;
+    // ==========================================
+    // 2. THE ARC KINEMATICS ENGINE
+    // ==========================================
+    f32 chordAngleRad = atan2f(distXZ, targetY);
+    f32 totalBendRad = chordAngleRad * 2.0f;
+    f32 totalBendZelda = (totalBendRad / (f32)M_PI) * 32768.0f;
 
-    // 1. Define the maximum horizontal distance the Like-Like cares about
-    f32 maxReachXZ = this->actor.scale.x * 3250.0f;
+    f32 maxTotalBend = 43520.0f; 
+    totalBendZelda = CLAMP(totalBendZelda, 0.0f, maxTotalBend);
 
-    // 2. INVERT the distance.
-    // If Link is close (distXZ is 0), invertedXZ is large -> High Bend (Tight Curl)
-    // If Link is far (distXZ is 3250), invertedXZ is 0 -> Low Bend (Stretch Out)
-    f32 invertedXZ = maxReachXZ - distXZ;
+    this->reachAngle = totalBendZelda / this->bodySegCount;
 
-    // 3. Apply your scalar weight
-    f32 finalTargetXZ = invertedXZ * 0.4f;
-
-    f32 invScaleY = 1.0f / this->actor.scale.y;
-    f32 angleSizeMult = 3.8f * invScaleY;
-
-    f32 angleNumerator = ((baseHeight + reachLengthSum) - finalTargetY + finalTargetXZ) * angleSizeMult;
-
-    this->reachAngle = CLAMP(angleNumerator / this->bodySegCount, 0.0f, 8704.0f);
-
-    for (i = 1; i <= this->bodySegCount; i++) {
+    for (s16 i = 1; i <= this->bodySegCount; i++) {
         this->bodySegs[i].rotTargetX = this->reachAngle;
     }
+
+    // ==========================================
+    // 3. DYNAMIC ARC LENGTH (The Height Target)
+    // ==========================================
+    f32 chordLen = sqrtf(SQ(distXZ) + SQ(targetY));
+    f32 requiredTotalLength;
+
+    if (totalBendRad < 0.01f) {
+        requiredTotalLength = chordLen;
+    } else {
+        f32 sinHalfTheta = sinf(totalBendRad * 0.5f);
+        requiredTotalLength = chordLen * (totalBendRad / (2.0f * sinHalfTheta));
+    }
+
+    s16 bodySegSum = (this->bodySegCount * (this->bodySegCount + 1)) / 2;
+    f32 localTotalLength = requiredTotalLength / this->actor.scale.y;
+
+    // THE FIX: Calculate the required offset by subtracting the resting spine length!
+    f32 restingLength = BASE_SEG_HEIGHT * this->bodySegCount;
+    f32 neededOffset = (localTotalLength * 0.9f) - restingLength;
+    
+    f32 calculatedReachHeight = neededOffset / bodySegSum;
+
+    f32 maxNegativeOffset = 50.0f;
+    f32 maxPositiveOffset = 3500.0f / bodySegSum; 
+    
+    // Allow the target to go negative!
+    this->reachHeight = CLAMP(calculatedReachHeight, maxNegativeOffset, maxPositiveOffset);
 }
 
 void EnRr_SetSpeed(EnRr* this, f32 speed) {
@@ -367,12 +388,7 @@ void EnRr_SetupReach(EnRr* this, PlayState* play) {
     EnRrStruct* bodySegment;
     EnRrStruct* mouthSegment = &this->bodySegs[this->bodySegCount];
     s16 i;
-    s16 bodySegSum = 0;
-
-    // Used for reachHeight, allows modular segment amounts and allocates more height to upper segments.
-    for (i = 0; i <= this->bodySegCount; i++) {
-        bodySegSum += i;
-    }
+    s16 bodySegSum = (this->bodySegCount * (this->bodySegCount + 1)) / 2;
 
     this->reachState = 1;
     this->phaseCycleTimer = 0;
@@ -388,20 +404,24 @@ void EnRr_SetupReach(EnRr* this, PlayState* play) {
         ((fabsf(this->actor.yDistToPlayer) - playerH - velocityFactor - this->actor.scale.y * segmentMod) /
          this->bodySegCount) *
         (127.5f * (1.0f - this->actor.scale.y * 27.5f));
-    this->reachHeight = !this->reachUp ? 3500.0f / bodySegSum : reachUpFormula;
-
     if (!this->reachUp) {
         EnRr_CalculateReachAngle(this, play);
     } else {
+        this->reachHeight = reachUpFormula;
         this->reachAngle = 0;
         this->wobbleSize = 512.0f;
         this->wobbleSizeTarget = 512.0f;
     }
 
+    f32 maxNegativeOffset = -(BASE_SEG_HEIGHT - 150.0f) / this->bodySegCount;
+    f32 maxPositiveOffset = 4500.0f / bodySegSum; 
+    
+    f32 stretchRatio = (this->reachHeight - maxNegativeOffset) / (maxPositiveOffset - maxNegativeOffset);
+    stretchRatio = CLAMP(stretchRatio, 0.0f, 1.0f);
     for (i = 1; i <= this->bodySegCount; i++) {
         bodySegment = &this->bodySegs[i];
         bodySegment->heightTarget = !this->reachUp ? this->reachHeight * i : this->reachHeight;
-        bodySegment->scaleTarget = !this->reachUp ? 0.725f : 0.6f;
+        bodySegment->scaleTarget = !this->reachUp ? F32_LERPIMP(0.95f, 0.6f, stretchRatio) : 0.6f;        
         bodySegment->rotTargetX = this->reachAngle;
         bodySegment->rotTargetZ = 0;
     }
@@ -409,14 +429,16 @@ void EnRr_SetupReach(EnRr* this, PlayState* play) {
     mouthSegment->scaleTarget = 1.5f;
     this->innerMouthScaleTarget = 1.5f;
 
-    // Regular reach uses a flat rate + size mod; reachUp rate is based on height target.
-    this->transitionRate = !this->reachUp ? 9.0f + ROUND(SQ(this->actor.scale.y) * 16000.0f)
-                                          : this->reachHeight / (175.0f - this->actor.scale.y * 5000.0f);
+    f32 totalSpineStretch = this->reachHeight * bodySegSum;
+    
+    // Base of 6 frames (reaction time), plus 1 extra frame for every ~750 units of local stretch.
+    this->transitionRate = 6.0f + (totalSpineStretch / 750.0f);
+    this->transitionRate = CLAMP(this->transitionRate, 8.0f, 26.0f);
 
     this->heightRate = mouthSegment->heightTarget / (this->transitionRate * 1.25f);
-    this->rotXRate = !this->reachUp ? 6000 / (this->transitionRate * 0.75f) : 384;
+    this->rotXRate = !this->reachUp ? 6000.0f / (this->transitionRate * 0.75f) : 384.0f;
     this->scaleRate1 = (this->bodySegs[1].scale - this->bodySegs[1].scaleTarget) / this->transitionRate;
-    this->scaleRate2 = mouthSegment->scaleTarget / (this->transitionRate * 0.5f);
+    this->scaleRate2 = mouthSegment->scaleTarget / this->transitionRate;
 
     this->actionFunc = EnRr_Reach;
     Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_UNARI, this->pitchScale);
@@ -497,7 +519,7 @@ void EnRr_SetGrabParams(EnRr* this, Player* player, PlayState* play) {
     this->phaseCycleTimer = 0;
     this->phaseCycleCount = (this->actor.params == LIKE_LIKE_SMALL && LINK_IS_ADULT) ? 32 : 8;
     this->soundEatCounter = 0;
-    this->segPhaseVel = CLAMP_MIN(this->segPhaseVel, 1536);
+    this->segPhaseVel = CLAMP_MIN(this->segPhaseVel, 1024);
     this->soundTimer = 0x8000 / this->segPhaseVel;
     this->struggleCounter = 0;
     this->struggleSpeedup = 0;
@@ -506,7 +528,7 @@ void EnRr_SetGrabParams(EnRr* this, Player* player, PlayState* play) {
     this->catchPenalty = (TYPE_DRAIN(this)) && this->catchPenalty < 6 ? 6 : this->catchPenalty;
     this->stolenLife = 0;
     this->grabEject = 0;
-    this->playerInside = false;
+    this->midpointTrigger = false;
     this->throwStrength = 0;
     this->damageRelease = 0;
     this->slimePlayer = false;
@@ -514,7 +536,7 @@ void EnRr_SetGrabParams(EnRr* this, Player* player, PlayState* play) {
     this->actor.flags &= ~ACTOR_FLAG_ATTENTION_ENABLED;
     this->cylinder.base.ocFlags1 &= ~OC1_TYPE_PLAYER;
     this->bodySph.base.ocFlags1 &= ~OC1_TYPE_PLAYER;
-    this->ocPlayerTimer = 20;
+    this->ocPlayerTimer = 10;
     this->reachState = 0;
     this->actor.colChkInfo.mass = MASS_IMMOVABLE; // Immovable while holding player.
     player->cylinder.base.ocFlags1 &= ~OC1_ON;    // Prevents other actors from shoving player out.
@@ -549,7 +571,7 @@ void EnRr_SetGrabParams(EnRr* this, Player* player, PlayState* play) {
 
     bodySegment = &this->bodySegs[1];
     this->transitionRate = !this->reachUp ? 15.0f : CLAMP_MIN(mouthSegment->height / 100.0f, 1.0f);
-    this->rotXRate = !this->reachUp ? this->reachAngle / this->transitionRate : 384.0f;
+    this->rotXRate = !this->reachUp ? CLAMP_MIN(this->reachAngle / this->transitionRate, 256.0f) : 384.0f;
     this->heightRate = mouthSegment->height / this->transitionRate;
     this->scaleRate1 = (bodySegment->scaleTarget - bodySegment->scale) / (this->transitionRate * 1.75f);
     this->scaleRate2 = mouthSegment->scaleTarget / (this->transitionRate * 0.5f);
@@ -562,75 +584,12 @@ void EnRr_SetupGrabPlayer(EnRr* this, Player* player, PlayState* play) {
     this->storedPlayerIsFacing = facingCondition;
     EnRr_SetGrabParams(this, player, play);
 
-    if (!TYPE_INVERT(this)) {
-        // Applies falling player y velocity to initial offset for much smoother grab.
-        this->swallowOffset = player->actor.velocity.y < -4.0f ? player->actor.velocity.y : 0.0f;
-    } else {
-        this->swallowOffset = -player->cylinder.dim.height;
-    }
+    f32 linkChestY = player->actor.world.pos.y + (player->cylinder.dim.height * 0.5f);
+    this->grabDirection = (this->bodySphPos[3].y > linkChestY) ? 1 : -1;
+    this->swallowOffset = (this->grabDirection == 1) ? 1.2f : 1.0f;
 
     Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_DRINK, this->pitchScale);
     this->actionFunc = EnRr_GrabPlayer;
-}
-
-void EnRr_SetupScoopPlayer(EnRr* this, PlayState* play) {
-    Player* player = GET_PLAYER(play);
-    EnRrStruct* bodySegment;
-    EnRrStruct* mouthSegment = &this->bodySegs[this->bodySegCount];
-    s16 i;
-    s16 bodySegSum = 0;
-    bool facingCondition =
-        (Player_IsFacingActor(&this->actor, 0x4000, play) && Actor_IsFacingPlayer(&this->actor, 0x4000)) ||
-        (!Player_IsFacingActor(&this->actor, 0x4000, play) && !Actor_IsFacingPlayer(&this->actor, 0x4000));
-
-    for (i = 0; i <= this->bodySegCount; i++) {
-        bodySegSum += i;
-    }
-
-    this->reachState = 1;
-    this->phaseCycleTimer = 0x4000 - 364000.0f * this->actor.scale.y;
-    this->phaseCycleCount = 1;
-    this->actor.speedXZ = 0.0f;
-    this->segMoveRate = 0.0f;
-    this->reachHeight = 0.0f;
-    this->actor.flags &= ~ACTOR_FLAG_ATTENTION_ENABLED;
-    this->cylinder.base.ocFlags1 &= ~OC1_TYPE_PLAYER;
-    this->bodySph.base.ocFlags1 &= ~OC1_TYPE_PLAYER;
-    this->ocPlayerTimer = 20;
-    this->vacuumCooldown = true; // Mostly just to set the sped up swallowOffset.
-    this->storedPlayerIsFacing = facingCondition;
-    EnRr_CalculateReachAngle(this, play);
-    this->reachAngle = CLAMP(this->reachAngle, 3072, 7168);
-
-    for (i = 1; i <= this->bodySegCount; i++) {
-        bodySegment = &this->bodySegs[i];
-        bodySegment->heightTarget = this->reachHeight * i;
-        bodySegment->scaleTarget = 0.8f;
-        bodySegment->rotTargetX = this->reachAngle;
-        bodySegment->rotTargetZ = 0;
-    }
-
-    mouthSegment->scaleTarget = 1.5f;
-    this->innerMouthScaleTarget = 1.5f;
-
-    if (!TYPE_INVERT(this)) {
-        s16 offsetSizeMod = 1.0f - (this->actor.scale.y / 0.0225f);
-        this->swallowOffset =
-            player->actor.velocity.y < -4.0f ? player->actor.velocity.y : -player->cylinder.dim.height * 0.33f;
-    } else {
-        this->swallowOffset = -player->cylinder.dim.height;
-    }
-
-    this->transitionRate = CLAMP_MIN(ROUND(SQ(this->actor.scale.y) * 16000.0f), 5.0f);
-
-    this->heightRate = mouthSegment->heightTarget / this->transitionRate;
-    this->rotXRate = (this->reachAngle * 1.5f) / (this->transitionRate);
-    this->scaleRate1 = ABS(this->bodySegs[1].scale - this->bodySegs[1].scaleTarget) / this->transitionRate;
-    this->scaleRate2 = mouthSegment->scaleTarget / this->transitionRate;
-
-    this->actionFunc = EnRr_ScoopPlayer;
-    Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_UNARI, this->pitchScale);
-    Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_DRINK, this->pitchScale);
 }
 
 void EnRr_SetupDamage(EnRr* this) {
@@ -672,45 +631,86 @@ void EnRr_SetupReleasePlayer(EnRr* this, PlayState* play) {
     f32 launchY;
 
     player->actor.parent = NULL;
-    player->av2.actionVar2 = 0;
+    player->av2.actionVar2 = 0x65;
 
     this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED;
     this->reachUp = false;
     this->phaseCycleCount = 4;
     this->regrabTimer = 50;
     this->segMoveRate = 0.0f;
-    this->segPhaseVel = SEG_PHASE_VEL_DEFAULT;
     EnRr_SetDefaultMotionParams(this, 20);
     this->actor.colChkInfo.mass =
         (!TYPE_STATIONARY(this)) ? this->massRef : MASS_IMMOVABLE; // Return mass to original state.
     player->cylinder.base.ocFlags1 |= OC1_ON;
 
     if ((this->msgEaten != -1) && (Message_GetState(&play->msgCtx) == TEXT_STATE_NONE)) {
-        switch (this->msgEaten) {
-            case 0: // Sword
-                Message_StartTextbox(play, 0x305F, NULL);
-                break;
-            case 1: // Shield
-                Message_StartTextbox(play, 0x305F, NULL);
-                break;
-            case 2: // Tunic
-                Message_StartTextbox(play, 0x3060, NULL);
-                break;
-            case 3: // Boots
-                Message_StartTextbox(play, 0x3060, NULL);
-                break;
-            case 4: // Bottle
-                Message_StartTextbox(play, 0x3061, NULL);
-                break;
-            case 5: // Item
-                Message_StartTextbox(play, 0x3061, NULL);
-                break;
-        }
-    }
-    this->msgEaten = -1;
 
-    if (this->actor.params == MAGIC_LIKE) {
-        Magic_Reset(play);
+        if (this->msgEaten == 6) {
+            EnRr_SetKnifeBrokeMessage(); // Formats 0x3060 on the fly!
+            Message_StartTextbox(play, TEXT_KNIFE_BROKE, NULL);
+        } else {
+            const char* stolenName = NULL;
+
+            switch (this->msgEaten) {
+                case 0: // Sword
+                    if (this->eatenSword == EQUIP_VALUE_SWORD_KOKIRI)
+                        stolenName = "Kokiri Sword";
+                    else if (this->eatenSword == EQUIP_VALUE_SWORD_MASTER)
+                        stolenName = "Master Sword";
+                    else if (this->eatenSword == EQUIP_VALUE_SWORD_BIGGORON)
+                        stolenName = "Biggoron's Sword";
+                    break;
+                case 1: // Shield
+                    if (this->eatenShield == EQUIP_VALUE_SHIELD_DEKU)
+                        stolenName = "Deku Shield";
+                    else if (this->eatenShield == EQUIP_VALUE_SHIELD_HYLIAN)
+                        stolenName = "Hylian Shield";
+                    else if (this->eatenShield == EQUIP_VALUE_SHIELD_MIRROR)
+                        stolenName = "Mirror Shield";
+                    break;
+                case 2: // Tunic
+                    if (this->eatenTunic == EQUIP_VALUE_TUNIC_GORON)
+                        stolenName = "Goron Tunic";
+                    else if (this->eatenTunic == EQUIP_VALUE_TUNIC_ZORA)
+                        stolenName = "Zora Tunic";
+                    break;
+                case 3: // Boots
+                    if (this->eatenBoots == EQUIP_VALUE_BOOTS_IRON)
+                        stolenName = "Iron Boots";
+                    else if (this->eatenBoots == EQUIP_VALUE_BOOTS_HOVER)
+                        stolenName = "Hover Boots";
+                    break;
+                case 4: // Bottle
+                    if (this->eatenBottle == ITEM_BOTTLE)
+                        stolenName = "Empty Bottle";
+                    else if (this->eatenBottle == ITEM_POTION_RED)
+                        stolenName = "Red Potion";
+                    else if (this->eatenBottle == ITEM_FAIRY)
+                        stolenName = "Fairy";
+                    else
+                        stolenName = "Bottle";
+                    break;
+                case 5: // Item
+                    if (this->eatenItem == ITEM_HOOKSHOT)
+                        stolenName = "Hookshot";
+                    else if (this->eatenItem == ITEM_LONGSHOT)
+                        stolenName = "Longshot";
+                    else if (this->eatenItem == ITEM_BOOMERANG)
+                        stolenName = "Boomerang";
+                    else if (this->eatenItem == ITEM_LENS)
+                        stolenName = "Lens of Truth";
+                    else if (this->eatenItem == ITEM_HAMMER)
+                        stolenName = "Megaton Hammer";
+                    break;
+            }
+
+            if (stolenName != NULL) {
+                EnRr_SetDynamicStealMessage(stolenName); // Formats 0x305F on the fly!
+                Message_StartTextbox(play, TEXT_STOLEN_DYNAMIC, NULL);
+            }
+        }
+
+        this->msgEaten = -1;
     }
 
     if (!TYPE_INVERT(this) && this->grabEject < 10) {
@@ -726,7 +726,6 @@ void EnRr_SetupReleasePlayer(EnRr* this, PlayState* play) {
     player->actor.world.pos.x += launchXZ * Math_SinS(this->actor.shape.rot.y);
     player->actor.world.pos.y += launchY;
     player->actor.world.pos.z += launchXZ * Math_CosS(this->actor.shape.rot.y);
-    player->actor.world.rot.x = player->actor.shape.rot.x = 0;
     GameInteractor_GetLinkSize(GI_LINK_SIZE_RESET);
 
     func_8002F6D4(play, &this->actor, launchXZ, this->actor.shape.rot.y, launchY, 0);
@@ -746,11 +745,7 @@ void EnRr_SetupThrowPlayer(EnRr* this, PlayState* play) {
     EnRrStruct* bodySegment;
     EnRrStruct* mouthSegment = &this->bodySegs[this->bodySegCount];
     s16 i;
-    s16 bodySegSum = 0;
-
-    for (i = 0; i <= this->bodySegCount; i++) {
-        bodySegSum += i;
-    }
+    s16 bodySegSum = (this->bodySegCount * (this->bodySegCount + 1)) / 2;
 
     player->av2.actionVar2 = 0;
 
@@ -825,6 +820,8 @@ void EnRr_SetupDeath(EnRr* this) {
     EnRrStruct* segment;
     s16 i;
 
+    this->stunTimer = 0;
+    this->actor.colorFilterTimer = 40;
     this->frameCount = 0;
     this->shrinkRate = 0.0f;
     this->segScaleModY = 0.0f;
@@ -892,14 +889,14 @@ s32 EnRr_CollisionCheck(EnRr* this, PlayState* play) {
         this->bodySph.base.acFlags &= ~AC_HIT;
 
         Actor_SetDropFlag(&this->actor, &this->cylinder.info, 1);
-        if ((this->actionFunc == EnRr_GrabPlayer || this->actionFunc == EnRr_ScoopPlayer) &&
+        if ((this->actionFunc == EnRr_GrabPlayer) &&
             Actor_ApplyDamage(&this->actor)) {
             // Took damage but survived
             if (this->damageRelease == 0) {
                 this->damageRelease = this->actor.colChkInfo.damage;
             }
             this->invincibilityTimer = 20;
-            if (this->playerInside) {
+            if (this->midpointTrigger) {
                 EnRr_SetupThrowPlayer(this, play);
             } else {
                 EnRr_SetupReleasePlayer(this, play);
@@ -910,9 +907,10 @@ s32 EnRr_CollisionCheck(EnRr* this, PlayState* play) {
             if (this->actor.colChkInfo.damageEffect == RR_DMG_ICE) {
                 this->cylinder.base.acFlags &= ~AC_ON;
                 this->bodySph.base.acFlags &= ~AC_ON;
+                this->stunTimer = 80;
                 EnRr_SetupStunned(this, play);
             } else {
-                if (this->actionFunc == EnRr_GrabPlayer || this->actionFunc == EnRr_ScoopPlayer) {
+                if (this->actionFunc == EnRr_GrabPlayer) {
                     this->throwStrength = 0;
                     EnRr_SetupReleasePlayer(this, play);
                 }
@@ -940,20 +938,22 @@ s32 EnRr_CollisionCheck(EnRr* this, PlayState* play) {
 void EnRr_PlayerCollisionCheck(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
 
-    if ((this->regrabTimer == 0) && (this->actor.colorFilterTimer == 0) && !(player->swallowed) &&
+    if ((this->regrabTimer == 0) && (this->actor.colorFilterTimer == 0) &&
+        !(player->stateFlags2 & PLAYER_STATE2_GRABBED_BY_ENEMY) && !(player->swallowed) &&
         (player->invincibilityTimer == 0) &&
         (((this->cylinder.base.ocFlags1 & OC1_HIT) || (this->bodySph.base.ocFlags1 & OC1_HIT)) &&
          ((this->cylinder.base.oc == &player->actor) || (this->bodySph.base.oc == &player->actor)))) {
         this->cylinder.base.ocFlags1 &= ~OC1_HIT;
         this->bodySph.base.ocFlags1 &= ~OC1_HIT;
 
-        if (play->grabPlayer(play, player)) {
-            player->actor.parent = &this->actor;
-            if (this->actionFunc != EnRr_Reach) {
-                EnRr_SetupScoopPlayer(this, play);
-            } else {
+        if (this->actionFunc == EnRr_Reach) {
+            if (play->grabPlayer(play, player)) {
+                player->actor.parent = &this->actor;
                 EnRr_SetupGrabPlayer(this, player, play);
             }
+        } else {
+            EnRr_SetupReach(this, play);
+            this->regrabTimer = 8;
         }
     }
 }
@@ -984,9 +984,8 @@ void EnRr_UpdateBodySegments(EnRr* this, PlayState* play) {
     EnRrStruct* segment;
     s16 i;
     s16 pulseIncrement = 0x10000 / this->bodySegCount;
-    u16 phaseDiffXIncrement = this->segWobblePhaseDiffX * 0x1000;
-    u16 phaseDiffZIncrement = this->segWobblePhaseDiffZ * 0x1000;
-    f32 wobbleScale = (this->wobbleSize * 4.0f) / this->bodySegCount;
+    u16 phaseDiffXIncrement = this->segWobblePhaseDiffX * 0x2000;
+    u16 phaseDiffZIncrement = this->segWobblePhaseDiffZ * 0x2000;
 
     if (this->actionFunc != EnRr_Death) {
         for (i = 1; i <= this->bodySegCount; i++) {
@@ -1001,8 +1000,7 @@ void EnRr_UpdateBodySegments(EnRr* this, PlayState* play) {
             segment->ySquishMod = sinf(ySquishRadians) * this->segScaleModY;
         }
 
-        if (this->actionFunc != EnRr_Reach && this->actionFunc != EnRr_ScoopPlayer &&
-            this->actionFunc != EnRr_ThrowPlayer) {
+        if (this->actionFunc != EnRr_Reach && this->actionFunc != EnRr_ThrowPlayer) {
             for (i = 1; i <= this->bodySegCount; i++) {
                 u16 phaseDiffX = this->segMovePhase + i * phaseDiffXIncrement;
                 u16 phaseDiffZ = this->segMovePhase + i * phaseDiffZIncrement;
@@ -1010,8 +1008,8 @@ void EnRr_UpdateBodySegments(EnRr* this, PlayState* play) {
                 f32 diffZRadians = (phaseDiffZ * (2.0f * M_PI)) / 65536.0f;
 
                 segment = &this->bodySegs[i];
-                segment->rotTargetX = sinf(diffXRadians) * wobbleScale;
-                segment->rotTargetZ = cosf(diffZRadians) * wobbleScale;
+                segment->rotTargetX = sinf(diffXRadians) * this->wobbleSize;
+                segment->rotTargetZ = cosf(diffZRadians) * this->wobbleSize;
             }
         }
     }
@@ -1021,35 +1019,87 @@ void EnRr_UpdateBodySegments(EnRr* this, PlayState* play) {
     }
 }
 
-// Dynamic proximity detection scales off actor plus the player's collider dimensions
+// Dynamic proximity detection based on total body length and angle to player.
 void EnRr_ReachDetect(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
-    s16 playerH = player->cylinder.dim.height >> 1;
+    s16 playerH = player->cylinder.dim.height;
     s16 playerR = player->cylinder.dim.radius;
     f32 deltaX = this->actor.xzDistToPlayer;
     f32 deltaY = this->actor.yDistToPlayer;
     f32 scaleX = this->actor.scale.x;
     f32 scaleY = this->actor.scale.y;
-    f32 velocityFactor = player->actor.velocity.y < -5.0f ? player->actor.velocity.y * 15.0f : 0.0f;
+    
+    // ==========================================
+    // 1. DYNAMIC ARC MATH (The Predictor)
+    // ==========================================
+    f32 velocityFactor = player->actor.velocity.y < -10.0f ? player->actor.velocity.y * 5.0f : 0.0f;
+    f32 baseHeightOffset = scaleY * BASE_SEG_HEIGHT * 0.5f;
+
+    f32 distXZ = CLAMP_MIN(deltaX - playerR, 1.0f);
+    f32 yBias = CLAMP(deltaY / (f32)playerH, -1.0f, 1.0f);
+    f32 targetFrac = 0.85f - (yBias * 0.3f);
+    f32 targetY = deltaY + velocityFactor + ((f32)playerH * targetFrac) + baseHeightOffset;
+
+    if (TYPE_INVERT(this)) {
+        targetY = -targetY;
+    }
+
+    f32 chordLen = sqrtf(SQ(distXZ) + SQ(targetY));
+    f32 chordAngleRad = atan2f(distXZ, targetY);
+    f32 totalBendRad = chordAngleRad * 2.0f;
+    f32 totalBendZelda = (totalBendRad / (f32)M_PI) * 32768.0f;
+
+    f32 requiredTotalLength;
+    if (totalBendRad < 0.01f) {
+        requiredTotalLength = chordLen;
+    } else {
+        f32 sinHalfTheta = sinf(totalBendRad * 0.5f);
+        requiredTotalLength = chordLen * (totalBendRad / (2.0f * sinHalfTheta));
+    }
+
+    // ==========================================
+    // 2. LIMITS, CONDITIONS & LINE OF SIGHT
+    // ==========================================
+    // Can it physically bend to that angle?
+    bool isAngleValid = (totalBendZelda <= 43520.0f);
+
+    // Is it a vertical strike? (Target is high and XZ distance is tight)
+    bool isVertical = (distXZ < scaleX * 2250.0f + playerR) && (targetY > scaleY * 12000.0f);
+
+    // Set the max physical limits (10% grace margin added via 1.1f!)
+    f32 maxNormalReach = (11000.0f * scaleY) * 1.1f; 
+    f32 maxUpwardReach = (16500.0f * scaleY) * 1.1f; 
+
+    // THE FIX: Raise the raycast points to chest/neck level so it doesn't drag on the floor!
+    Vec3f playerChest = player->actor.world.pos;
+    playerChest.y += (playerH); // playerH is already half-height!
+
+    Vec3f mouthPos = this->bodySphPos[3];
+    // Nudge the Like-Like's ray origin away from the floor/ceiling to prevent self-clipping
+    mouthPos.y += TYPE_INVERT(this) ? -15.0f : 15.0f; 
+
     Vec3f hitPos;
     CollisionPoly* poly;
     s32 bgId;
-    bool lineTest = (BgCheck_EntityLineTest1(&play->colCtx, &player->actor.world.pos, &this->bodySphPos[3], &hitPos,
-                                             &poly, true, true, true, true, &bgId));
+    
+    // Returns TRUE if an obstacle (wall/floor/ceiling) intercepts the line.
+    bool isLineOfSightBlocked = BgCheck_EntityLineTest1(&play->colCtx, &playerChest, &mouthPos, &hitPos,
+                                                        &poly, true, true, true, true, &bgId);
 
-    // 1. Check cycle timer, if player isn't already grabbed, and if Skull Mask is on.
-    // 2. Reach upward action is checked first in a narrow range above Like Like.
-    // 3. Normal reach is checked next in a cone within the Like Like's exact range.
-    // 4. For stationary types, do additional check for underwater vacuum.
+    // The Ultimate Predictor: 
+    // It must have a valid angle, a clear line of sight, AND be within physical stretching limits!
+    bool mathematicallyReachable = isAngleValid && !isLineOfSightBlocked && 
+        (requiredTotalLength <= (isVertical ? maxUpwardReach : maxNormalReach));
+
+    // ==========================================
+    // 3. THE DETECTION LOGIC
+    // ==========================================
     if ((this->phaseCycleCount == 0) && !(player->swallowed) && (Player_GetMask(gPlayState) != PLAYER_MASK_SKULL)) {
         if (!(TYPE_INVERT(this))) {
-            if ((deltaY < scaleY * 12000.0f + playerH - velocityFactor) && (deltaY > scaleY * 7000.0f + playerH) &&
-                (deltaX < scaleX * 2750.0f + playerR)) {
+            if (mathematicallyReachable && isVertical) {
                 this->reachUp = true;
                 EnRr_SetupReach(this, play);
-            } else if ((Actor_IsFacingPlayer(&this->actor, 0x5000)) &&
-                       (deltaY < scaleY * 7000.0f + playerH - velocityFactor) &&
-                       (deltaY > -(scaleY * 3500.0f + playerH)) && (deltaX < scaleX * 6250.0f + playerR)) {
+            } else if (mathematicallyReachable && targetY > -(scaleY * 3500.0f + playerH) && Actor_IsFacingPlayer(&this->actor, 0x5000)) {
                 this->reachUp = false;
                 EnRr_SetupReach(this, play);
             } else if ((TYPE_STATIONARY(this)) && (this->actor.yDistToWater > this->heightRef) && (deltaY < 400.0f) &&
@@ -1058,21 +1108,20 @@ void EnRr_ReachDetect(EnRr* this, PlayState* play) {
                 EnRr_SetupUnderwaterVacuum(this, play);
             }
         } else {
-            if ((deltaY > -(scaleY * 15000.0f + playerH)) && (deltaY < -(scaleY * 5500.0f + playerH)) &&
-                (deltaX < scaleX * 3250.0f + playerR)) {
+            // INVERTED
+            if (mathematicallyReachable && isVertical) {
                 this->reachUp = true;
                 EnRr_SetupReach(this, play);
-            } else if ((Actor_IsFacingPlayer(&this->actor, 0x5000)) && (deltaY > -(scaleY * 5500.0f + playerH)) &&
-                       (deltaY < scaleY * 3000.0f + playerH) && (deltaX < scaleX * 6250.0f + playerR)) {
+            } else if (mathematicallyReachable && targetY > -(scaleY * 5500.0f + playerH) && Actor_IsFacingPlayer(&this->actor, 0x5000)) {
                 this->reachUp = false;
                 EnRr_SetupReach(this, play);
             } else if ((TYPE_STATIONARY(this)) && (this->actor.yDistToWater > this->heightRef) &&
                        (deltaY > -(400.0f + playerH)) && (deltaY < -this->heightRef) &&
                        (deltaX < scaleX * 10000.0f + playerR) && (player->actor.bgCheckFlags & 0x20)) {
                 EnRr_SetupUnderwaterVacuum(this, play);
-                // Tries to fall onto the player if approaching but out of reachUp range.
             } else if ((deltaY < -(scaleY * 15000.0f + playerH)) && (deltaX < scaleX * 6250.0f + playerR) &&
                        (this->actor.params != LIKE_LIKE_STATIONARY_INVERT)) {
+                // Tries to fall onto the player if approaching but out of reachUp range.
                 this->fallTimer++;
             }
         }
@@ -1099,12 +1148,10 @@ void EnRr_Approach(EnRr* this, PlayState* play) {
             EnRr_ReachDetect(this, play);
         }
 
-        if ((this->actor.speedXZ == 0.0f) && (!TYPE_STATIONARY(this))) { // Fixes type triggering SetSpeed function.
+        if (!TYPE_STATIONARY(this)) { 
             this->segPhaseVelTarget = this->retreat ? 3276 : SEG_PHASE_VEL_DEFAULT;
             this->wobbleSizeTarget = WOBBLE_SIZE_DEFAULT;
             this->pulseSizeTarget = PULSE_SIZE_DEFAULT;
-            f32 speed = 2.5f;
-            EnRr_SetSpeed(this, speed);
         }
     } else if (this->retreat) {
         this->phaseCycleTimer = 0;
@@ -1134,7 +1181,11 @@ void EnRr_Reach(EnRr* this, PlayState* play) {
         f32 invScaleY = 1.0f / this->actor.scale.y;
         Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 4, (s16)(12.0f * invScaleY),
                            (s16)(2.0f * invScaleY));
-        EnRr_CalculateReachAngle(this, play);
+        //EnRr_CalculateReachAngle(this, play);
+
+        //for (s16 i = 1; i <= this->bodySegCount; i++) {
+        //    this->bodySegs[i].heightTarget = this->reachHeight * i;
+        //}
     }
     this->actor.world.rot.y = this->actor.shape.rot.y;
 
@@ -1142,15 +1193,12 @@ void EnRr_Reach(EnRr* this, PlayState* play) {
         case 1:
             if (mouthSegment->height > mouthSegment->heightTarget * 0.8f) {
                 mouthSegment->scaleTarget = 0.725f;
-                this->innerMouthScaleTarget = 1.0f;
-                if (!this->reachUp) {
-                    mouthSegment->heightTarget *= 1.25f;
-                }
+                this->innerMouthScaleTarget = 0.85f;
                 this->reachState = 2;
             }
             break;
         case 2:
-            if (mouthSegment->height == mouthSegment->heightTarget) {
+            if (mouthSegment->height >= mouthSegment->heightTarget * 0.95f) {
                 this->phaseCycleTimer = 0;
                 this->phaseCycleCount = 2;
                 this->reachState = 3;
@@ -1240,40 +1288,200 @@ void EnRr_UnderwaterVacuum(EnRr* this, PlayState* play) {
 
 void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
-    f32 snapRateXZ = this->actor.scale.y * 650.0f; // How quickly player "snaps" to target pos.
-    f32 snapRateY = this->actionFunc != EnRr_ScoopPlayer ? this->grabEject > 4 ? 4.0f : this->actor.scale.y * 1200.0f
-                                                         : this->actor.scale.y * 900.0f;
-    f32 invScaleY = 1.0f / this->actor.scale.y;
-    Math_StepToF(&player->actor.world.pos.x, this->bodySphPos[3].x, snapRateXZ);
-    Math_StepToF(&player->actor.world.pos.y, this->bodySphPos[3].y + this->swallowOffset,
-                 snapRateY); // Rolls off y snapRate if player is stuck on something.
-    Math_StepToF(&player->actor.world.pos.z, this->bodySphPos[3].z, snapRateXZ);
-    f32 decRate = ((this->heightRef / 30.0f) * (1.0f - (this->actor.scale.y * 15.0f)));
-    f32 vacuumMod = this->vacuumCooldown ? 1.35f : 1.0f; // Getting caught during a vacuum speeds up descent.
-    f32 offsetTarget = (!TYPE_INVERT(this)) ? -this->heightRef * 0.8f : this->heightRef * 0.05f;
-    if (this->actionFunc != EnRr_ScoopPlayer) {
-        Math_StepToF(&this->swallowOffset, offsetTarget, decRate * vacuumMod);
+    
+    player->actor.velocity.y = 0.0f;
+
+    // ==========================================
+    // 1. SMOOTH PERISTALSIS & DROP DAMPER
+    // ==========================================
+    f32 swallowWave = Math_SinS(this->segMovePhase);
+    f32 baseDropSpeed = (f32)this->segPhaseVel / 250000.0f;
+
+    f32 stretchDist = Math_Vec3f_DistXYZ(&this->actor.world.pos, &this->bodySphPos[3]);
+    f32 maxStretch = this->actor.scale.y * 7250.0f;
+    f32 stretchRatio = CLAMP(stretchDist / maxStretch, 0.0f, 1.0f);
+
+    baseDropSpeed *= (1.0f - (stretchRatio * 0.75f));
+    if (this->vacuumCooldown) baseDropSpeed *= 1.25f;
+
+    this->swallowOffset -= baseDropSpeed * (1.0f + (swallowWave * 0.8f));
+
+    f32 offsetTarget = 0.25f;
+    this->swallowOffset = CLAMP(this->swallowOffset, offsetTarget, 1.5f);
+
+    f32 trackOffset = this->swallowOffset;
+
+    // ==========================================
+    // 2. THE RAILROAD TRACK
+    // ==========================================
+    f32 halfHeight = player->cylinder.dim.height * 0.5f;
+
+    Vec3f track[5];
+    track[0] = this->actor.world.pos; 
+    track[0].y += halfHeight; 
+    track[1] = this->bodySphPos[0];
+    track[2] = this->bodySphPos[1];
+    track[3] = this->bodySphPos[2];
+    track[4] = this->bodySphPos[3]; 
+
+    f32 exactSeg = trackOffset * 4.0f;
+    int segIdx = (int)exactSeg;
+    if (segIdx >= 4) segIdx = 3; 
+    f32 localT = exactSeg - (f32)segIdx;
+
+    Vec3f trackPos;
+    trackPos.x = F32_LERPIMP(track[segIdx].x, track[segIdx + 1].x, localT);
+    trackPos.z = F32_LERPIMP(track[segIdx].z, track[segIdx + 1].z, localT);
+    trackPos.y = F32_LERPIMP(track[segIdx].y, track[segIdx + 1].y, localT);
+
+    // ==========================================
+    // 3. THE PURE STOMACH MATH (Stable Anchor)
+    // ==========================================
+    f32 squishPulse = (Math_CosS(this->segMovePhase) + 1.0f) * 0.5f;
+    f32 bobAmplitude = this->actor.scale.y * 300.0f; 
+    f32 invertMod = TYPE_INVERT(this) ? -1.0f : 1.0f; 
+
+    f32 floorPadding = 5.0f; 
+
+    Vec3f purePos;
+    purePos.x = this->actor.world.pos.x; 
+    purePos.z = this->actor.world.pos.z;
+    purePos.y = this->actor.world.pos.y + ((floorPadding + (squishPulse * bobAmplitude)) * invertMod);
+
+    // ==========================================
+    // 4. THE BLEND
+    // ==========================================
+    // blendT is 0.0 at the stomach, 1.0 at the mouth
+    f32 blendT = (trackOffset - offsetTarget) / (1.0f - offsetTarget);
+    blendT = CLAMP(blendT, 0.0f, 1.0f);
+
+    Vec3f targetPos;
+    targetPos.x = F32_LERPIMP(purePos.x, trackPos.x, blendT);
+    targetPos.y = F32_LERPIMP(purePos.y, trackPos.y, blendT);
+    targetPos.z = F32_LERPIMP(purePos.z, trackPos.z, blendT);
+
+    // ==========================================
+    // 5. DYNAMIC TUMBLE & ALIGNMENT
+    // ==========================================
+    s32 rotXSum = 0;
+    for (s16 i = 1; i < this->bodySegCount; i++) {
+        rotXSum += this->bodySegs[i].rot.x;
+    }
+    
+    s32 targetRotX = this->storedPlayerIsFacing ? -rotXSum : rotXSum;
+    
+    // Exact same alignment as feet-first, just inverted for the head
+    if (this->grabDirection == 1) {
+        targetRotX += 0x8000; 
     }
 
+    s16 targetRotY = this->storedPlayerIsFacing ? this->actor.world.rot.y - 0x8000 : this->actor.world.rot.y;
+
+    // Smoothly step to the target angle, identical logic for both directions
+    Math_SmoothStepToS(&player->actor.shape.rot.x, targetRotX, 3, 8000, 100);
+    Math_SmoothStepToS(&player->actor.shape.rot.y, targetRotY, 3, 6000, 100);
+
+    player->actor.world.rot.x = player->actor.shape.rot.x;
+    player->actor.world.rot.y = player->actor.shape.rot.y;
+
+    // ==========================================
+    // 6. THE VISUAL COMPENSATOR (Multi-Stage LERP)
+    // ==========================================
+    f32 targetYOffset = 0.0f;
+
+    if (this->grabDirection == 1) {
+        f32 headPadding = 25.0f; 
+        f32 fullHeight = player->cylinder.dim.height + headPadding;
+        
+        // Positive offset
+        targetYOffset = (fullHeight / player->actor.scale.y); 
+    }
+
+    f32 offsetMultiplier = 0.0f;
+
+    // STAGE 1: The Initial Retraction (swallowOffset drops from 1.2 to 1.0)
+    if (this->swallowOffset > 1.0f) {
+        f32 retractProgress = (1.2f - this->swallowOffset) / 0.25f;
+        retractProgress = CLAMP(retractProgress, 0.0f, 1.0f);
+        
+        // Starts at 0% offset (zero frame-1 popping!), LERPs to 75% as the mouth closes
+        offsetMultiplier = F32_LERPIMP(0.0f, 0.75f, retractProgress);
+    } 
+    // STAGE 2: Down the Throat (swallowOffset drops from 1.0 to 0.25)
+    else {
+        f32 swallowProgress = (1.0f - this->swallowOffset) / 0.75f;
+        swallowProgress = CLAMP(swallowProgress, 0.0f, 1.0f);
+        
+        // Picks up exactly where Stage 1 left off (75%) and finishes at 100%
+        offsetMultiplier = F32_LERPIMP(0.75f, 1.0f, swallowProgress);
+    }
+
+    player->actor.shape.yOffset = targetYOffset * offsetMultiplier;
+
+    // ==========================================
+    // 7. THE PURE TRACKING ASSIGNMENT
+    // ==========================================
+    f32 rigidT = (this->swallowOffset > 1.0f) ? 0.8f : 1.0f;
+
+    if (rigidT >= 1.0f) {
+        player->actor.world.pos.x = targetPos.x;
+        player->actor.world.pos.y = targetPos.y;
+        player->actor.world.pos.z = targetPos.z;
+    } else {
+        f32 smoothingFraction = F32_LERPIMP(0.04f, 1.0f, rigidT);    
+        f32 snapRateXZ = F32_LERPIMP(this->actor.scale.y * 650.0f, 1000.0f, rigidT);
+        f32 snapRateY = F32_LERPIMP(this->actor.scale.y * 3000.0f, 1000.0f, rigidT);
+        
+        Math_SmoothStepToF(&player->actor.world.pos.x, targetPos.x, smoothingFraction, snapRateXZ, 0.1f);
+        Math_SmoothStepToF(&player->actor.world.pos.y, targetPos.y, smoothingFraction, snapRateY, 0.1f);
+        Math_SmoothStepToF(&player->actor.world.pos.z, targetPos.z, smoothingFraction, snapRateXZ, 0.1f);
+    }
+
+    // ==========================================
+    // 8. SCALE SQUISH
+    // ==========================================
     if (this->actor.scale.y <= 0.015f && (LINK_IS_ADULT)) {
-        f32 playerScaleTarget = 0.0085f;
-        Math_StepToF(&player->actor.scale.x, playerScaleTarget,
-                     (0.01f - playerScaleTarget) / (this->transitionRate * 2.0f));
-        Math_StepToF(&player->actor.scale.y, playerScaleTarget,
-                     (0.01f - playerScaleTarget) / (this->transitionRate * 2.0f));
-        Math_StepToF(&player->actor.scale.z, playerScaleTarget,
-                     (0.01f - playerScaleTarget) / (this->transitionRate * 2.0f));
+        f32 scaleTarget = 0.0085f; 
+        
+        f32 scaleRate = (0.01f - scaleTarget) / (this->transitionRate * 2.0f);
+        
+        Math_StepToF(&player->actor.scale.x, scaleTarget, scaleRate);
+        Math_StepToF(&player->actor.scale.y, scaleTarget, scaleRate);
+        Math_StepToF(&player->actor.scale.z, scaleTarget, scaleRate);
     }
-}
 
-void EnRr_ScoopPlayer(EnRr* this, PlayState* play) {
-    Player* player = GET_PLAYER(play);
+    // ==========================================
+    // 9. THE SAUSAGE CASING (Angled Feet)
+    // ==========================================
+    s16 targetWaistBend = (s16)(rotXSum * 0.6f); 
+    
+    // Invert the bend if he's grabbed head-first so his back still follows the curve!
+    if (this->grabDirection == 1) {
+        targetWaistBend = -targetWaistBend;
+    }
 
-    EnRr_GrabPlayerPositionHandler(this, play);
+    // Fades the bend IN as he gets pulled from 1.25 to 1.0
+    f32 bendProgress = (1.2f - this->swallowOffset) / 0.25f;
+    bendProgress = CLAMP(bendProgress, 0.0f, 1.0f);
 
-    if (this->phaseCycleCount == 0) {
-        EnRr_SetGrabParams(this, player, play);
-        this->actionFunc = EnRr_GrabPlayer;
+    // Apply the bend to the waist joint! 
+    player->skelAnime.jointTable[PLAYER_LIMB_WAIST].x += (s16)(targetWaistBend * bendProgress);
+
+    f32 squeezeT = (1.0f - this->swallowOffset) / 0.25f; 
+    squeezeT = CLAMP(squeezeT, 0.0f, 1.0f);
+
+    if (squeezeT > 0.0f) {
+        // Straighten the upper legs completely
+        u8 straightLimbs[] = {
+            PLAYER_LIMB_L_THIGH, PLAYER_LIMB_R_THIGH,
+        };
+
+        for (int i = 0; i < ARRAY_COUNT(straightLimbs); i++) {
+            u8 limb = straightLimbs[i];
+            player->skelAnime.jointTable[limb].x -= (s16)(player->skelAnime.jointTable[limb].x * squeezeT);
+            player->skelAnime.jointTable[limb].y -= (s16)(player->skelAnime.jointTable[limb].y * squeezeT);
+            player->skelAnime.jointTable[limb].z -= (s16)(player->skelAnime.jointTable[limb].z * squeezeT);
+        }
     }
 }
 
@@ -1320,24 +1528,21 @@ void EnRr_GrabStruggleHandler(EnRr* this, PlayState* play) {
     if (this->struggleCounter < 0) {
         this->struggleCounter = 0;
     }
-
-    if (!this->playerInside) {
-        this->struggleSound = 6;
-        this->struggleSpeedup = 0;
-    }
 }
 
 void EnRr_GrabEjectHandler(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     f32 distXZ = Math_Vec3f_DistXZ(&this->bodySphPos[3], &player->actor.world.pos);
     f32 distY = fabsf((this->bodySphPos[3].y + this->swallowOffset) - player->actor.world.pos.y);
+    Vec3f chestPos = player->actor.world.pos;
+    chestPos.y += player->cylinder.dim.height / 2; 
     Vec3f hitPos;
     CollisionPoly* poly;
     s32 bgId;
 
     // If player is either out of range for too long, they're ejected.
     if ((distXZ > this->bodyRadiusRef) || (distY > this->heightRef) ||
-        (BgCheck_EntityLineTest1(&play->colCtx, &player->actor.world.pos, &this->bodySphPos[3], &hitPos, &poly, true,
+        (BgCheck_EntityLineTest1(&play->colCtx, &chestPos, &this->bodySphPos[3], &hitPos, &poly, true,
                                  true, true, true, &bgId))) {
         this->grabEject++;
         if (this->grabEject > 10) {
@@ -1442,16 +1647,9 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
 
     EnRr_GrabStruggleHandler(this, play);
 
-    // Determines if player is fully inside Like Like, allows struggleCounter to increment and phaseCycleCounter to
-    // decrement.
-    if ((((!TYPE_INVERT(this)) && (this->swallowOffset < -player->cylinder.dim.height * 0.85f)) ||
-         ((TYPE_INVERT(this)) && (this->swallowOffset == this->heightRef * 0.05f && mouthSegment->height == 0.0f))) &&
-        (!this->playerInside)) {
-        this->playerInside = true;
-        if (this->retreat || (TYPE_DRAIN(this))) {
-            this->phaseCycleTimer = 0;
-            this->phaseCycleCount = 24;
-        }
+    bool offsetTarget = (this->swallowOffset <= 0.26f);
+    if (!this->midpointTrigger && this->swallowOffset <= 0.75f) {
+        this->midpointTrigger = true;
     }
 
     EnRr_GrabEjectHandler(this, play);
@@ -1465,7 +1663,7 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
 
     // All grab effects are synchronized perfectly with the visual geometry!
     if ((oldPhase ^ currentPhase) < 0) {
-        if (this->playerInside) {
+        if (this->midpointTrigger) {
             // Item-stealing types deal damage during the steal phase or if the player is grabbed again while it's
             // retreating
             if ((((this->actor.params == LIKE_LIKE_SMALL && this->phaseCycleCount % 8 == 0) ||
@@ -1485,7 +1683,7 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
                     Audio_PlayActorSound2(&player->actor, NA_SE_VO_LI_DAMAGE_S + player->ageProperties->unk_92);
                 }
             }
-            // For every 3 phaseCycleCount decrements, life is stolen; max life is capped out at 12
+            // For every 4 phaseCycleCount decrements, life is stolen; max life is capped out at 12
             if (this->actor.params == LIFE_LIKE) {
                 this->stolenLife++;
                 if (this->stolenLife == 4) {
@@ -1535,7 +1733,7 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
         Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_EAT, this->pitchScale);
     }
 
-    if ((this->playerInside) && (this->actor.params == RUPEE_LIKE) && (gSaveContext.rupees > 0) &&
+    if ((this->midpointTrigger) && (this->actor.params == RUPEE_LIKE) && (gSaveContext.rupees > 0) &&
         !(Flags_GetRandomizerInf(RAND_INF_HAS_INFINITE_MONEY))) {
         s16 phaseRupeeTarget;
         phaseRupeeTarget = CLAMP_MIN(0x6000 - (gSaveContext.rupees * 0x20), 0x2000);
@@ -1563,10 +1761,11 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
             } else if (!this->retreat && (!TYPE_DRAIN(this))) {
                 // Item-stealing types slowly close mouth to indicate how close they are to stealing.
                 this->segPhaseVelTarget = 4096 - phaseVelMod; // Caps at 3072
-                mouthSegment->scaleTarget =
-                    0.85f - (8.0f - (f32)this->phaseCycleCount / 2.0f) / 80.0f - pulseMod * 3.0f;
-                this->innerMouthScaleTarget = 0.85f - (8.0f - (f32)this->phaseCycleCount / 2.0f) / 10.0f;
                 this->wobbleSizeTarget = 768.0f + wobbleMod; // Caps at 1280
+                f32 trackProgress = (1.0f - this->swallowOffset) / (1.0f - 0.26f);
+                trackProgress = CLAMP(trackProgress, 0.0f, 1.0f);
+                mouthSegment->scaleTarget = 0.85f - (0.15f * trackProgress) - (pulseMod * 3.0f);
+                this->innerMouthScaleTarget = 0.85f - (0.8f * trackProgress);
             } else {
                 this->segPhaseVelTarget = 4096 - phaseVelMod * 1.5f; // Caps at 1536
                 this->wobbleSizeTarget = 512.0f + wobbleMod * 1.5f;  // Caps at 1792
@@ -1576,148 +1775,153 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
             this->pulseSizeTarget = PULSE_SIZE_DEFAULT + pulseMod; // Caps at 0.175
             this->segPhaseVelRate = 64;
 
-            if (this->phaseCycleCount == 0) {
-                if (this->retreat || (this->actor.params == LIKE_LIKE_SMALL && LINK_IS_ADULT)) {
-                    EnRr_SetupThrowPlayer(this, play);
-                } else if (((this->eatenShield == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) != EQUIP_VALUE_SHIELD_NONE) ||
-                            (this->eatenSword == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) != EQUIP_VALUE_SWORD_NONE) ||
-                            (this->eatenTunic == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_KOKIRI)) ||
-                           //(this->eatenBoots == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS) != EQUIP_VALUE_BOOTS_NONE)) ||
-                           (this->eatenBottle == 0 && EnRr_FindStealableBottle(&bottleSlot, &bottleId)) ||
-                           (this->eatenItem == 0 && EnRr_FindStealableItem(&itemSlot, &itemId))) {
-                    // Go to stealing phase if there's something to steal
-                    this->transitionRate = 30.0f;
-                    mouthSegment->scaleTarget = 0.75f;
-                    this->innerMouthScaleTarget = 0.2f;
-                    this->scaleRate2 = mouthSegment->scaleTarget / this->transitionRate;
-                    this->segPhaseVelTarget = 5461;
-                    this->segPhaseVelRate = abs(this->segPhaseVelTarget - this->segPhaseVel) / this->transitionRate;
-                    this->wobbleSizeTarget = this->actor.params == LIKE_LIKE_GIANT ? 256.0f : 1024.0f;
-                    this->wobbleSizeRate = fabsf(this->wobbleSizeTarget - this->wobbleSize) / this->transitionRate;
-                    this->pulseSizeTarget = PULSE_SIZE_DEFAULT;
-                    this->pulseSizeRate = fabsf(this->pulseSize - this->pulseSizeTarget) / this->transitionRate;
-                    this->segWobbleXTarget = 4.0f;
-                    this->segWobbleXRate = (this->segWobbleXTarget - this->segWobblePhaseDiffX) / this->transitionRate;
-                    this->segWobbleZTarget = 4.0f;
-                    this->segWobbleZRate = (this->segWobbleZTarget - this->segWobblePhaseDiffZ) / this->transitionRate;
-                    this->segScaleModYTarget = 0.03f;
-                    this->phaseCycleTimer = 0;
-                    this->phaseCycleCount = 96;
-                    this->soundEatCounter = 0;
-                    this->catchPenalty = this->actor.params == LIKE_LIKE_GIANT ? 12 : 8;
-                    this->struggleCounter = 0; // Resets struggle counter, catch penalty ensures player will take some
-                                               // damage before breaking from steal phase.
-                    Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_BUYOSHUTTER_CLOSE, this->pitchScale);
-                    // Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_BUYODOOR_CLOSE, this->pitchScale);
-                    Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_UNARI, this->pitchScale);
-                    this->grabState = 2;
-                } else {
-                    // Otherwise, go to idle grab state
-                    this->scaleRate2 = 0.05f;
-                    this->segPhaseVelRate = 64;
-                    this->segWobbleXRate = 0.1f;
-                    this->segWobbleZRate = 0.07f;
-                    this->wobbleSizeRate = 64.0f;
-                    this->segScaleModYTarget = SCALE_MOD_Y_DEFAULT;
-                    this->phaseCycleTimer = 0;
-                    this->phaseCycleCount = 32;
-                    this->struggleCounter -= BREAKFREE_TARGET / 5;
-                    mouthSegment->scaleTarget = 0.85f;
-                    this->innerMouthScaleTarget = 0.75f;
-                    this->scaleRate2 =
-                        (mouthSegment->scaleTarget - mouthSegment->scale) / (this->transitionRate * 0.5f);
-                    play->damagePlayer(play, -8);
-                    Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_BUYOSHUTTER_OPEN, this->pitchScale);
-                    Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_BUYODOOR_OPEN, this->pitchScale);
-                    this->slimeCounter += 10;
-                    this->grabState = 3;
-                }
-            }
-            break;
-        case 2:
-            pulseMod = 0.04f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-            f32 mouthSegMod = 0.35f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-            this->pulseSizeTarget = PULSE_SIZE_DEFAULT + pulseMod;
-            mouthSegment->scaleTarget = 0.75f - mouthSegMod;
-            this->innerMouthScaleTarget = 0.2f + mouthSegMod;
-
-            if (this->phaseCycleCount == 0 || this->struggleCounter > BREAKFREE_TARGET >> 1) {
-                if (this->eatenShield == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) != EQUIP_VALUE_SHIELD_NONE) {
-                    this->eatenShield = CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD);
-                    this->heldItem = EQUIP_TYPE_SHIELD;
-                    EnRr_AddStolenShield(this->eatenShield);
-                    this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_SHIELD);
-                } else if (this->eatenSword == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) != EQUIP_VALUE_SWORD_MASTER &&
-                           CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) != EQUIP_VALUE_SWORD_NONE) {
-                    this->eatenSword = CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD);
-                    this->heldItem = EQUIP_TYPE_SWORD;
-                    EnRr_AddStolenSword(this->eatenSword);
-                    this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_SWORD);
-                } else if (this->eatenTunic == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_KOKIRI &&
-                           CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_NONE) {
-                    this->eatenTunic = CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC);
-                    this->heldItem = EQUIP_TYPE_TUNIC;
-                    this->msgEaten = this->heldItem = Inventory_DeleteEquipment(play, EQUIP_TYPE_TUNIC);
-                    //} else if (this->eatenBoots == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS) != EQUIP_VALUE_BOOTS_NONE) {
-                    //    this->eatenBoots = CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS);
-                    //    this->heldItem = EQUIP_TYPE_BOOTS;
-                    //    this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_BOOTS);
-                } else if (this->eatenBottle == 0 && EnRr_FindStealableBottle(&bottleSlot, &bottleId)) {
-                    this->eatenBottle = gSaveContext.inventory.items[bottleSlot];
-                    this->msgEaten = this->heldItem = 4;
-                    EnRr_AddStolenBottle(this->eatenBottle);
-                    Inventory_DeleteItem(bottleId, bottleSlot);
-                } else if (this->eatenItem == 0 && EnRr_FindStealableItem(&itemSlot, &itemId)) {
-                    this->eatenItem = gSaveContext.inventory.items[itemSlot];
-                    EnRr_AddStolenItem(this->eatenItem);
-                    this->msgEaten = this->heldItem = 5;
-                    Inventory_DeleteItem(itemId, itemSlot);
-                }
-
-                if (this->msgEaten != -1) {
-                    play->damagePlayer(play, -8);
-                    this->retreat = true;
-                    Audio_StopSfxById(NA_SE_EN_BIRI_BUBLE);
-                    Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_DRINK, this->pitchScale);
-                    Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_WATER_BUBBLE, this->pitchScale);
-                }
-
+            if ((this->phaseCycleCount == 0 &&
+                 (this->retreat || (this->actor.params == LIKE_LIKE_SMALL && LINK_IS_ADULT))) ||
+                (TYPE_DRAIN(this) && this->struggleCounter > BREAKFREE_TARGET)) {
+                EnRr_SetupThrowPlayer(this, play);
+            } else if (TYPE_STEAL(this) && offsetTarget &&
+                       ((this->eatenShield == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) != EQUIP_VALUE_SHIELD_NONE) ||
+                        (this->eatenSword == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) != EQUIP_VALUE_SWORD_NONE) ||
+                        (this->eatenTunic == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_KOKIRI) ||
+                        //(this->eatenBoots == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS) != EQUIP_VALUE_BOOTS_NONE)) ||
+                        (this->eatenBottle == 0 && EnRr_FindStealableBottle(&bottleSlot, &bottleId)) ||
+                        (this->eatenItem == 0 && EnRr_FindStealableItem(&itemSlot, &itemId)))) {
+                // Go to stealing phase if there's something to steal
+                this->transitionRate = 30.0f;
+                mouthSegment->scaleTarget = 0.75f;
+                this->innerMouthScaleTarget = 0.0f;
+                this->scaleRate2 = mouthSegment->scaleTarget / this->transitionRate;
+                this->segPhaseVelTarget = 5461;
+                this->segPhaseVelRate = abs(this->segPhaseVelTarget - this->segPhaseVel) / this->transitionRate;
+                this->wobbleSizeTarget = this->actor.params == LIKE_LIKE_GIANT ? 256.0f : 1024.0f;
+                this->wobbleSizeRate = fabsf(this->wobbleSizeTarget - this->wobbleSize) / this->transitionRate;
+                this->pulseSizeTarget = PULSE_SIZE_DEFAULT;
+                this->pulseSizeRate = fabsf(this->pulseSize - this->pulseSizeTarget) / this->transitionRate;
+                this->segWobbleXTarget = 4.0f;
+                this->segWobbleXRate = (this->segWobbleXTarget - this->segWobblePhaseDiffX) / this->transitionRate;
+                this->segWobbleZTarget = 4.0f;
+                this->segWobbleZRate = (this->segWobbleZTarget - this->segWobblePhaseDiffZ) / this->transitionRate;
+                this->segScaleModYTarget = 0.03f;
                 this->phaseCycleTimer = 0;
-                this->phaseCycleCount = 32;
-                this->struggleCounter >>= 1;
+                this->phaseCycleCount = 96;
+                this->soundEatCounter = 0;
+                this->catchPenalty = this->actor.params == LIKE_LIKE_GIANT ? 12 : 8;
+                this->struggleCounter = 0; // Resets struggle counter, catch penalty ensures player will take some
+                                           // damage before breaking from steal phase.
+                Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_BUYOSHUTTER_CLOSE, this->pitchScale);
+                Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_UNARI, this->pitchScale);
+                this->grabState = 2;
+            } else if (offsetTarget && !this->retreat && !TYPE_DRAIN(this)) {
+                // Otherwise, go to idle grab state
+                this->scaleRate2 = 0.05f;
                 this->segPhaseVelRate = 64;
-                this->segWobbleXRate = 0.05f;
-                this->segWobbleZRate = 0.015f;
+                this->segWobbleXRate = 0.1f;
+                this->segWobbleZRate = 0.07f;
                 this->wobbleSizeRate = 64.0f;
                 this->segScaleModYTarget = SCALE_MOD_Y_DEFAULT;
+                this->phaseCycleTimer = 0;
+                this->phaseCycleCount = 32;
+                this->struggleCounter -= BREAKFREE_TARGET / 5;
                 mouthSegment->scaleTarget = 0.85f;
                 this->innerMouthScaleTarget = 0.75f;
-                this->scaleRate2 = ABS(mouthSegment->scaleTarget - mouthSegment->scale) / (this->transitionRate * 0.5f);
+                this->scaleRate2 = (mouthSegment->scaleTarget - mouthSegment->scale) / (this->transitionRate * 0.5f);
+                play->damagePlayer(play, -8);
+                Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_BUYOSHUTTER_OPEN, this->pitchScale);
+                Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_BUYODOOR_OPEN, this->pitchScale);
+                this->slimeCounter += 10;
                 this->grabState = 3;
             }
-            break;
-        case 3:
-            phaseVelMod = 1920.0f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-            wobbleMod = 1920.0f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-            pulseMod = 0.04f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-            f32 wobbleDiffMod = 0.75f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-            this->segPhaseVelTarget = 2978 - phaseVelMod;
-            this->wobbleSizeTarget = 256.0f + wobbleMod;
-            mouthSegment->scaleTarget = 0.85f - pulseMod * 4.375f;
-            this->innerMouthScaleTarget = 0.75f - pulseMod * 4.375f;
-            this->pulseSizeTarget = PULSE_SIZE_DEFAULT + pulseMod;
-            this->segWobbleXTarget = WOBBLE_DIFF_X_DEFAULT - wobbleDiffMod;
-            this->segWobbleZTarget = WOBBLE_DIFF_Z_DEFAULT + wobbleDiffMod * 0.625f;
+    break;
+    case 2:
+        pulseMod = 0.04f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+        f32 mouthSegMod = 0.35f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+        this->pulseSizeTarget = PULSE_SIZE_DEFAULT + pulseMod;
+        mouthSegment->scaleTarget = 0.75f - mouthSegMod;
+        this->innerMouthScaleTarget = 0.0f + mouthSegMod * 2.0f;
 
-            if (this->phaseCycleCount == 0) {
-                EnRr_SetupThrowPlayer(this, play); // Failsafe, won't decrement in this state.
+        if (this->phaseCycleCount == 0 || this->struggleCounter > BREAKFREE_TARGET >> 1) {
+            if (this->eatenShield == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) != EQUIP_VALUE_SHIELD_NONE) {
+                this->eatenShield = CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD);
+                this->heldItem = EQUIP_TYPE_SHIELD;
+                EnRr_AddStolenShield(this->eatenShield);
+                this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_SHIELD);
+            } else if (this->eatenSword == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) != EQUIP_VALUE_SWORD_MASTER &&
+                       CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) != EQUIP_VALUE_SWORD_NONE) {
+                this->eatenSword = CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD);
+                this->heldItem = EQUIP_TYPE_SWORD;
+                if (this->heldItem != 0 && this->eatenSword == EQUIP_VALUE_SWORD_BIGGORON &&
+                    (!gSaveContext.bgsFlag && (gSaveContext.swordHealth > 0))) {
+                    gSaveContext.swordHealth = 0;
+                    this->msgEaten = 6;
+                } else {
+                    EnRr_AddStolenSword(this->eatenSword);
+                    this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_SWORD);
+                }
+            } else if (this->eatenTunic == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_KOKIRI &&
+                       CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_NONE) {
+                this->eatenTunic = CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC);
+                this->heldItem = EQUIP_TYPE_TUNIC;
+                this->msgEaten = this->heldItem = Inventory_DeleteEquipment(play, EQUIP_TYPE_TUNIC);
+            } else if (this->eatenBoots == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS) != EQUIP_VALUE_BOOTS_KOKIRI) {
+                this->eatenBoots = CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS);
+                this->heldItem = EQUIP_TYPE_BOOTS;
+                this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_BOOTS);
+            } else if (this->eatenBottle == 0 && EnRr_FindStealableBottle(&bottleSlot, &bottleId)) {
+                this->eatenBottle = gSaveContext.inventory.items[bottleSlot];
+                this->msgEaten = this->heldItem = 4;
+                EnRr_AddStolenBottle(this->eatenBottle);
+                Inventory_DeleteItem(bottleId, bottleSlot);
+            } else if (this->eatenItem == 0 && EnRr_FindStealableItem(&itemSlot, &itemId)) {
+                this->eatenItem = gSaveContext.inventory.items[itemSlot];
+                EnRr_AddStolenItem(this->eatenItem);
+                this->msgEaten = this->heldItem = 5;
+                Inventory_DeleteItem(itemId, itemSlot);
             }
-            break;
+
+            if (this->msgEaten != -1) {
+                play->damagePlayer(play, -8);
+                this->retreat = true;
+                Audio_StopSfxById(NA_SE_EN_BIRI_BUBLE);
+                Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_DRINK, this->pitchScale);
+                Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_WATER_BUBBLE, this->pitchScale);
+            }
+
+            this->phaseCycleTimer = 0;
+            this->phaseCycleCount = 32;
+            this->struggleCounter >>= 1;
+            this->segPhaseVelRate = 64;
+            this->segWobbleXRate = 0.05f;
+            this->segWobbleZRate = 0.015f;
+            this->wobbleSizeRate = 64.0f;
+            this->segScaleModYTarget = SCALE_MOD_Y_DEFAULT;
+            mouthSegment->scaleTarget = 0.85f;
+            this->innerMouthScaleTarget = 0.75f;
+            this->scaleRate2 = ABS(mouthSegment->scaleTarget - mouthSegment->scale) / (this->transitionRate * 0.5f);
+            this->grabState = 3;
+        }
+        break;
+    case 3:
+        phaseVelMod = 1920.0f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+        wobbleMod = 1920.0f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+        pulseMod = 0.04f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+        f32 wobbleDiffMod = 0.75f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+        this->segPhaseVelTarget = 2978 - phaseVelMod;
+        this->wobbleSizeTarget = 256.0f + wobbleMod;
+        mouthSegment->scaleTarget = 0.85f - pulseMod * 4.375f;
+        this->innerMouthScaleTarget = 0.75f - pulseMod * 4.375f;
+        this->pulseSizeTarget = PULSE_SIZE_DEFAULT + pulseMod;
+        this->segWobbleXTarget = WOBBLE_DIFF_X_DEFAULT - wobbleDiffMod;
+        this->segWobbleZTarget = WOBBLE_DIFF_Z_DEFAULT + wobbleDiffMod * 0.625f;
+
+        if (this->phaseCycleCount == 0) {
+            EnRr_SetupThrowPlayer(this, play); // Failsafe, won't decrement in this state.
+        }
+        break;
     }
 
     if (this->struggleCounter > BREAKFREE_TARGET || !(player->stateFlags2 & PLAYER_STATE2_GRABBED_BY_ENEMY)) {
         this->grabState = 0;
-        this->playerInside = false;
+        this->midpointTrigger = false;
         EnRr_SetupThrowPlayer(this, play);
     } else {
         EnRr_GrabPlayerPositionHandler(this, play);
@@ -1725,37 +1929,95 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
 }
 
 void EnRr_ThrowPlayer(EnRr* this, PlayState* play) {
-    EnRrStruct* segment;
-    s16 i;
-    segment = &this->bodySegs[this->bodySegCount - 2];
-    f32 lerpMod = segment->height / segment->heightTarget;
+    EnRrStruct* mouthSegment = &this->bodySegs[this->bodySegCount];
+
+    // ejectProgress smoothly goes from 0.0 (Start of throw) to 1.0 (End of throw)
+    f32 ejectProgress = 1.0f;
+    if (mouthSegment->heightTarget != 0.0f) {
+        ejectProgress = mouthSegment->height / mouthSegment->heightTarget;
+    }
+
     Player* player = GET_PLAYER(play);
     player->av2.actionVar2 = 0;
     player->actor.speedXZ = 0.0f;
     player->actor.velocity.y = this->actor.velocity.y;
 
     this->regrabTimer = 8;
+    f32 halfHeight = player->cylinder.dim.height * 0.5f;
 
-    // Roll player in sync with Like Like.
+    // ==========================================
+    // 1. THE RAILROAD TRACK (Mapped dynamically)
+    // ==========================================
+    Vec3f track[5];
+    track[0] = this->actor.world.pos;
+    track[0].y += halfHeight; 
+    track[1] = this->bodySphPos[0];
+    track[2] = this->bodySphPos[1];
+    track[3] = this->bodySphPos[2];
+    track[4] = this->bodySphPos[3];
+
+    f32 t = CLAMP(ejectProgress, 0.0f, 1.0f);
+    
+    f32 endTrackDepth = (this->grabDirection == 1) ? 1.15f : 0.75f;
+    f32 trackDepth = F32_LERPIMP(this->swallowOffset, endTrackDepth, t);
+    f32 exactSeg = trackDepth * 4.0f;
+    
+    int segIdx = (int)exactSeg;
+    if (segIdx >= 4) segIdx = 3;
+    f32 localT = exactSeg - (f32)segIdx;
+
+    Vec3f pA = track[segIdx];
+    Vec3f pB = track[segIdx + 1];
+
+    f32 targetChestX = F32_LERPIMP(pA.x, pB.x, localT);
+    f32 targetChestY = F32_LERPIMP(pA.y, pB.y, localT);
+    f32 targetChestZ = F32_LERPIMP(pA.z, pB.z, localT);
+
+    // THE FIX: ACTUALLY ASSIGN THE POSITION!
+    player->actor.world.pos.x = targetChestX;
+    player->actor.world.pos.y = targetChestY;
+    player->actor.world.pos.z = targetChestZ;
+
+    // ==========================================
+    // 2. TUMBLE & Y-AXIS ALIGNMENT
+    // ==========================================
     s32 rotXSum = 0;
-    for (i = 1; i < this->bodySegCount; i++) {
-        segment = &this->bodySegs[i];
-        rotXSum += segment->rot.x;
+    for (s16 i = 1; i < this->bodySegCount; i++) {
+        rotXSum += this->bodySegs[i].rot.x;
     }
 
-    s32 targetRotX = this->storedPlayerIsFacing ? -rotXSum : rotXSum;
-    s32 finalPlayerRotX = targetRotX * 1.75f;
+    s32 insideRotX = this->storedPlayerIsFacing ? -rotXSum : rotXSum;
+    if (this->grabDirection == 1) {
+        insideRotX += 0x8000;
+    }
 
-    player->actor.shape.rot.x = F32_LERPIMP(0, finalPlayerRotX, lerpMod * 0.75f);
+    // THE FIX 2: Do NOT LERP to 0! Keep him perfectly aligned with the bent throat!
+    player->actor.shape.rot.x = insideRotX;
     player->actor.world.rot.x = player->actor.shape.rot.x;
-    player->actor.shape.rot.y = this->storedPlayerIsFacing ? this->actor.world.rot.y - 0x8000 : this->actor.world.rot.y;
 
-    // LERP player to mouth based on height / heightTarget.
-    player->actor.world.pos.x = F32_LERPIMP(this->actor.world.pos.x, this->bodySphPos[3].x, lerpMod * 0.8f);
-    player->actor.world.pos.y =
-        F32_LERPIMP(this->actor.world.pos.y, this->bodySphPos[3].y - player->cylinder.dim.height * 0.5f, lerpMod);
-    player->actor.world.pos.z = F32_LERPIMP(this->actor.world.pos.z, this->bodySphPos[3].z, lerpMod * 0.8f);
+    s16 targetRotY = this->storedPlayerIsFacing ? this->actor.world.rot.y - 0x8000 : this->actor.world.rot.y;
+    Math_SmoothStepToS(&player->actor.shape.rot.y, targetRotY, 3, 6000, 100);
+    player->actor.world.rot.y = player->actor.shape.rot.y;
 
+    // ==========================================
+    // 3. THE VISUAL UN-PACK (Reverse LERP)
+    // ==========================================
+    f32 targetYOffset = 0.0f;
+    
+    if (this->grabDirection == 1) {
+        f32 headPadding = 25.0f; 
+        targetYOffset = (player->cylinder.dim.height + headPadding) / player->actor.scale.y; 
+    }
+
+    // 't' smoothly goes from 0.0 (Stomach) to 1.0 (Mouth ejection).
+    // We reverse the multiplier so he starts at 100% offset and smoothly drops to 0% upon release!
+    f32 offsetMultiplier = F32_LERPIMP(1.0f, 0.0f, t);
+
+    player->actor.shape.yOffset = targetYOffset * offsetMultiplier;
+
+    // ==========================================
+    // 4. SCALE EXPANSION & SAUSAGE OVERRIDE
+    // ==========================================
     if (this->actor.scale.y <= 0.015f && (LINK_IS_ADULT)) {
         f32 playerScaleTarget = 0.01f;
         Math_StepToF(&player->actor.scale.x, playerScaleTarget, playerScaleTarget / (this->transitionRate * 0.5f));
@@ -1763,10 +2025,32 @@ void EnRr_ThrowPlayer(EnRr* this, PlayState* play) {
         Math_StepToF(&player->actor.scale.z, playerScaleTarget, playerScaleTarget / (this->transitionRate * 0.5f));
     }
 
-    // Function will end once the segment below mouth reaches height target.
-    if (segment->height == segment->heightTarget) {
+    f32 squeezeT = (1.0f - this->swallowOffset) / 0.25f; 
+    squeezeT = CLAMP(squeezeT, 0.0f, 1.0f);
+
+    if (squeezeT > 0.0f) {
+        // Straighten the upper legs completely
+        u8 straightLimbs[] = {
+            PLAYER_LIMB_L_THIGH, PLAYER_LIMB_R_THIGH,
+            PLAYER_LIMB_L_SHIN, PLAYER_LIMB_R_SHIN,
+        };
+
+        for (int i = 0; i < ARRAY_COUNT(straightLimbs); i++) {
+            u8 limb = straightLimbs[i];
+            player->skelAnime.jointTable[limb].x -= (s16)(player->skelAnime.jointTable[limb].x * squeezeT);
+            player->skelAnime.jointTable[limb].y -= (s16)(player->skelAnime.jointTable[limb].y * squeezeT);
+            player->skelAnime.jointTable[limb].z -= (s16)(player->skelAnime.jointTable[limb].z * squeezeT);
+        }
+    }
+
+    // ==========================================
+    // 5. COMPLETION TRIGGER
+    // ==========================================
+    if (mouthSegment->height == mouthSegment->heightTarget) {
         this->reachState = 0;
+        
         EnRr_SetupReleasePlayer(this, play);
+        
         if (this->damageRelease == 0) {
             EnRr_SetupNeutral(this, play);
         } else {
@@ -1802,25 +2086,23 @@ extern GetItemEntry CBridge_GetItemEntryFromRG(int rgId);
 
 void EnRr_DropStolenItem(PlayState* play, Vec3f* spawnPos, s32 rgId) {
     // 1. Drop the _GI suffix here! Use the silent pickup parameter.
-    EnItem00* drop = (EnItem00*)Actor_Spawn(&play->actorCtx, play, ACTOR_EN_ITEM00, 
-                                            spawnPos->x, spawnPos->y, spawnPos->z, 
-                                            0, 0, 0, 
-                                            ITEM00_SOH_GIVE_ITEM_ENTRY, true);
+    EnItem00* drop = (EnItem00*)Actor_Spawn(&play->actorCtx, play, ACTOR_EN_ITEM00, spawnPos->x, spawnPos->y,
+                                            spawnPos->z, 0, 0, 0, ITEM00_SOH_GIVE_ITEM_ENTRY, true);
 
     if (drop != NULL) {
         // 2. REMOVE the drop->getItemId assignment completely!
-        
+
         // Fetch the struct through the bridge
-        drop->itemEntry = CBridge_GetItemEntryFromRG(rgId); 
-        
+        drop->itemEntry = CBridge_GetItemEntryFromRG(rgId);
+
         // Apply bouncy drop physics
         drop->actor.velocity.y = 8.0f;
         drop->actor.speedXZ = 2.0f;
         drop->actor.gravity = -0.9f;
         drop->actor.world.rot.y = Rand_CenteredFloat(65536.0f);
-        
+
         drop->actor.flags |= ACTOR_FLAG_UPDATE_CULLING_DISABLED;
-        drop->unk_15A = 220; 
+        drop->unk_15A = 220;
     }
 }
 
@@ -1829,12 +2111,11 @@ void EnRr_Death(EnRr* this, PlayState* play) {
     s16 i;
     f32 targetScale;
 
-    this->actor.colorFilterTimer = 40;
     if (this->frameCount < 40) {
         for (i = 0; i <= this->bodySegCount; i++) {
             segment = &this->bodySegs[i];
             Math_StepToF(&segment->heightTarget, (i + 59) - (this->frameCount * 25.0f), 50.0f);
-            segment->scaleTarget = (SQ((f32)(4 - i)) * this->frameCount * 0.003f) + 1.0f;
+            segment->scaleTarget = (SQ((f32)(this->bodySegCount - i)) * this->frameCount * 0.003f) + 1.0f;
         }
         return;
     }
@@ -1845,54 +2126,92 @@ void EnRr_Death(EnRr* this, PlayState* play) {
         u8 dropCount = 0;
 
         // Shields
-        if (this->eatenShield == 1) itemsToDrop[dropCount++] = RG_DEKU_SHIELD;
-        else if (this->eatenShield == 2) itemsToDrop[dropCount++] = RG_HYLIAN_SHIELD;
-        else if (this->eatenShield == 3) itemsToDrop[dropCount++] = RG_MIRROR_SHIELD;
+        if (this->eatenShield == 1)
+            itemsToDrop[dropCount++] = RG_DEKU_SHIELD;
+        else if (this->eatenShield == 2)
+            itemsToDrop[dropCount++] = RG_HYLIAN_SHIELD;
+        else if (this->eatenShield == 3)
+            itemsToDrop[dropCount++] = RG_MIRROR_SHIELD;
 
         // Tunics
         // if (this->eatenTunic == 1) itemsToDrop[dropCount++] = RG_KOKIRI_TUNIC;
-        if (this->eatenTunic == 2) itemsToDrop[dropCount++] = RG_GORON_TUNIC;
-        else if (this->eatenTunic == 3) itemsToDrop[dropCount++] = RG_ZORA_TUNIC;
+        if (this->eatenTunic == 2)
+            itemsToDrop[dropCount++] = RG_GORON_TUNIC;
+        else if (this->eatenTunic == 3)
+            itemsToDrop[dropCount++] = RG_ZORA_TUNIC;
 
         // Boots
-        //if (this->eatenBoots == 1) itemsToDrop[dropCount++] = RG_KOKIRI_BOOTS;
-        if (this->eatenBoots == 2) itemsToDrop[dropCount++] = RG_IRON_BOOTS;
-        else if (this->eatenBoots == 3) itemsToDrop[dropCount++] = RG_HOVER_BOOTS;
+        // if (this->eatenBoots == 1) itemsToDrop[dropCount++] = RG_KOKIRI_BOOTS;
+        if (this->eatenBoots == 2)
+            itemsToDrop[dropCount++] = RG_IRON_BOOTS;
+        else if (this->eatenBoots == 3)
+            itemsToDrop[dropCount++] = RG_HOVER_BOOTS;
 
         // Swords
-        if (this->eatenSword == 1) itemsToDrop[dropCount++] = RG_KOKIRI_SWORD;
-        else if (this->eatenSword == 2) itemsToDrop[dropCount++] = RG_MASTER_SWORD;
-        else if (this->eatenSword == 3) itemsToDrop[dropCount++] = RG_BIGGORON_SWORD;
+        if (this->eatenSword == 1)
+            itemsToDrop[dropCount++] = RG_KOKIRI_SWORD;
+        else if (this->eatenSword == 2)
+            itemsToDrop[dropCount++] = RG_MASTER_SWORD;
+        else if (this->eatenSword == 3)
+            itemsToDrop[dropCount++] = RG_BIGGORON_SWORD;
 
         // Bottles
         switch (this->eatenBottle) {
-            case 20: itemsToDrop[dropCount++] = RG_EMPTY_BOTTLE; break;
-            case 21: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_RED_POTION; break;
-            case 22: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_GREEN_POTION; break;
-            case 23: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_BLUE_POTION; break;
-            case 24: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_FAIRY; break;
-            case 25: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_FISH; break;
-            case 26: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_MILK; break;
-            case 29: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_BUGS; break;
-            case 32: itemsToDrop[dropCount++] = RG_BOTTLE_WITH_POE; break;
+            case 20:
+                itemsToDrop[dropCount++] = RG_EMPTY_BOTTLE;
+                break;
+            case 21:
+                itemsToDrop[dropCount++] = RG_BOTTLE_WITH_RED_POTION;
+                break;
+            case 22:
+                itemsToDrop[dropCount++] = RG_BOTTLE_WITH_GREEN_POTION;
+                break;
+            case 23:
+                itemsToDrop[dropCount++] = RG_BOTTLE_WITH_BLUE_POTION;
+                break;
+            case 24:
+                itemsToDrop[dropCount++] = RG_BOTTLE_WITH_FAIRY;
+                break;
+            case 25:
+                itemsToDrop[dropCount++] = RG_BOTTLE_WITH_FISH;
+                break;
+            case 26:
+                itemsToDrop[dropCount++] = RG_BOTTLE_WITH_MILK;
+                break;
+            case 29:
+                itemsToDrop[dropCount++] = RG_BOTTLE_WITH_BUGS;
+                break;
+            case 32:
+                itemsToDrop[dropCount++] = RG_BOTTLE_WITH_POE;
+                break;
         }
 
         // Equipment/Items
         switch (this->eatenItem) {
-            case 10: itemsToDrop[dropCount++] = RG_HOOKSHOT; break;
-            case 11: itemsToDrop[dropCount++] = RG_LONGSHOT; break;
-            case 14: itemsToDrop[dropCount++] = RG_BOOMERANG; break;
-            case 15: itemsToDrop[dropCount++] = RG_LENS_OF_TRUTH; break;
-            case 17: itemsToDrop[dropCount++] = RG_MEGATON_HAMMER; break;
+            case 10:
+                itemsToDrop[dropCount++] = RG_HOOKSHOT;
+                break;
+            case 11:
+                itemsToDrop[dropCount++] = RG_LONGSHOT;
+                break;
+            case 14:
+                itemsToDrop[dropCount++] = RG_BOOMERANG;
+                break;
+            case 15:
+                itemsToDrop[dropCount++] = RG_LENS_OF_TRUTH;
+                break;
+            case 17:
+                itemsToDrop[dropCount++] = RG_MEGATON_HAMMER;
+                break;
         }
 
         // 2. Spawn the stolen items with a radial burst offset
         for (int j = 0; j < dropCount; j++) {
             Vec3f spawnPos = this->actor.world.pos;
-            
+
             if (dropCount > 1) {
                 s16 angle = (s16)(j * (65536.0f / dropCount));
-                spawnPos.x += Math_SinS(angle) * 15.0f; 
+                spawnPos.x += Math_SinS(angle) * 15.0f;
                 spawnPos.z += Math_CosS(angle) * 15.0f;
             }
 
@@ -1957,10 +2276,6 @@ void EnRr_Retreat(EnRr* this, PlayState* play) {
     if (this->phaseCycleCount == 0) {
         this->retreat = false;
         this->segPhaseVelTarget = SEG_PHASE_VEL_DEFAULT;
-        if (this->heldItem == 0 && this->eatenSword == EQUIP_VALUE_SWORD_BIGGORON &&
-            (!gSaveContext.bgsFlag && (gSaveContext.swordHealth > 0))) {
-            gSaveContext.swordHealth = 0;
-        }
         u8 healthBoost = this->heldItem == 1 ? 2 : 1;
         this->heldItem = -1;
         this->maximumHealth += healthBoost;
@@ -1980,12 +2295,6 @@ void EnRr_Retreat(EnRr* this, PlayState* play) {
         this->actor.world.rot.y = this->actor.shape.rot.y;
         this->segPhaseVelTarget = 3276;
         this->segScaleModYTarget = 0.0875f;
-        if (this->actor.speedXZ == 0.0f && (!TYPE_STATIONARY(this))) {
-            EnRr_SetSpeed(this, 3.0f);
-            if (!Audio_IsSfxPlaying(NA_SE_EN_AWA_BREAK)) {
-                Audio_PlayActorSound2(&this->actor, NA_SE_EN_OCTAROCK_BUBLE);
-            }
-        }
     }
 }
 
@@ -2040,6 +2349,7 @@ void EnRr_UpdateStepToTargets(EnRr* this, PlayState* play) {
         bodySegment = &this->bodySegs[i];
         Math_SmoothStepToS(&bodySegment->rot.x, bodySegment->rotTargetX, 5, this->segMoveRate * this->rotXRate, 0);
         Math_SmoothStepToS(&bodySegment->rot.z, bodySegment->rotTargetZ, 5, this->segMoveRate * this->rotZRate, 0);
+        Math_SmoothStepToS(&bodySegment->rot.y, bodySegment->rotTargetY, 12, this->segMoveRate * this->rotXRate * 2, 0);
         Math_StepToF(&bodySegment->height, bodySegment->heightTarget, this->segMoveRate * this->heightRate);
     }
 
@@ -2048,7 +2358,7 @@ void EnRr_UpdateStepToTargets(EnRr* this, PlayState* play) {
         Math_StepToF(&bodySegment->scale, bodySegment->scaleTarget, this->segMoveRate * this->scaleRate1);
     }
     Math_StepToF(&mouthSegment->scale, mouthSegment->scaleTarget, this->segMoveRate * this->scaleRate2);
-    Math_SmoothStepToF(&this->innerMouthScale, this->innerMouthScaleTarget, 0.15f, 1.0f, 0.001f);
+    Math_StepToF(&this->innerMouthScale, this->innerMouthScaleTarget, this->segMoveRate * this->scaleRate2);
     Math_StepToF(&this->segMoveRate, 1.0f, 0.2f);
 }
 
@@ -2116,6 +2426,14 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
         f32 scrollIncrement = Math_SinF(this->segMovePhase);
         f32 yIncrement = (f32)this->segPhaseVel / 896.0f;
         this->scrollControl += (1.0f + yIncrement + (scrollIncrement * yIncrement) / 4.5f) / 4.0f; // Convert for Draw.
+
+        // If the Like-Like has forward momentum, ratchet the base!
+        if (this->actor.speedXZ > 0.5f) {
+            // A twist of roughly +/- 15 degrees in time with the locomotion pulse
+            //this->bodySegs[1].rotTargetY = (s16)(Math_SinS(this->segMovePhase) * 2500.0f);
+        } else {
+            this->bodySegs[1].rotTargetY = 0;
+        }
     }
 
     s16 oldPhase = (s16)(this->segMovePhase - this->segPhaseVel);
@@ -2124,8 +2442,19 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
 
     // Whenever the geometry crosses a physical peak/valley, decrement the cycle
     if (phaseCrossed) {
-        if ((this->actionFunc == EnRr_GrabPlayer && this->playerInside) || (this->actionFunc != EnRr_GrabPlayer)) {
-            DECR(this->phaseCycleCount); // One cycle is a half-circle.
+        DECR(this->phaseCycleCount); 
+    }
+
+    f32 range = (TYPE_INVERT(this) ? 500.0f : 350.0f) + this->actor.scale.y * 5000.0f;
+    Player* player = GET_PLAYER(play);
+    bool canApproach =
+        (((this->actor.xyzDistToPlayerSq < SQ(range)) || (this->actor.isTargeted)) && !(player->swallowed));
+    if (((this->actionFunc == EnRr_Approach && canApproach) || this->actionFunc == EnRr_Retreat) &&
+        !TYPE_STATIONARY(this) && this->actor.speedXZ == 0.0f) {
+        f32 burstSpeed = this->actionFunc == EnRr_Retreat ? 3.0f : 2.5f;
+        EnRr_SetSpeed(this, burstSpeed);
+        if (this->actionFunc == EnRr_Retreat) {
+            Audio_PlayActorSound2(&this->actor, NA_SE_EN_OCTAROCK_BUBLE);
         }
     }
 
@@ -2143,10 +2472,20 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
 
     this->actionFunc(this, play);
 
-    f32 friction = this->retreat || this->actionFunc == EnRr_Reach || this->actionFunc == EnRr_GrabPlayer ||
-                           this->actionFunc == EnRr_ScoopPlayer
-                       ? 0.15f                                                  // Retreat friction.
-                       : this->segPhaseVel / (this->segPhaseVelTarget * 10.0f); // Dynamic normal friction.
+    f32 friction;
+    if (this->actionFunc == EnRr_Approach || this->actionFunc == EnRr_Retreat) {
+        // SYNCHRONIZED FRICTION:
+        // Calculates exactly how many frames are in the current full-cycle wave.
+        f32 fullCycleFrames = 65536.0f / (f32)MAX(this->segPhaseVel, 1);
+        f32 startSpeed = this->actionFunc == EnRr_Retreat ? 3.0f : 2.5f;
+        
+        // Speed divided by Frames guarantees it drops to 0.0f perfectly in time for the next burst!
+        friction = startSpeed / fullCycleFrames;
+    } else {
+        // Standard drag for Grabbing and Reaching
+        friction = 0.15f; 
+    }
+    
     Math_StepToF(&this->actor.speedXZ, 0.0f, friction);
 
     Actor_MoveXZGravity(&this->actor);
@@ -2239,284 +2578,327 @@ static inline void Matrix_MultVecX(f32 x, Vec3f* src) {
 void EnRr_DrawBottomCap(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius, u32 scrollFactor) {
     OPEN_DISPS(play->state.gfxCtx);
 
-    Vtx* capVtx = Graph_Alloc(play->state.gfxCtx, 25 * sizeof(Vtx));
     int vtxPerRing = 24;
+    int numRings = 4; // 4 Concentric rings to create the curve!
+    int numVertices = (numRings * (vtxPerRing + 1)) + 1; 
+    
+    Vtx* capVtx = Graph_Alloc(play->state.gfxCtx, numVertices * sizeof(Vtx));
 
     // ==========================================
-    // CENTER VERTEX (The Singularity)
+    // CENTER VERTEX (The Sharp Tip)
     // ==========================================
+    float tipY = 200.0f;
     capVtx[0].n.ob[0] = 0;
-    capVtx[0].n.ob[1] = 200;
+    capVtx[0].n.ob[1] = (s16)tipY;
     capVtx[0].n.ob[2] = 0;
     capVtx[0].n.flag = 0;
-
-    // We map the center vertex to the Top-Middle of the Top-Right Quarter
-    capVtx[0].n.tc[0] = 384; // Center of the [256 to 512] S-range
-    capVtx[0].n.tc[1] = 0;   // Top of the T-range
-
+    capVtx[0].n.tc[0] = 384;
+    capVtx[0].n.tc[1] = 0;
     capVtx[0].n.n[0] = 0;
     capVtx[0].n.n[1] = -127;
     capVtx[0].n.n[2] = 0;
     capVtx[0].n.a = 255;
 
     // ==========================================
-    // PERIMETER VERTICES (The Outer Edge)
+    // CONCENTRIC RINGS
     // ==========================================
-    for (int v = 0; v < vtxPerRing; v++) {
-        float angle = ((float)v / vtxPerRing) * (2.0f * M_PI);
-        float x = cosf(angle) * baseRadius;
-        float z = sinf(angle) * baseRadius;
+    for (int r = 1; r <= numRings; r++) {
+        float ringProgress = (float)r / numRings;
+        int offset = 1 + ((r - 1) * (vtxPerRing + 1));
+        
+        // The "Inward Cone" curve. 
+        // Cubing it makes the tip sharp and the edges flat!
+        float curveEase = powf(1.0f - ringProgress, 3.0f);
+        float ringY = tipY * curveEase;
 
-        // Create a seamless ping-pong wave to prevent texture tearing at the seams
-        float repProgress = (angle / (2.0f * M_PI)) * 6.0f;
-        float waveUV = fabsf(fmodf(repProgress, 1.0f) - 0.5f) * 2.0f;
+        for (int v = 0; v <= vtxPerRing; v++) {
+            float angle = ((float)v / vtxPerRing) * (2.0f * (float)M_PI);
 
-        // Map the wave strictly to the S-range of the Top-Right Quarter (256 to 512)
-        float sCoord = 256.0f + (waveUV * 256.0f);
+            float maxToeExtension = 1000.0f; 
+            float toeFatness = 0.325f;        
+            float wiggleDistance = 1.0f;
 
-        capVtx[v + 1].n.ob[0] = (s16)x;
-        capVtx[v + 1].n.ob[1] = 0;
-        capVtx[v + 1].n.ob[2] = (s16)z;
-        capVtx[v + 1].n.flag = 0;
-        capVtx[v + 1].n.tc[0] = (s16)sCoord;
+            float speedRatio = this->actor.speedXZ / 2.5f;
+            if (speedRatio > 1.0f) speedRatio = 1.0f;
 
-        // Map the perimeter to the Bottom of the Top-Right Quarter
-        capVtx[v + 1].n.tc[1] = 256;
+            float phaseRad = (this->segMovePhase * (2.0f * (float)M_PI)) / 65536.0f;
+            float rippleOffset = sinf(phaseRad) * (wiggleDistance * speedRatio);
+            
+            float rawFeetWave = cosf((6.0f * angle) + rippleOffset);
+            
+            float toePulse = (rawFeetWave + 1.0f) * 0.5f;
+            float toeShape = powf(toePulse, toeFatness);
+            float toeOffset = (toeShape - 0.75f) * maxToeExtension;
+            float targetRadius = baseRadius + toeOffset; 
+            
+            float currentRadius = targetRadius * ringProgress;
 
-        capVtx[v + 1].n.n[0] = 0;
-        capVtx[v + 1].n.n[1] = -127;
-        capVtx[v + 1].n.n[2] = 0;
-        capVtx[v + 1].n.a = 255;
+            float x = cosf(angle) * currentRadius;
+            float z = sinf(angle) * currentRadius;
+
+            float repProgress = (angle / (2.0f * (float)M_PI)) * 6.0f;
+            float waveUV = fabsf(fmodf(repProgress, 1.0f) - 0.5f) * 2.0f;
+            float sCoord = 256.0f + (waveUV * 256.0f);
+            
+            // V-Coord spreads from 0 to 256 radially
+            float tCoord = 256.0f * ringProgress; 
+
+            int vtxIdx = offset + v;
+            capVtx[vtxIdx].n.ob[0] = (s16)x;
+            capVtx[vtxIdx].n.ob[1] = (s16)ringY;
+            capVtx[vtxIdx].n.ob[2] = (s16)z;
+            capVtx[vtxIdx].n.flag = 0;
+            capVtx[vtxIdx].n.tc[0] = (s16)sCoord;
+            capVtx[vtxIdx].n.tc[1] = (s16)tCoord;
+            capVtx[vtxIdx].n.n[0] = 0;
+            capVtx[vtxIdx].n.n[1] = -127;
+            capVtx[vtxIdx].n.n[2] = 0;
+            capVtx[vtxIdx].n.a = 255;
+        }
     }
 
     // ==========================================
-    // TEXTURE SETUP: FLESH + SLIME (2-Cycle)
+    // TEXTURE SETUP
     // ==========================================
     gSPClearGeometryMode(POLY_OPA_DISP++, G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
     gSPSetGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_SHADING_SMOOTH);
     gSPTexture(POLY_OPA_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
-
     gDPSetCycleType(POLY_OPA_DISP++, G_CYC_2CYCLE);
     gDPSetRenderMode(POLY_OPA_DISP++, G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2);
-
-    // ==========================================
-    // ADD THE VANILLA COLORS:
-    // ==========================================
     gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, 255);
-    gDPSetEnvColor(POLY_OPA_DISP++, 0, 0, 0, 160); // 160 Alpha is the blending ratio!
+    gDPSetEnvColor(POLY_OPA_DISP++, 0, 0, 0, 160);
+    gDPSetCombineLERP(POLY_OPA_DISP++, TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 0, 0, 0, 1, COMBINED, 0, SHADE, 0, 0, 0, 0, COMBINED);
+    gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern1Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0, G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, G_TX_NOLOD, G_TX_NOLOD);
+    gDPLoadMultiBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, 0x0100, 1, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0, G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, 0, 0);
+
+    gSPDisplayList(POLY_OPA_DISP++, Gfx_TwoTexScroll(play->state.gfxCtx, 0, 0, 0, 16, 16, 1, 0, (-scrollFactor) & 0x7F, 16, 16));
 
     // ==========================================
-    // THE VANILLA BLEND COMBINER:
-    // ==========================================
-    gDPSetCombineLERP(POLY_OPA_DISP++, 
-        TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 
-        0, 0, 0, 1, 
-        COMBINED, 0, SHADE, 0, 
-        0, 0, 0, COMBINED);
-
-    // Load Texture 1: Flesh (Tile 0)
-    gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern1Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
-                        G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, G_TX_NOLOD, G_TX_NOLOD);
-
-    // Load Texture 2: Slime (Tile 1)
-    gDPLoadMultiBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, 0x0100, 1, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
-                      G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, 0, 0);
-
-    // Apply the Radial Scroll! (Translating the T-axis slides the slime from Center to Perimeter)
-    gSPDisplayList(POLY_OPA_DISP++,
-                   Gfx_TwoTexScroll(play->state.gfxCtx, 0, 0, 0, 16, 16, 1, 0, (-scrollFactor) & 0x7F, 16, 16));
-
-    // ==========================================
-    // DRAW LOOPS
+    // MULTI-RING DRAW LOOP
     // ==========================================
     gSPMatrix(POLY_OPA_DISP++, &segMtx[0], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-    gSPVertex(POLY_OPA_DISP++, capVtx, 25, 0);
 
-    for (int v = 0; v < vtxPerRing; v += 2) {
-        int p1 = v + 1;
-        int p2 = v + 2;
-        int p3 = (v + 2 == vtxPerRing) ? 1 : v + 3;
-        gSP2Triangles(POLY_OPA_DISP++, 0, p1, p2, 0, 0, p2, p3, 0);
+    // 1. Center Fan
+    for (int chunk = 0; chunk < 2; chunk++) {
+        int startVtx = chunk * 12;
+        gSPVertex(POLY_OPA_DISP++, &capVtx[0], 1, 0);
+        gSPVertex(POLY_OPA_DISP++, &capVtx[1 + startVtx], 13, 1);
+        for (int v = 0; v < 12; v++) {
+            gSP1Triangle(POLY_OPA_DISP++, 0, v + 1, v + 2, 0);
+        }
+    }
+
+    // 2. Concentric Quads
+    for (int r = 1; r < numRings; r++) {
+        int offsetA = 1 + ((r - 1) * (vtxPerRing + 1));
+        int offsetB = 1 + (r * (vtxPerRing + 1));
+        
+        for (int chunk = 0; chunk < 2; chunk++) {
+            int startVtx = chunk * 12;
+            gSPVertex(POLY_OPA_DISP++, &capVtx[offsetA + startVtx], 13, 0);
+            gSPVertex(POLY_OPA_DISP++, &capVtx[offsetB + startVtx], 13, 13);
+            for (int v = 0; v < 12; v++) {
+                gSP2Triangles(POLY_OPA_DISP++, v, v + 13, v + 1, 0, v + 1, v + 13, v + 14, 0);
+            }
+        }
     }
 
     CLOSE_DISPS(play->state.gfxCtx);
 }
 
-void EnRr_DrawBody(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius, u32 scrollFactor) {
+void EnRr_DrawBody(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRings, float baseRadius, u32 scrollFactor) {
     OPEN_DISPS(play->state.gfxCtx);
 
-    int vtxOffset[8];
-    int currentOffset = 0;
-    for (int seg = 0; seg < 8; seg++) {
-        vtxOffset[seg] = currentOffset;
-        currentOffset += (seg >= 5) ? 97 : 25; // 96+1 and 24+1 to close the seam
-    }
+int vtx24 = 24;
+    int vtx48 = 48;
+    Vtx* bodyVtx24 = Graph_Alloc(play->state.gfxCtx, (numVisualRings - 1) * (vtx24 + 1) * sizeof(Vtx));
+    Vtx* bodyVtx48 = Graph_Alloc(play->state.gfxCtx, (vtx48 + 1) * sizeof(Vtx));
 
-    Vtx* vtx = Graph_Alloc(play->state.gfxCtx, 520 * sizeof(Vtx));
+    // ==========================================
+    // GENERATION LOOP 1: The 24-Vertex Body
+    // ==========================================
+    int ringsPerGap = 8;
+    int finalSegmentStart = (numVisualRings - 1) - ringsPerGap;
 
-    for (int seg = 0; seg < 8; seg++) {
-        int vtxPerRing = (seg >= 5) ? 96 : 24;
-        int offset = vtxOffset[seg];
+    for (int seg = 0; seg < numVisualRings - 1; seg++) {
+        int offset = seg * (vtx24 + 1);
+        float progress = (float)seg / (numVisualRings - 1);
+        float morphIntensity = powf(progress, 4.0f);
 
-        float minPinchFactor = 1.0f;
-        float maxLobeFactor = 1.0f;
-
-        if (seg == 7) {
-            minPinchFactor = 0.6f;
-            maxLobeFactor = 0.8f;
-        }
-
+        float minPinchFactor = 1.0f - (0.5f * morphIntensity);
+        float maxLobeFactor = 1.0f - (0.25f * morphIntensity);
         float r_min = baseRadius * minPinchFactor;
         float r_max = baseRadius * maxLobeFactor;
 
-        for (int v = 0; v <= vtxPerRing; v++) {
+        for (int v = 0; v <= vtx24; v++) {
             int vtxIdx = offset + v;
-
-            float angle = ((float)v / vtxPerRing) * (2.0f * M_PI);
+            float angle = ((float)v / vtx24) * (2.0f * (float)M_PI);
 
             float rawWave = cosf(6.0f * angle);
             float sign = (rawWave > 0.0f) ? 1.0f : -1.0f;
             float wave = sign * powf(fabsf(rawWave), 1.5f);
-
             float radius = 0.5f * (r_min + r_max) + 0.5f * (r_max - r_min) * wave;
-            float x = cosf(angle) * radius;
-            float z = sinf(angle) * radius;
 
             float yOffset = 0.0f;
-            if (seg == 7) {
+            if (seg >= finalSegmentStart) {
+                float lipProgress = (float)(seg - finalSegmentStart) / ringsPerGap;
+                
+                // THE FIX 2: Smoothstep lip ease! 
+                // Curves seamlessly into the mouth recess without a sharp corner.
+                float lipEase = lipProgress * lipProgress * (3.0f - 2.0f * lipProgress); 
+                
                 float heightMod = (wave + 1.0f) * 0.5f;
-                yOffset = heightMod * 300.0f + 1000.0f;
+                yOffset = lipEase * heightMod * 250.0f;
             }
 
-            // ==========================================
-            // HORIZONTAL (S): Hardware Mirroring!
-            // ==========================================
-            // We want 6 total repeats. 1 repeat = 512.0f.
-            // 6 * 512.0f = 3072.0f total units around the circumference!
-            float sCoord = (angle / (2.0f * M_PI)) * 6144.0f + 512.0f;
+            // THE STUMPY FEET
+            int feetHeightRings = 4;
+            float maxToeExtension = 1000.0f; 
+            float toeFatness = 0.325f;        
+            float wiggleDistance = 1.0f;    
+            float speedRatio = CLAMP_MAX(this->actor.speedXZ / 2.5f, 1.0f);
+            float phaseRad = (this->segMovePhase * (2.0f * (float)M_PI)) / 65536.0f;
+            float rippleOffset = sinf(phaseRad) * (wiggleDistance * speedRatio);
 
-            // ==========================================
-            // VERTICAL (T): Flipped and spanned
-            // ==========================================
-            float tCoord;
-            if (seg == 7) {
-                tCoord = -2048.0f;
-            } else {
-                tCoord = -(seg * 256.0f);
+            if (seg <= feetHeightRings) {
+                float feetProgress = 1.0f - ((float)seg / feetHeightRings);
+                float feetEase = feetProgress * feetProgress * feetProgress; 
+                float rawFeetWave = cosf((6.0f * angle) + rippleOffset);
+                float toePulse = (rawFeetWave + 1.0f) * 0.5f;
+                float toeOffset = (powf(toePulse, toeFatness) - 0.75f) * maxToeExtension;
+                radius += toeOffset * feetEase;
             }
 
-            vtx[vtxIdx].n.ob[0] = (s16)x;
-            vtx[vtxIdx].n.ob[1] = (s16)yOffset;
-            vtx[vtxIdx].n.ob[2] = (s16)z;
-            vtx[vtxIdx].n.flag = 0;
-            vtx[vtxIdx].n.tc[0] = (s16)sCoord;
-            vtx[vtxIdx].n.tc[1] = (s16)tCoord;
-
-            float len = sqrtf(x * x + z * z);
-            if (len == 0.0f)
-                len = 1.0f;
-
-            // Calculate a basic Y-normal based on the segment slope
-            float normalY = (seg == 7) ? 80.0f : 15.0f;
-
-            // Re-normalize with the new Y included so we don't exceed 127
+            float x = cosf(angle) * radius;
+            float z = sinf(angle) * radius;
+            float normalY = 15.0f + (morphIntensity * 65.0f);
             float fullLen = sqrtf(x * x + normalY * normalY + z * z);
 
-            vtx[vtxIdx].n.n[0] = (s8)((x / fullLen) * 127.0f);
-            vtx[vtxIdx].n.n[1] = (s8)((normalY / fullLen) * 127.0f);
-            vtx[vtxIdx].n.n[2] = (s8)((z / fullLen) * 127.0f);
-            vtx[vtxIdx].n.a = 255;
+            bodyVtx24[vtxIdx].n.ob[0] = (s16)x;
+            bodyVtx24[vtxIdx].n.ob[1] = (s16)yOffset;
+            bodyVtx24[vtxIdx].n.ob[2] = (s16)z;
+            bodyVtx24[vtxIdx].n.flag = 0;
+            bodyVtx24[vtxIdx].n.tc[0] = (s16)(((float)v / vtx24) * 6144.0f + 512.0f);
+            
+            // THE FIX 3: Reverted to your perfectly working UVs!
+            bodyVtx24[vtxIdx].n.tc[1] = (s16)-(progress * 2048.0f); 
+            
+            bodyVtx24[vtxIdx].n.n[0] = (s8)((x / fullLen) * 127.0f);
+            bodyVtx24[vtxIdx].n.n[1] = (s8)((normalY / fullLen) * 127.0f);
+            bodyVtx24[vtxIdx].n.n[2] = (s8)((z / fullLen) * 127.0f);
+            bodyVtx24[vtxIdx].n.a = 255;
         }
     }
 
     // ==========================================
-    // 1. TEXTURE SETUP: FLESH + SLIME (2-Cycle Mirrored)
+    // GENERATION LOOP 2: The 48-Vertex Top Lip
     // ==========================================
+    {
+        int seg = numVisualRings - 1;
+        float morphIntensity = 1.0f; // progress is 1.0
+        float r_min = baseRadius * 0.5f;
+        float r_max = baseRadius * 0.75f;
+
+        for (int v = 0; v <= vtx48; v++) {
+            float angle = ((float)v / vtx48) * (2.0f * (float)M_PI);
+
+            float rawWave = cosf(6.0f * angle);
+            float sign = (rawWave > 0.0f) ? 1.0f : -1.0f;
+            float wave = sign * powf(fabsf(rawWave), 1.5f);
+            float radius = 0.5f * (r_min + r_max) + 0.5f * (r_max - r_min) * wave;
+
+            float heightMod = (wave + 1.0f) * 0.5f;
+            float yOffset = heightMod * 250.0f;
+
+            float x = cosf(angle) * radius;
+            float z = sinf(angle) * radius;
+            float normalY = 80.0f;
+            float fullLen = sqrtf(x * x + normalY * normalY + z * z);
+
+            bodyVtx48[v].n.ob[0] = (s16)x;
+            bodyVtx48[v].n.ob[1] = (s16)yOffset;
+            bodyVtx48[v].n.ob[2] = (s16)z;
+            bodyVtx48[v].n.flag = 0;
+            bodyVtx48[v].n.tc[0] = (s16)(((float)v / vtx48) * 6144.0f + 512.0f);
+            bodyVtx48[v].n.tc[1] = -2048;
+            bodyVtx48[v].n.n[0] = (s8)((x / fullLen) * 127.0f);
+            bodyVtx48[v].n.n[1] = (s8)((normalY / fullLen) * 127.0f);
+            bodyVtx48[v].n.n[2] = (s8)((z / fullLen) * 127.0f);
+            bodyVtx48[v].n.a = 255;
+        }
+    }
+
     gSPClearGeometryMode(POLY_OPA_DISP++, G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
     gSPSetGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_SHADING_SMOOTH);
-
     gSPTexture(POLY_OPA_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
     gDPSetCycleType(POLY_OPA_DISP++, G_CYC_2CYCLE);
     gDPSetRenderMode(POLY_OPA_DISP++, G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2);
-
-    // ==========================================
-    // ADD THE VANILLA COLORS:
-    // ==========================================
     gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, 255);
-    gDPSetEnvColor(POLY_OPA_DISP++, 0, 0, 0, 160); // 160 Alpha is the blending ratio!
+    gDPSetEnvColor(POLY_OPA_DISP++, 0, 0, 0, 160);
 
-    // ==========================================
-    // THE VANILLA BLEND COMBINER:
-    // ==========================================
-    gDPSetCombineLERP(POLY_OPA_DISP++, 
-        TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 
-        0, 0, 0, 1, 
-        COMBINED, 0, SHADE, 0, 
-        0, 0, 0, COMBINED);
+    gDPSetCombineLERP(POLY_OPA_DISP++, TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 0, 0, 0, 1, COMBINED, 0, SHADE, 0, 0, 0, 0,
+                      COMBINED);
 
-    // Load Texture 1: Flesh (Tile 0)
     gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern1Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                         G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, G_TX_NOLOD, G_TX_NOLOD);
-
-    // Load Texture 2: Slime (Tile 1)
     gDPLoadMultiBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, 0x0100, 1, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                       G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, 0, 0);
-    gSPDisplayList(POLY_OPA_DISP++, Gfx_TwoTexScroll(play->state.gfxCtx, 0, 0, 0, 16, 16,    // Tile 0 Setup
-                                                     1, 0, (-scrollFactor) & 0x7F, 16, 16)); // Tile 1 Setup
+
+    gSPDisplayList(POLY_OPA_DISP++,
+                   Gfx_TwoTexScroll(play->state.gfxCtx, 0, 0, 0, 16, 16, 1, 0, (-scrollFactor) & 0x7F, 16, 16));
 
     // ==========================================
-    // DRAW LOOPS
+    // DRAW LOOP 1: Standard 24-to-24 Rings
     // ==========================================
-
-    // PHASE A (0 to 4)
-    for (int seg = 0; seg < 4; seg++) {
+    for (int seg = 0; seg < numVisualRings - 2; seg++) {
         for (int chunk = 0; chunk < 2; chunk++) {
             int startVtx = chunk * 12;
+            int offsetA = seg * 25;
+            int offsetB = (seg + 1) * 25;
+
             gSPMatrix(POLY_OPA_DISP++, &segMtx[seg], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-            gSPVertex(POLY_OPA_DISP++, &vtx[vtxOffset[seg] + startVtx], 13, 0);
+            gSPVertex(POLY_OPA_DISP++, &bodyVtx24[offsetA + startVtx], 13, 0);
+
             gSPMatrix(POLY_OPA_DISP++, &segMtx[seg + 1], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-            gSPVertex(POLY_OPA_DISP++, &vtx[vtxOffset[seg + 1] + startVtx], 13, 13);
+            gSPVertex(POLY_OPA_DISP++, &bodyVtx24[offsetB + startVtx], 13, 13);
+
             for (int v = 0; v < 12; v++) {
                 gSP2Triangles(POLY_OPA_DISP++, v, v + 13, v + 1, 0, v + 1, v + 13, v + 14, 0);
             }
         }
     }
 
-    // PHASE B (Transition 4 to 5)
+    // ==========================================
+    // DRAW LOOP 2: The 24-to-48 LOD Zipper!
+    // ==========================================
+    int segA = numVisualRings - 2; // The final 24-vtx ring
+    int offsetA = segA * 25;
+
+    // Drawn in 4 chunks to pull in the massive 48-vtx ring seamlessly
     for (int chunk = 0; chunk < 4; chunk++) {
-        int bStart = chunk * 6;
-        int tStart = chunk * 24;
-        gSPMatrix(POLY_OPA_DISP++, &segMtx[4], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gSPVertex(POLY_OPA_DISP++, &vtx[vtxOffset[4] + bStart], 7, 0);
-        gSPMatrix(POLY_OPA_DISP++, &segMtx[5], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gSPVertex(POLY_OPA_DISP++, &vtx[vtxOffset[5] + tStart], 25, 7);
+        int startVtx24 = chunk * 6;  // 1/4 of 24
+        int startVtx48 = chunk * 12; // 1/4 of 48
+
+        gSPMatrix(POLY_OPA_DISP++, &segMtx[segA], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gSPVertex(POLY_OPA_DISP++, &bodyVtx24[offsetA + startVtx24], 7, 0); // Loads 7 bottom vertices
+
+        gSPMatrix(POLY_OPA_DISP++, &segMtx[segA + 1], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gSPVertex(POLY_OPA_DISP++, &bodyVtx48[startVtx48], 13, 7); // Loads 13 top vertices
+
+        // The Zipper Pattern: 1 Bottom vertex connects to 3 Top vertices
         for (int v = 0; v < 6; v++) {
-            int b0 = v, b1 = v + 1;
-            int t0 = 7 + (v * 4), t1 = t0 + 1, t2 = t0 + 2, t3 = t0 + 3, t4 = t0 + 4;
-            gSP2Triangles(POLY_OPA_DISP++, b0, t0, t1, 0, b0, t1, t2, 0);
-            gSP2Triangles(POLY_OPA_DISP++, b0, t2, b1, 0, b1, t2, t3, 0);
-            gSP1Triangle(POLY_OPA_DISP++, b1, t3, t4, 0);
+            int b_curr = v;
+            int b_next = v + 1;
+            int t_curr = 7 + (v * 2);
+            int t_mid  = 7 + (v * 2) + 1;
+            int t_next = 7 + (v * 2) + 2;
+
+            gSP1Triangle(POLY_OPA_DISP++, b_curr, t_curr, t_mid, 0);
+            gSP2Triangles(POLY_OPA_DISP++, b_curr, t_mid, b_next, 0, b_next, t_mid, t_next, 0);
         }
     }
 
-    // PHASE C (5 to 7)
-    for (int seg = 5; seg < 7; seg++) {
-        for (int chunk = 0; chunk < 8; chunk++) {
-            int startVtx = chunk * 12;
-            gSPMatrix(POLY_OPA_DISP++, &segMtx[seg], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-            gSPVertex(POLY_OPA_DISP++, &vtx[vtxOffset[seg] + startVtx], 13, 0);
-            gSPMatrix(POLY_OPA_DISP++, &segMtx[seg + 1], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-            gSPVertex(POLY_OPA_DISP++, &vtx[vtxOffset[seg + 1] + startVtx], 13, 13);
-            for (int v = 0; v < 12; v++) {
-                gSP2Triangles(POLY_OPA_DISP++, v, v + 13, v + 1, 0, v + 1, v + 13, v + 14, 0);
-            }
-        }
-    }
-
-    gSPClearGeometryMode(POLY_OPA_DISP++, G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
-
-    bool isSwallowing = (this->actionFunc == EnRr_ScoopPlayer || this->actionFunc == EnRr_GrabPlayer || this->actionFunc == EnRr_ThrowPlayer);
-
+    bool isSwallowing = (this->actionFunc == EnRr_GrabPlayer || this->actionFunc == EnRr_ThrowPlayer);
     if (isSwallowing) {
         gSPClearGeometryMode(POLY_OPA_DISP++, G_CULL_BACK);
     } else {
@@ -2526,88 +2908,105 @@ void EnRr_DrawBody(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius, u
     CLOSE_DISPS(play->state.gfxCtx);
 }
 
-void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius, u32 scrollFactor) {
+void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRings, float baseRadius,
+                          float throatRadius, float throatY, u32 scrollFactor) {
     OPEN_DISPS(play->state.gfxCtx);
 
-    // 3 Rings (Center, Star, Lips) * 97 = 291 Vertices
-    Vtx* mouthCapVtx = Graph_Alloc(play->state.gfxCtx, 300 * sizeof(Vtx));
+    // 3 Rings (Center, Star, Lips) * 49 = 147 Vertices (Allocating 150)
+    Vtx* mouthCapVtx = Graph_Alloc(play->state.gfxCtx, 150 * sizeof(Vtx));
 
-    for (int v = 0; v <= 96; v++) {
-        float angle = ((float)v / 96.0f) * (2.0f * M_PI);
-        float sCoord = ((angle / (2.0f * M_PI)) * 6144.0f) + 512.0f;
+    for (int v = 0; v <= 48; v++) {
+        float angle = ((float)v / 48.0f) * (2.0f * (float)M_PI);
+        float sCoord = ((angle / (2.0f * (float)M_PI)) * 6144.0f) + 512.0f;
 
         float dirX = cosf(angle);
         float dirZ = sinf(angle);
 
-        // --- SHARED MATH ---
-        float rawWaveOut = cosf(6.0f * angle);
-        float waveOut = ((rawWaveOut > 0.0f) ? 1.0f : -1.0f) * powf(fabsf(rawWaveOut), 1.5f);
-        float heightMod_out = (waveOut + 1.0f) * 0.5f;
+        // ==========================================
+        // THE WRINKLE GENERATOR (Matched to Body!)
+        // ==========================================
+        float rawWave = cosf(6.0f * angle);
+        float waveSign = (rawWave > 0.0f) ? 1.0f : -1.0f;
+        
+        // This exact equation forces the mouth cap to zip perfectly to the body!
+        float bodyWave = waveSign * powf(fabsf(rawWave), 1.5f); 
+        float heightMod = (bodyWave + 1.0f) * 0.5f;
+        
+        float waveDeriv = -sinf(6.0f * angle); 
+        float normalPop = 80.0f; 
 
         // ==========================================
-        // RING 2: OUTER LIPS
+        // RING 2: OUTER LIPS 
         // ==========================================
-        float r_min_out = baseRadius * 0.6f;
-        float r_max_out = baseRadius * 0.8f;
-        float radius_out = 0.5f * (r_min_out + r_max_out) + 0.5f * (r_max_out - r_min_out) * waveOut;
-        float yOffset_out = heightMod_out * 300.0f + 1000.0f;
+        float r_min_out = baseRadius * 0.5f;
+        float r_max_out = baseRadius * 0.75f;
+        float radius_out = 0.5f * (r_min_out + r_max_out) + 0.5f * (r_max_out - r_min_out) * bodyWave;
+        
+        float yOffset_out = heightMod * 250.0f;
 
-        int outIdx = v + 194;
+        float nx_out = (dirX * 100.0f) - (dirZ * waveDeriv * normalPop);
+        float ny_out = 40.0f; 
+        float nz_out = (dirZ * 100.0f) + (dirX * waveDeriv * normalPop);
+        float invLen_out = 127.0f / sqrtf(nx_out*nx_out + ny_out*ny_out + nz_out*nz_out);
+
+        int outIdx = v + 98; 
         mouthCapVtx[outIdx].n.ob[0] = (s16)(dirX * radius_out);
         mouthCapVtx[outIdx].n.ob[1] = (s16)yOffset_out;
         mouthCapVtx[outIdx].n.ob[2] = (s16)(dirZ * radius_out);
         mouthCapVtx[outIdx].n.flag = 0;
         mouthCapVtx[outIdx].n.tc[0] = (s16)sCoord;
         mouthCapVtx[outIdx].n.tc[1] = 0;
-        mouthCapVtx[outIdx].n.n[0] = (s8)(dirX * 80.0f);
-        mouthCapVtx[outIdx].n.n[1] = 80;
-        mouthCapVtx[outIdx].n.n[2] = (s8)(dirZ * 80.0f);
+        mouthCapVtx[outIdx].n.n[0] = (s8)(nx_out * invLen_out);
+        mouthCapVtx[outIdx].n.n[1] = (s8)(ny_out * invLen_out);
+        mouthCapVtx[outIdx].n.n[2] = (s8)(nz_out * invLen_out);
         mouthCapVtx[outIdx].n.a = 255;
 
         // ==========================================
-        // RING 1: MID STAR (The Inner Mouth Recess is a Star-Shaped Prism). 
+        // RING 1: MID LIPS 
         // ==========================================
-        float R_max = baseRadius * 0.575f;
-        float R_min = baseRadius * 0.325f * this->innerMouthScale;
-        float P2_x = R_min * 0.975f;
-        float P2_y = R_min * 0.5f;
-        float local_angle = fmodf(angle, (float)M_PI / 3.0f);
-        if (local_angle > (float)M_PI / 6.0f) {
-            local_angle = ((float)M_PI / 3.0f) - local_angle;
-        }
+        float midT = 0.6f; 
+        float curveEase = midT * midT; 
+        float curveRadius = throatRadius + ((radius_out - throatRadius) * curveEase);
+        float curveY = throatY + ((yOffset_out - throatY) * midT);
+        
+        float wrinkleDepth = 150.0f; 
+        
+        float r_mid = curveRadius - (heightMod * wrinkleDepth);
+        float yOffset_mid = curveY + (heightMod * 100.0f);
 
-        float denominator = P2_y * cosf(local_angle) + (R_max - P2_x) * sinf(local_angle);
-        float r_straight = (R_max * P2_y) / denominator;
-        float innerScaleMod = CLAMP(1.0f - this->innerMouthScale * 0.5f, 0.25f, 1.0f);
-        float yOffset_mid = heightMod_out * 150.0f + 800.0f * innerScaleMod;
+        float nx_mid = (dirX * -45.0f) - (dirZ * waveDeriv * normalPop);
+        float ny_mid = 90.0f;
+        float nz_mid = (dirZ * -45.0f) + (dirX * waveDeriv * normalPop);
+        float invLen_mid = 127.0f / sqrtf(nx_mid*nx_mid + ny_mid*ny_mid + nz_mid*nz_mid);
 
-        int midIdx = v + 97;
-        mouthCapVtx[midIdx].n.ob[0] = (s16)(dirX * r_straight);
+        int midIdx = v + 49;
+        mouthCapVtx[midIdx].n.ob[0] = (s16)(dirX * r_mid);
         mouthCapVtx[midIdx].n.ob[1] = (s16)yOffset_mid;
-        mouthCapVtx[midIdx].n.ob[2] = (s16)(dirZ * r_straight);
+        mouthCapVtx[midIdx].n.ob[2] = (s16)(dirZ * r_mid);
         mouthCapVtx[midIdx].n.flag = 0;
         mouthCapVtx[midIdx].n.tc[0] = (s16)sCoord;
         mouthCapVtx[midIdx].n.tc[1] = 256;
-        mouthCapVtx[midIdx].n.n[0] = (s8)(dirX * -30.0f);
-        mouthCapVtx[midIdx].n.n[1] = 100;
-        mouthCapVtx[midIdx].n.n[2] = (s8)(dirZ * -30.0f);
+        mouthCapVtx[midIdx].n.n[0] = (s8)(nx_mid * invLen_mid);
+        mouthCapVtx[midIdx].n.n[1] = (s8)(ny_mid * invLen_mid);
+        mouthCapVtx[midIdx].n.n[2] = (s8)(nz_mid * invLen_mid);
         mouthCapVtx[midIdx].n.a = 255;
 
         // ==========================================
-        // RING 0: THROAT
+        // RING 0: THROAT OPENING
         // ==========================================
-        float throatRadius = this->grabState == 2 ? 0.0f : baseRadius * 0.15f * this->innerMouthScale;
-
-        float x_in = dirX * throatRadius;
-        float z_in = dirZ * throatRadius;
+        float activeThroatRadius = throatRadius - (heightMod * 15.0f);
+        
+        float x_in = dirX * activeThroatRadius;
+        float z_in = dirZ * activeThroatRadius;
 
         int centerIdx = v;
         mouthCapVtx[centerIdx].n.ob[0] = (s16)x_in;
-        mouthCapVtx[centerIdx].n.ob[1] = -200 * this->innerMouthScale;
+        mouthCapVtx[centerIdx].n.ob[1] = (s16)throatY;
         mouthCapVtx[centerIdx].n.ob[2] = (s16)z_in;
         mouthCapVtx[centerIdx].n.flag = 0;
         mouthCapVtx[centerIdx].n.tc[0] = (s16)sCoord;
         mouthCapVtx[centerIdx].n.tc[1] = 1024;
+        
         mouthCapVtx[centerIdx].n.n[0] = 0;
         mouthCapVtx[centerIdx].n.n[1] = -127;
         mouthCapVtx[centerIdx].n.n[2] = 0;
@@ -2615,39 +3014,22 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, float baseRa
     }
 
     // ==========================================
-    // 2. TEXTURE SETUP: FOG AND LIGHTING
+    // TEXTURE SETUP
     // ==========================================
     gSPClearGeometryMode(POLY_OPA_DISP++, G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
     gSPSetGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_SHADING_SMOOTH);
-
-    gSPSetGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_SHADING_SMOOTH);
     gSPTexture(POLY_OPA_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
-
     gDPSetCycleType(POLY_OPA_DISP++, G_CYC_2CYCLE);
     gDPSetRenderMode(POLY_OPA_DISP++, G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2);
-
-    // ==========================================
-    // ADD THE VANILLA COLORS:
-    // ==========================================
     gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, 255);
-    gDPSetEnvColor(POLY_OPA_DISP++, 0, 0, 0, 160); // 160 Alpha is the blending ratio!
+    gDPSetEnvColor(POLY_OPA_DISP++, 0, 0, 0, 160);
 
-    // ==========================================
-    // THE VANILLA BLEND COMBINER:
-    // ==========================================
-    // Cycle 1: Blends Flesh (TEXEL0) and Slime (TEXEL1) using the EnvColor Alpha
-    // Cycle 2: Multiplies the beautifully blended result by the 3D Lighting (SHADE)
-    gDPSetCombineLERP(POLY_OPA_DISP++, 
-        TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 
-        0, 0, 0, 1, 
-        COMBINED, 0, SHADE, 0, 
-        0, 0, 0, COMBINED);
+    gDPSetCombineLERP(POLY_OPA_DISP++, TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 0, 0, 0, 1, COMBINED, 0, SHADE, 0, 0, 0, 0,
+                      COMBINED);
 
-    // Load Texture 1: Flesh (Tile 0)
     gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern1Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                         G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, G_TX_NOLOD, G_TX_NOLOD);
 
-    // Load Texture 2: Slime (Tile 1)
     gDPLoadMultiBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, 0x0100, 1, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                       G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, 0, 0);
 
@@ -2655,161 +3037,286 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, float baseRa
                    Gfx_TwoTexScroll(play->state.gfxCtx, 0, 0, 0, 16, 16, 1, 0, (scrollFactor) & 0x7F, 16, 16));
 
     // ==========================================
-    // DRAW LOOPS (2 Identical Stages)
+    // DRAW LOOPS
     // ==========================================
+    // Because the funnel is deeply concave, we MUST disable backface culling entirely
+    // or the inside of the mouth will turn invisible!
+    gSPClearGeometryMode(POLY_OPA_DISP++, G_CULL_BACK);
 
-    // STAGE 1 (Outer Lips down to Mid Star)
-    for (int chunk = 0; chunk < 8; chunk++) {
+    // STAGE 1 (Mid Star up to Outer Lips)
+    for (int chunk = 0; chunk < 4; chunk++) {
         int startVtx = chunk * 12;
-        gSPMatrix(POLY_OPA_DISP++, &segMtx[7], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gSPVertex(POLY_OPA_DISP++, &mouthCapVtx[startVtx + 97], 13, 0);   // Star Ring (0-12)
-        gSPVertex(POLY_OPA_DISP++, &mouthCapVtx[startVtx + 194], 13, 13); // Outer Ring (13-25)
+        gSPMatrix(POLY_OPA_DISP++, &segMtx[numVisualRings - 1], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gSPVertex(POLY_OPA_DISP++, &mouthCapVtx[startVtx + 49], 13, 0);
+        gSPVertex(POLY_OPA_DISP++, &mouthCapVtx[startVtx + 98], 13, 13);
         for (int v = 0; v < 12; v++) {
-            gSP2Triangles(POLY_OPA_DISP++, v + 13, v, v + 14, 0, v, v + 1, v + 14, 0);
+            gSP2Triangles(POLY_OPA_DISP++, v, v + 13, v + 1, 0, v + 1, v + 13, v + 14, 0);
         }
     }
 
-    // STAGE 2 (Mid Star down to Center Void)
-    for (int chunk = 0; chunk < 8; chunk++) {
+    // STAGE 2 (Center Void up to Mid Star)
+    for (int chunk = 0; chunk < 4; chunk++) {
         int startVtx = chunk * 12;
-        gSPMatrix(POLY_OPA_DISP++, &segMtx[7], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gSPVertex(POLY_OPA_DISP++, &mouthCapVtx[startVtx + 0], 13, 0);   // Center Ring (0-12)
-        gSPVertex(POLY_OPA_DISP++, &mouthCapVtx[startVtx + 97], 13, 13); // Star Ring (13-25)
+        gSPMatrix(POLY_OPA_DISP++, &segMtx[numVisualRings - 1], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gSPVertex(POLY_OPA_DISP++, &mouthCapVtx[startVtx + 0], 13, 0);
+        gSPVertex(POLY_OPA_DISP++, &mouthCapVtx[startVtx + 49], 13, 13);
         for (int v = 0; v < 12; v++) {
-            gSP2Triangles(POLY_OPA_DISP++, v + 13, v, v + 14, 0, v, v + 1, v + 14, 0);
+            gSP2Triangles(POLY_OPA_DISP++, v, v + 13, v + 1, 0, v + 1, v + 13, v + 14, 0);
         }
     }
-    
-    gSPClearGeometryMode(POLY_OPA_DISP++, G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
 
-    bool isSwallowing = (this->actionFunc == EnRr_ScoopPlayer || this->actionFunc == EnRr_GrabPlayer || this->actionFunc == EnRr_ThrowPlayer);
-
-    // Only use the if/else to turn the back-faces on and off!
-    if (isSwallowing) {
-        gSPClearGeometryMode(POLY_OPA_DISP++, G_CULL_BACK);
-    } else {
-        gSPSetGeometryMode(POLY_OPA_DISP++, G_CULL_BACK);
-    }
-
+    gSPSetGeometryMode(POLY_OPA_DISP++, G_CULL_BACK);
     CLOSE_DISPS(play->state.gfxCtx);
 }
 
-void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius, u32 scrollFactor) {
+void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRings, float baseRadius,
+                      float throatRadius, float throatY, u32 scrollFactor) {
     OPEN_DISPS(play->state.gfxCtx);
 
     Player* player = GET_PLAYER(play);
 
-    // 1. Dynamic Radius (X/Z axis volume)
-    f32 dynamicMaxRadius = (player->cylinder.dim.radius / this->actor.scale.x) * 1.2f;
+    // Convert the player's world bounds into the Like-Like's local space
+    f32 localPlayerH = player->cylinder.dim.height / this->actor.scale.y;
+    f32 localPlayerR = player->cylinder.dim.radius / this->actor.scale.x;
 
-    // 2. Dynamic Height (Y axis volume)
-    f32 playerLocalHeight = (player->cylinder.dim.height * 0.625f) / this->actor.scale.y;
+    // Calculate the exact local Y-coordinate of the player's center mass!
+    f32 localSwallowOffset = this->swallowOffset / this->actor.scale.y;
+    f32 localPlayerCenterY = localSwallowOffset + (localPlayerH * 0.5f);
 
-    // 3. The "Bag Pinch" Math
-    // The stomach spans 7 full segments, which is roughly 3500 units tall natively.
-    // If the player doesn't fill that whole height, we dynamically increase the sine exponent.
-    // A higher exponent crushes the empty space at the top and bottom, tightly bagging the player!
-    f32 heightFillRatio = playerLocalHeight / 3500.0f;
-    f32 bagPinchExponent = 0.5f / CLAMP(heightFillRatio, 0.1f, 2.0f);
+    float mouthScale = this->bodySegs[this->bodySegCount].scale;
+    float stretchRatio = CLAMP((mouthScale - 0.6f) / 0.9f, 0.0f, 1.0f);
 
-    // 8 Rings * 97 Vertices (96 + 1 for the seam) = 776 Vertices total. 800 is a safe allocation.
-    Vtx* stomVtx = Graph_Alloc(play->state.gfxCtx, 800 * sizeof(Vtx));
-    int vtxPerRing = 96;
+    int vtx24 = 24;
+    int vtx48 = 48;
+    int numStomRings = 8;
+    
+    // Allocate 24-vtx array for Lower Stomach (7 rings) + Center Floor (1 ring)
+    Vtx* stomVtx24 = Graph_Alloc(play->state.gfxCtx, ((numStomRings - 1) + 1) * (vtx24 + 1) * sizeof(Vtx));
+    // Allocate 48-vtx array for the Top Throat Ring (1 ring)
+    Vtx* stomVtx48 = Graph_Alloc(play->state.gfxCtx, (vtx48 + 1) * sizeof(Vtx));
 
-for (int seg = 0; seg < 8; seg++) {
-        int offset = seg * 97;
-        float progress = (float)seg / 7.0f;
+    // ==========================================
+    // GENERATION 1: Lower Stomach (24 Vertices)
+    // ==========================================
+    // THE FIX: Calculate the 'true' physical throat position WITHOUT the 500-unit matrix drop.
+    float trueThroatY = -125.0f - (125.0f * this->innerMouthScale);
 
-        float safeSine = fabsf(sinf(progress * (float)M_PI));
-        float stomRadius = powf(safeSine, bagPinchExponent) * dynamicMaxRadius;
-        float yOffset = 0.0f;
+    for (int seg = 0; seg < numStomRings - 1; seg++) {
+        int offset = seg * (vtx24 + 1);
+        float progress = (float)seg / (numStomRings - 1);
 
-        if (seg == 0) {
-            yOffset = 200.0f;
-        } else if (seg == 7) {
-            stomRadius = this->grabState == 2 ? 0.0f : baseRadius * 0.15f * this->innerMouthScale;
-            yOffset = -200.0f * this->innerMouthScale;
+        float t_top = 1.0f - progress;
+        float bellCurve = t_top * t_top * (3.0f - 2.0f * t_top);
+        float baseRestingRadius = 600.0f;
+        float baseStomRadius = throatRadius + ((baseRestingRadius - throatRadius) * bellCurve);
+
+        float domeT = CLAMP(progress / 0.3f, 0.0f, 1.0f);
+        float domeRadiusMod = sinf(domeT * (float)M_PI * 0.5f); 
+        float stomRadius = baseStomRadius * domeRadiusMod;
+        
+        // Build the normal stomach tube using the true baseline
+        float tubeY = 150.0f - (progress * (150.0f - trueThroatY)); 
+        float tipY = 225.0f;
+        float yOffset = tubeY + ((tipY - tubeY) * (1.0f - domeRadiusMod));
+
+        // DELETE THE THROAT ZIP EASE ENTIRELY!
+        // The matrices are already spreading out the height, so the zipper will naturally bridge the gap!
+
+        bool isHandlingPlayer = (this->actionFunc == EnRr_GrabPlayer || this->actionFunc == EnRr_ThrowPlayer);
+        if (isHandlingPlayer) {
+            float distY = fabsf(yOffset - localPlayerCenterY);
+            float effectRange = (localPlayerH * 0.5f) + (localPlayerR * 0.5f);
+
+            if (distY < effectRange) {
+                float t = distY / effectRange;
+                float bulgeFactor = cosf(t * (float)M_PI * 0.5f);
+                float edgeBulge = localPlayerR * 0.95f;
+                float centerBulge = localPlayerR * 1.2f;
+                float playerImpression = edgeBulge + ((centerBulge - edgeBulge) * bulgeFactor);
+                float throatProtect = 1.0f - powf(progress, 6.0f);
+                playerImpression *= throatProtect;
+
+                if (playerImpression > stomRadius) {
+                    stomRadius = playerImpression;
+                }
+            }
         }
 
-        // ==========================================
-        // DUAL-SOURCE BIOLUMINESCENCE
-        // ==========================================
-        
-        // 1. THE BOTTOM (Stomach Pulse)
-        // Strongest at seg 0, completely dark at seg 7
-        float pulse = (Math_SinS(this->segMovePhase) + 1.0f) * 0.5f;
-        float bottomRatio = 1.0f - ((float)seg / 7.0f);
-        float bottomIntensity = powf(bottomRatio, 2.0f);
-        float stomachGlow = pulse * bottomIntensity;
-
-        // 2. THE TOP (Outside Light Rushing In)
-        // Strongest at seg 7, completely dark at seg 0
-        float topRatio = (float)seg / 7.0f;
-        float topIntensity = powf(topRatio, 2.0f); 
-        
-        // Convert innerMouthScale (0.2 to 1.5) into a pure brightness multiplier (0.0 to 1.3)
-        float mouthFlare = this->innerMouthScale - 0.2f;
-        if (mouthFlare < 0.0f) mouthFlare = 0.0f;
-        float throatGlow = mouthFlare * topIntensity;
-
-        // 3. COMBINE THE LIGHTS!
-        float glow = stomachGlow + throatGlow;
-
-        for (int v = 0; v <= vtxPerRing; v++) {
-            float angle = ((float)v / vtxPerRing) * (2.0f * M_PI);
+        for (int v = 0; v <= vtx24; v++) {
+            float angle = ((float)v / vtx24) * (2.0f * (float)M_PI);
             int vtxIdx = offset + v;
 
-            stomVtx[vtxIdx].v.ob[0] = (s16)(cosf(angle) * stomRadius);
-            stomVtx[vtxIdx].v.ob[1] = (s16)yOffset;
-            stomVtx[vtxIdx].v.ob[2] = (s16)(sinf(angle) * stomRadius);
-            stomVtx[vtxIdx].v.flag = 0;
+            float localRadius = stomRadius;
+            float rawWave = cosf(6.0f * angle);
+            float waveSign = (rawWave > 0.0f) ? 1.0f : -1.0f;
+            float bodyWave = waveSign * powf(fabsf(rawWave), 1.5f);
+            float heightMod = (bodyWave + 1.0f) * 0.5f;
 
-            stomVtx[vtxIdx].v.tc[0] = (s16)(((float)v / vtxPerRing) * 1024.0f);
-            stomVtx[vtxIdx].v.tc[1] = (s16)(seg * 256.0f);
+            float wrinkleBlend = powf(progress, 4.0f); 
+            localRadius -= (heightMod * 15.0f * wrinkleBlend); 
 
-            // Add the combined glow to the dark, fleshy base color
-            stomVtx[vtxIdx].v.cn[0] = 30 + (s8)(glow * 150);  // R
-            stomVtx[vtxIdx].v.cn[1] = 5  + (s8)(glow * 50);   // G
-            stomVtx[vtxIdx].v.cn[2] = 20 + (s8)(glow * 60);   // B
-            stomVtx[vtxIdx].v.cn[3] = 255;
+            stomVtx24[vtxIdx].v.ob[0] = (s16)(cosf(angle) * localRadius);
+            stomVtx24[vtxIdx].v.ob[1] = (s16)yOffset;
+            stomVtx24[vtxIdx].v.ob[2] = (s16)(sinf(angle) * localRadius);
+            stomVtx24[vtxIdx].v.flag = 0;
+            stomVtx24[vtxIdx].v.tc[0] = (s16)(((float)v / vtx24) * 1024.0f);
+            stomVtx24[vtxIdx].v.tc[1] = (s16)(seg * 256.0f);
+
+            u8 depthColor = 50 + (u8)((1.0f - progress) * 100.0f); 
+            stomVtx24[vtxIdx].v.cn[0] = depthColor;
+            stomVtx24[vtxIdx].v.cn[1] = depthColor;
+            stomVtx24[vtxIdx].v.cn[2] = depthColor;
+            stomVtx24[vtxIdx].v.cn[3] = 255;
         }
     }
-    // ==========================================
-    // THE MAGIC TRICK: REVERSE CULLING
-    // ==========================================
-    // We clear G_CULL_BACK and G_LIGHTING
-    gSPClearGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_CULL_BACK | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
 
-    // We explicitly set G_CULL_FRONT. The outside vanishes, the inside appears!
+    // ==========================================
+    // GENERATION 2: The Top Throat Ring (48 Vertices)
+    // ==========================================
+    {
+        int seg = numStomRings - 1;
+        float progress = 1.0f;
+        float yOffset = throatY; 
+        
+        for (int v = 0; v <= vtx48; v++) {
+            float angle = ((float)v / vtx48) * (2.0f * (float)M_PI);
+            
+            float rawWave = cosf(6.0f * angle);
+            float waveSign = (rawWave > 0.0f) ? 1.0f : -1.0f;
+            float bodyWave = waveSign * powf(fabsf(rawWave), 1.5f);
+            float heightMod = (bodyWave + 1.0f) * 0.5f;
+
+            // Failsafe lock to exactly throatRadius!
+            float localRadius = throatRadius - (heightMod * 15.0f); 
+
+            stomVtx48[v].v.ob[0] = (s16)(cosf(angle) * localRadius);
+            stomVtx48[v].v.ob[1] = (s16)yOffset;
+            stomVtx48[v].v.ob[2] = (s16)(sinf(angle) * localRadius);
+            stomVtx48[v].v.flag = 0;
+            stomVtx48[v].v.tc[0] = (s16)(((float)v / vtx48) * 1024.0f);
+            stomVtx48[v].v.tc[1] = (s16)(seg * 256.0f);
+
+            stomVtx48[v].v.cn[0] = 50;
+            stomVtx48[v].v.cn[1] = 50;
+            stomVtx48[v].v.cn[2] = 50;
+            stomVtx48[v].v.cn[3] = 255;
+        }
+    }
+
+    // ==========================================
+    // GENERATION 3: The Center Floor (24 Vertices)
+    // ==========================================
+    int centerOffset = (numStomRings - 1) * (vtx24 + 1);
+
+    for (int v = 0; v <= vtx24; v++) {
+        int vtxIdx = centerOffset + v;
+
+        stomVtx24[vtxIdx].v.ob[0] = 0;
+        stomVtx24[vtxIdx].v.ob[1] = 225;
+        stomVtx24[vtxIdx].v.ob[2] = 0;
+        stomVtx24[vtxIdx].v.flag = 0;
+        stomVtx24[vtxIdx].v.tc[0] = (s16)(((float)v / vtx24) * 1024.0f);
+        stomVtx24[vtxIdx].v.tc[1] = -256;
+
+        stomVtx24[vtxIdx].v.cn[0] = 255; 
+        stomVtx24[vtxIdx].v.cn[1] = 255;
+        stomVtx24[vtxIdx].v.cn[2] = 255;
+        stomVtx24[vtxIdx].v.cn[3] = 255;
+    }
+
+    // Calculate the dynamic pulse once per frame!
+    float pulse = (Math_SinS(this->segMovePhase) + 1.0f) * 0.5f;
+    
+    // Convert to a base color of Deep Blood Red, pulsing up to Bright Pink/Orange
+    u8 r = 100 + (u8)(pulse * 155); // 100 to 255
+    u8 g = 10 + (u8)(pulse * 50);   // 10 to 60
+    u8 b = 20 + (u8)(pulse * 30);   // 20 to 50
+
+    gSPClearGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_CULL_BACK | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
     gSPSetGeometryMode(POLY_OPA_DISP++, G_SHADING_SMOOTH | G_CULL_FRONT);
     gSPTexture(POLY_OPA_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
 
-    // Render Setup: 1-Cycle, multiplying the Slime texture by our glowing Vertex Colors
     gDPSetCycleType(POLY_OPA_DISP++, G_CYC_1CYCLE);
     gDPSetRenderMode(POLY_OPA_DISP++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
-    gDPSetCombineMode(POLY_OPA_DISP++, G_CC_MODULATERGBA, G_CC_MODULATERGBA);
+    
+    gDPSetCombineMode(POLY_OPA_DISP++, G_CC_MODULATEIDECALA_PRIM, G_CC_MODULATEIDECALA_PRIM);
+    
+    gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, r, g, b, 255);
 
-    // Load the Slime texture
     gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
                         G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, G_TX_NOLOD, G_TX_NOLOD);
 
     gSPDisplayList(POLY_OPA_DISP++, Gfx_TexScroll(play->state.gfxCtx, 0, (-scrollFactor / 2) & 0x7F, 16, 16));
 
     // ==========================================
-    // DRAW LOOPS
+    // DRAW 1: Lower Stomach Quads (24-to-24)
     // ==========================================
-    for (int seg = 0; seg < 7; seg++) {
-        // We now need 8 chunks of 12 to draw all 96 triangles!
-        for (int chunk = 0; chunk < 8; chunk++) {
+    for (int seg = 0; seg < numStomRings - 2; seg++) {
+        int mtxIdxA = (seg * (numVisualRings - 1)) / (numStomRings - 1);
+        int mtxIdxB = ((seg + 1) * (numVisualRings - 1)) / (numStomRings - 1);
+
+        for (int chunk = 0; chunk < 2; chunk++) {
             int startVtx = chunk * 12;
-            gSPMatrix(POLY_OPA_DISP++, &segMtx[seg], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-            gSPVertex(POLY_OPA_DISP++, &stomVtx[(seg * 97) + startVtx], 13, 0);
-            gSPMatrix(POLY_OPA_DISP++, &segMtx[seg + 1], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-            gSPVertex(POLY_OPA_DISP++, &stomVtx[((seg + 1) * 97) + startVtx], 13, 13);
+            int vtxOffsetA = seg * 25 + startVtx;
+            int vtxOffsetB = (seg + 1) * 25 + startVtx;
+
+            gSPMatrix(POLY_OPA_DISP++, &segMtx[mtxIdxA], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+            gSPVertex(POLY_OPA_DISP++, &stomVtx24[vtxOffsetA], 13, 0);
             
+            gSPMatrix(POLY_OPA_DISP++, &segMtx[mtxIdxB], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+            gSPVertex(POLY_OPA_DISP++, &stomVtx24[vtxOffsetB], 13, 13);
+
             for (int v = 0; v < 12; v++) {
                 gSP2Triangles(POLY_OPA_DISP++, v, v + 13, v + 1, 0, v + 1, v + 13, v + 14, 0);
             }
+        }
+    }
+
+    // ==========================================
+    // DRAW 2: The 24-to-48 Throat Zipper!
+    // ==========================================
+    int segA = numStomRings - 2;
+    int mtxIdxA = (segA * (numVisualRings - 1)) / (numStomRings - 1);
+    int mtxIdxB = numVisualRings - 1; // Top ring matrix
+    int offsetA = segA * 25;
+
+    for (int chunk = 0; chunk < 4; chunk++) {
+        int startVtx24 = chunk * 6;  
+        int startVtx48 = chunk * 12; 
+
+        gSPMatrix(POLY_OPA_DISP++, &segMtx[mtxIdxA], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gSPVertex(POLY_OPA_DISP++, &stomVtx24[offsetA + startVtx24], 7, 0); // Bottom 24-vtx
+
+        gSPMatrix(POLY_OPA_DISP++, &segMtx[mtxIdxB], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gSPVertex(POLY_OPA_DISP++, &stomVtx48[startVtx48], 13, 7); // Top 48-vtx
+
+        for (int v = 0; v < 6; v++) {
+            int b_curr = v;
+            int b_next = v + 1;
+            int t_curr = 7 + (v * 2);
+            int t_mid  = 7 + (v * 2) + 1;
+            int t_next = 7 + (v * 2) + 2;
+
+            gSP1Triangle(POLY_OPA_DISP++, b_curr, t_curr, t_mid, 0);
+            gSP2Triangles(POLY_OPA_DISP++, b_curr, t_mid, b_next, 0, b_next, t_mid, t_next, 0);
+        }
+    }
+
+    // ==========================================
+    // DRAW 3: The Center Floor Fan (24-vtx)
+    // ==========================================
+    gSPMatrix(POLY_OPA_DISP++, &segMtx[0], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+    
+    for (int chunk = 0; chunk < 2; chunk++) {
+        int startVtx = chunk * 12;
+        int centerStart = centerOffset + startVtx;
+        int perimeterStart = startVtx; // Seg 0
+
+        gSPVertex(POLY_OPA_DISP++, &stomVtx24[centerStart], 13, 0);
+        gSPVertex(POLY_OPA_DISP++, &stomVtx24[perimeterStart], 13, 13);
+
+        for (int v = 0; v < 12; v++) {
+            gSP1Triangle(POLY_OPA_DISP++, v, v + 13, v + 14, 0);
         }
     }
 
@@ -2819,226 +3326,156 @@ for (int seg = 0; seg < 8; seg++) {
     CLOSE_DISPS(play->state.gfxCtx);
 }
 
-void EnRr_DrawAbyssPlane(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadius) {
-    OPEN_DISPS(play->state.gfxCtx);
-
-    // ==========================================
-    // VANILLA TEXTURE SETTINGS (From the DL!)
-    // ==========================================
-    int HOLE_TEX_SIZE = 16;   // MASKS 4 / MASKT 4 = 16x16
-    int HOLE_TEX_MASK = 4;    
-    float FULL_UV = 512.0f;   // 16 pixels * 32 = 512 max UV
-
-    Vtx* abyssVtx = Graph_Alloc(play->state.gfxCtx, 300 * sizeof(Vtx));
-
-    float max_extent = baseRadius * 0.8f;
-
-    // ==========================================
-    // EXACT MOUTH FUNNEL GEOMETRY (3 Rings)
-    // ==========================================
-    for (int v = 0; v <= 96; v++) {
-        float linearProgress = (float)v / 96.0f;
-        float angle = linearProgress * (2.0f * M_PI);
-
-        float dirX = cosf(angle);
-        float dirZ = sinf(angle);
-
-        float rawWaveOut = cosf(6.0f * angle);
-        float waveOut = ((rawWaveOut > 0.0f) ? 1.0f : -1.0f) * powf(fabsf(rawWaveOut), 1.5f);
-        float heightMod_out = (waveOut + 1.0f) * 0.5f;
-
-        // ==========================================
-        // RING 2: OUTER LIPS
-        // ==========================================
-        float r_min_out = baseRadius * 0.6f;
-        float r_max_out = baseRadius * 0.8f;
-        float radius_out = 0.5f * (r_min_out + r_max_out) + 0.5f * (r_max_out - r_min_out) * waveOut;
-        
-        float yOffset_out = (heightMod_out * 300.0f + 1000.0f) + 3.0f; 
-        float x_out = dirX * radius_out * 0.98f;
-        float z_out = dirZ * radius_out * 0.98f;
-
-        int outIdx = v + 194;
-        abyssVtx[outIdx].v.ob[0] = (s16)x_out;
-        abyssVtx[outIdx].v.ob[1] = (s16)yOffset_out;
-        abyssVtx[outIdx].v.ob[2] = (s16)z_out;
-        abyssVtx[outIdx].v.flag = 0;
-        
-        // MIRRORED PLANAR MAP: 0 is the center, 512 is the edge.
-        // Negative physical coordinates are automatically flipped by G_TX_MIRROR!
-        abyssVtx[outIdx].v.tc[0] = (s16)((x_out / max_extent) * FULL_UV);
-        abyssVtx[outIdx].v.tc[1] = (s16)((z_out / max_extent) * FULL_UV);
-        
-        abyssVtx[outIdx].v.cn[0] = 255;
-        abyssVtx[outIdx].v.cn[1] = 255;
-        abyssVtx[outIdx].v.cn[2] = 255;
-        abyssVtx[outIdx].v.cn[3] = 255;
-
-        // ==========================================
-        // RING 1: MID STAR
-        // ==========================================
-        float R_max = baseRadius * 0.575f; 
-        float R_min = baseRadius * 0.325f * this->innerMouthScale;
-        float P2_x = R_min * 0.975f;
-        float P2_y = R_min * 0.5f;
-        float local_angle = fmodf(angle, (float)M_PI / 3.0f);
-        if (local_angle > (float)M_PI / 6.0f) {
-            local_angle = ((float)M_PI / 3.0f) - local_angle;
-        }
-
-        float denominator = P2_y * cosf(local_angle) + (R_max - P2_x) * sinf(local_angle);
-        float r_straight = (R_max * P2_y) / denominator; 
-        float innerScaleMod = CLAMP(1.0f - this->innerMouthScale * 0.5f, 0.25f, 1.0f);
-        
-        float yOffset_mid = (heightMod_out * 150.0f + 800.0f * innerScaleMod) + 3.0f;
-        float x_mid = dirX * r_straight * 0.98f;
-        float z_mid = dirZ * r_straight * 0.98f;
-
-        int midIdx = v + 97;
-        abyssVtx[midIdx].v.ob[0] = (s16)x_mid;
-        abyssVtx[midIdx].v.ob[1] = (s16)yOffset_mid;
-        abyssVtx[midIdx].v.ob[2] = (s16)z_mid;
-        abyssVtx[midIdx].v.flag = 0;
-        
-        abyssVtx[midIdx].v.tc[0] = (s16)((x_mid / max_extent) * FULL_UV);
-        abyssVtx[midIdx].v.tc[1] = (s16)((z_mid / max_extent) * FULL_UV);  
-        
-        abyssVtx[midIdx].v.cn[0] = 255;
-        abyssVtx[midIdx].v.cn[1] = 255;
-        abyssVtx[midIdx].v.cn[2] = 255;
-        abyssVtx[midIdx].v.cn[3] = 255;
-
-        // ==========================================
-        // RING 0: THROAT OPENING
-        // ==========================================
-        float throatRadius = baseRadius * 0.15f * this->innerMouthScale * 0.98f;
-        
-        float x_in = dirX * throatRadius;
-        float z_in = dirZ * throatRadius;
-
-        int centerIdx = v;
-        abyssVtx[centerIdx].v.ob[0] = (s16)x_in;
-        abyssVtx[centerIdx].v.ob[1] = -195; 
-        abyssVtx[centerIdx].v.ob[2] = (s16)z_in;
-        abyssVtx[centerIdx].v.flag = 0;
-        
-        abyssVtx[centerIdx].v.tc[0] = (s16)((x_in / max_extent) * FULL_UV);
-        abyssVtx[centerIdx].v.tc[1] = (s16)((z_in / max_extent) * FULL_UV);
-        
-        abyssVtx[centerIdx].v.cn[0] = 255;
-        abyssVtx[centerIdx].v.cn[1] = 255;
-        abyssVtx[centerIdx].v.cn[2] = 255;
-        abyssVtx[centerIdx].v.cn[3] = 255;
-    }
-
-    // ==========================================
-    // TEXTURE SETUP & STANDARD COMBINER
-    // ==========================================
-    gSPClearGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_CULL_BACK | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR);
-    gSPSetGeometryMode(POLY_OPA_DISP++, G_SHADING_SMOOTH);
-    gSPTexture(POLY_OPA_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
-
-    gDPSetCycleType(POLY_OPA_DISP++, G_CYC_1CYCLE);
-    gDPSetRenderMode(POLY_OPA_DISP++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
-    
-    // As seen in your DL trace (Line 115)
-    gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, 255);
-
-    gDPSetCombineMode(POLY_OPA_DISP++, G_CC_MODULATEIA, G_CC_MODULATEIA);
-
-    // Using the exact DL settings: FMT_IA, SIZ_16b, Size 16x16, with G_TX_MIRROR on both axes!
-    gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeHoleTex, G_IM_FMT_IA, G_IM_SIZ_16b, HOLE_TEX_SIZE, HOLE_TEX_SIZE, 0,
-                        G_TX_MIRROR, G_TX_MIRROR, HOLE_TEX_MASK, HOLE_TEX_MASK, G_TX_NOLOD, G_TX_NOLOD);
-
-    // ==========================================
-    // DRAW LOOPS
-    // ==========================================
-    for (int chunk = 0; chunk < 8; chunk++) {
-        int startVtx = chunk * 12;
-        gSPMatrix(POLY_OPA_DISP++, &segMtx[7], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gSPVertex(POLY_OPA_DISP++, &abyssVtx[startVtx + 97], 13, 0);   
-        gSPVertex(POLY_OPA_DISP++, &abyssVtx[startVtx + 194], 13, 13); 
-        for (int v = 0; v < 12; v++) {
-            gSP2Triangles(POLY_OPA_DISP++, v + 13, v, v + 14, 0, v, v + 1, v + 14, 0);
-        }
-    }
-
-    for (int chunk = 0; chunk < 8; chunk++) {
-        int startVtx = chunk * 12;
-        gSPMatrix(POLY_OPA_DISP++, &segMtx[7], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gSPVertex(POLY_OPA_DISP++, &abyssVtx[startVtx + 0], 13, 0);    
-        gSPVertex(POLY_OPA_DISP++, &abyssVtx[startVtx + 97], 13, 13);  
-        for (int v = 0; v < 12; v++) {
-            gSP2Triangles(POLY_OPA_DISP++, v + 13, v, v + 14, 0, v, v + 1, v + 14, 0);
-        }
-    }
-
-    CLOSE_DISPS(play->state.gfxCtx);
-}
-
 void EnRr_Draw(Actor* thisx, PlayState* play) {
     EnRr* this = (EnRr*)thisx;
     s32 i;
-    Vec3f zeroVec = { 0.0f, 0.0f, 0.0f };
     EnRrStruct* segment;
     u32 scrollControl_fixed = (u32)(this->scrollControl * 4.0f);
     f32 scaleTarget;
     f32 scaleTargetY;
 
-    int numRings = 8;
     float baseRadius = 2142.857143f;
+    float throatRadius = baseRadius * 0.2f * this->innerMouthScale;
+    float throatY = -625.0f - (125.0f * this->innerMouthScale);
 
-    Mtx* segMtx = Graph_Alloc(play->state.gfxCtx, numRings * sizeof(Mtx));
+    // ==========================================
+    // PIECEWISE SPLINE MATRIX GENERATOR
+    // ==========================================
+    int ringsPerGap = 8; // Keeps the dense vertices at the crease!
+    int numVisualRings = (this->bodySegCount * ringsPerGap) + 1;
 
-    OPEN_DISPS(play->state.gfxCtx);
-    Gfx_SetupDL_25Opa(play->state.gfxCtx);
-    Gfx_SetupDL_25Xlu(play->state.gfxCtx);
+    Mtx* segMtx = Graph_Alloc(play->state.gfxCtx, numVisualRings * sizeof(Mtx));
+    Vec3f zeroVec = { 0.0f, 0.0f, 0.0f };
 
-    // MATRIX CALCULATIONS
+    float absRotX_ctrl[5];
+    float absRotY_ctrl[5];
+    float absRotZ_ctrl[5];
+    float scale_ctrl[5];
+    float absHeight_ctrl[5];
+
+    absRotX_ctrl[0] = 0.0f;
+    absRotY_ctrl[0] = 0.0f;
+    absRotZ_ctrl[0] = 0.0f;
+    scale_ctrl[0] = this->bodySegs[0].scale * (1.0f + this->bodySegs[0].scaleMod);
+    absHeight_ctrl[0] = 0.0f;
+
+    for (int i = 1; i <= this->bodySegCount; i++) {
+        absRotX_ctrl[i] = absRotX_ctrl[i - 1] + this->bodySegs[i].rot.x;
+        absRotY_ctrl[i] = absRotY_ctrl[i - 1] + this->bodySegs[i].rot.y; 
+        absRotZ_ctrl[i] = absRotZ_ctrl[i - 1] + this->bodySegs[i].rot.z;
+        scale_ctrl[i] = this->bodySegs[i].scale * (1.0f + this->bodySegs[i].scaleMod);
+
+        float baseSegHeight = i == this->bodySegCount ? BASE_SEG_HEIGHT * 1.5f : BASE_SEG_HEIGHT; 
+        float localHeight = this->bodySegs[i].height + baseSegHeight * (1.0f + this->bodySegs[i].ySquishMod);
+        absHeight_ctrl[i] = absHeight_ctrl[i - 1] + localHeight;
+    }
+
     Matrix_Push();
-    Matrix_Scale((1.0f + this->bodySegs[0].scaleMod) * this->bodySegs[0].scale, 1.0f,
-                 (1.0f + this->bodySegs[0].scaleMod) * this->bodySegs[0].scale, MTXMODE_APPLY);
+    float finalBaseScale = scale_ctrl[0] * 0.85f; // Deep starting crease
+    Matrix_Scale(finalBaseScale, 1.0f, finalBaseScale, MTXMODE_APPLY);
     MATRIX_TOMTX(&segMtx[0]);
     Matrix_Pop();
 
-    for (i = 1; i < numRings; i++) {
-        segment = &this->bodySegs[i];
-        scaleTarget = segment->scale * (segment->scaleMod + 1.0f);
-        scaleTargetY = this->actionFunc != EnRr_Reach && this->actionFunc != EnRr_ThrowPlayer
-                           ? segment->scale * (segment->scaleMod + 1.0f)
-                           : 1.0f;
+    float prevRotX = 0.0f;
+    float prevRotY = 0.0f;  
+    float prevRotZ = 0.0f;
+    float prevHeight = 0.0f;
 
-        Matrix_Translate(0.0f, segment->height + 500.0f * (1.0f + segment->ySquishMod), 0.0f, MTXMODE_APPLY);
-        Matrix_RotateZYX(segment->rot.x, segment->rot.y, segment->rot.z, MTXMODE_APPLY);
+    for (int i = 1; i < numVisualRings; i++) {
+        float preciseT = (float)i / ringsPerGap;
+        int segIdx = (int)preciseT;
+
+        if (segIdx >= this->bodySegCount) {
+            segIdx = this->bodySegCount - 1;
+        }
+
+        float localT = preciseT - (float)segIdx;
+
+        // 1. ROTATION T (Ken Perlin's Smootherstep)
+        // Keeps the physics and bending incredibly smooth and fluid!
+        float smoothT = localT * localT * localT * (localT * (localT * 6.0f - 15.0f) + 10.0f);
+
+        // 2. HEIGHT T (Standard Smoothstep)
+        // Gives the geometry enough vertical breathing room at the seams to actually draw the 3D valley!
+        float heightT = localT * localT * (3.0f - 2.0f * localT);
+
+        float targetAbsRotX = F32_LERPIMP(absRotX_ctrl[segIdx], absRotX_ctrl[segIdx + 1], smoothT);
+        float targetAbsRotY = F32_LERPIMP(absRotY_ctrl[segIdx], absRotY_ctrl[segIdx + 1], smoothT); 
+        float targetAbsRotZ = F32_LERPIMP(absRotZ_ctrl[segIdx], absRotZ_ctrl[segIdx + 1], smoothT);
+
+        float targetAbsHeight = F32_LERPIMP(absHeight_ctrl[segIdx], absHeight_ctrl[segIdx + 1], heightT);
+
+        float interpScale = F32_LERPIMP(scale_ctrl[segIdx], scale_ctrl[segIdx + 1], smoothT);
+
+        float deltaRotX = targetAbsRotX - prevRotX;
+        float deltaRotY = targetAbsRotY - prevRotY; 
+        float deltaRotZ = targetAbsRotZ - prevRotZ;
+
+        float prevLocalT = (float)(i - 1) / ringsPerGap - (float)segIdx;
+        if (prevLocalT < 0.0f)
+            prevLocalT = 0.0f;
+
+        float prevHeightT = prevLocalT * prevLocalT * (3.0f - 2.0f * prevLocalT);
+        float deltaHeight = targetAbsHeight - prevHeight;
+
+        prevRotX = targetAbsRotX;
+        prevRotY = targetAbsRotY;
+        prevRotZ = targetAbsRotZ;
+        prevHeight = targetAbsHeight;
+
+        // ==========================================
+        // THE ANNULI EFFECT (Fade out valley at the mouth!)
+        // ==========================================
+        if (i == numVisualRings - 1) {
+            localT = 1.0f;
+        }
+
+        float safeSine = fabsf(sinf(localT * (float)M_PI));
+        float seamDip = powf(safeSine, 0.75f);
+
+        // Default valley depth: pinches down by 15% (to 0.85) at the creases
+        float valleyDepth = 0.075f;
+
+        if (segIdx == this->bodySegCount - 1) {
+            valleyDepth = 0.075f * (1.0f - localT);
+        }
+
+        // Calculate the pinch using the dynamic depth
+        float ribPinch = (1.0f - valleyDepth) + (valleyDepth * seamDip);
+        float finalScale = interpScale * ribPinch;
+
+        // ==========================================
+        // MATRIX APPLICATION
+        // ==========================================
+        Matrix_Translate(0.0f, deltaHeight, 0.0f, MTXMODE_APPLY);
+        Matrix_RotateZYX((s16)deltaRotX, (s16)deltaRotY, (s16)deltaRotZ, MTXMODE_APPLY);
+
         Matrix_Push();
-        Matrix_Scale(scaleTarget, scaleTargetY, scaleTarget, MTXMODE_APPLY);
+        Matrix_Scale(finalScale, finalScale, finalScale, MTXMODE_APPLY);
         MATRIX_TOMTX(&segMtx[i]);
         Matrix_Pop();
 
-        Matrix_MultVec3f(&zeroVec, &this->effectPos[i]);
-        if (i == 2) {
+        if (i == ringsPerGap * 1)
             Matrix_MultVec3f(&zeroVec, &this->bodySphPos[0]);
-        } else if (i == 4) {
+        if (i == ringsPerGap * 2)
             Matrix_MultVec3f(&zeroVec, &this->bodySphPos[1]);
-        } else if (i == 6) {
+        if (i == ringsPerGap * 3)
             Matrix_MultVec3f(&zeroVec, &this->bodySphPos[2]);
+        if (i == numVisualRings - 1) {
+            Matrix_MultVec3f(&zeroVec, &this->bodySphPos[3]);
             Matrix_MultVec3f(&zeroVec, &this->mouthPartPos);
         }
     }
 
     this->effectPos[0] = this->actor.world.pos;
-    Matrix_MultVec3f(&zeroVec, &this->bodySphPos[3]);
-
-    CLOSE_DISPS(play->state.gfxCtx);
 
     // ==========================================
     // DRAW CALLS
     // ==========================================
     EnRr_DrawBottomCap(this, play, segMtx, baseRadius, scrollControl_fixed);
-    EnRr_DrawBody(this, play, segMtx, baseRadius, scrollControl_fixed);
-    EnRr_DrawMouthRecess(this, play, segMtx, baseRadius, scrollControl_fixed);
-    EnRr_DrawStomach(this, play, segMtx, baseRadius, scrollControl_fixed);
-    //EnRr_DrawAbyssPlane(this, play, segMtx, baseRadius);
+    EnRr_DrawBody(this, play, segMtx, numVisualRings, baseRadius, scrollControl_fixed);
+    EnRr_DrawMouthRecess(this, play, segMtx, numVisualRings, baseRadius, throatRadius, throatY, scrollControl_fixed);
+    EnRr_DrawStomach(this, play, segMtx, numVisualRings, baseRadius, throatRadius, throatY, scrollControl_fixed);
 
     // ==========================================
     // VANILLA PARTICLE EFFECTS (Unchanged)
@@ -3151,5 +3588,5 @@ void EnRr_Draw(Actor* thisx, PlayState* play2) {
                                            235, 245, 255, this->drawDmgEffFrozenSteamScale);
         }
     }
-} 
+}
 */

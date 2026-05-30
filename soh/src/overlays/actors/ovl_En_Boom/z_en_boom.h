@@ -23,6 +23,8 @@ typedef struct EnBoom {
                  Actor* targetActors[5];
                  u8 targetCount;
                  u8 currentTargetIndex;
+                 Actor* grabbedActors[5];
+                 u8 grabCount;
 } EnBoom; // size = 0x01FC
 
 #endif

@@ -7725,7 +7725,10 @@ Vec3s Camera_Update(Camera* camera) {
     if (CVarGetInteger(CVAR_SETTING("FreeLook.Enabled"), 0) && SetCameraManual(camera) == 1) {
         if ((camera->mode >= CAM_MODE_FIRSTPERSON && camera->mode <= CAM_MODE_CLIMBZ) ||
             camera->mode == CAM_MODE_HANGZ || camera->setting == CAM_SET_CRAWLSPACE ||
-            camera->setting == CAM_SET_FIRE_PLATFORM || camera->setting == CAM_SET_CS_3) {
+            camera->setting == CAM_SET_CS_0 || camera->setting == CAM_SET_SLOW_CHEST_CS ||
+            camera->setting == CAM_SET_CS_3 || camera->setting == CAM_SET_CS_ATTENTION ||
+            camera->setting == CAM_SET_FIRE_PLATFORM || camera->setting == CAM_SET_FIRE_STAIRCASE ||
+            camera->setting == CAM_SET_TURN_AROUND || camera->setting == CAM_SET_CS_C) {
 
             // Disable Free Look for these modes.
             camera->play->manualCamera = false;

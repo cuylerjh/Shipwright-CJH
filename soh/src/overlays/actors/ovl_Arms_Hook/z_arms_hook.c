@@ -55,38 +55,36 @@ static Color_RGB8 sUnusedColors[] = {
     { 255, 255, 50 },
 };
 
-// 24-Vertex Enclosed 3D Chain Link (Chamfered Rectangle)
 static Vtx sCustom3DChainLinkVtx[24] = {
-    // FRONT FACE -> Base Metal
-    { { {  -7,  4,   0 }, 0, { 0, 0 }, { 130, 130, 130, 255 } } },
-    { { {   7,  4,   0 }, 0, { 0, 0 }, { 130, 130, 130, 255 } } },
-    // CHAMFERS -> Bright Highlights (Simulating edge wear / reflection)
-    { { {  15,  4,   8 }, 0, { 0, 0 }, { 255, 255, 255, 255 } } }, 
-    { { {  15,  4,  92 }, 0, { 0, 0 }, { 255, 255, 255, 255 } } },
-    { { {   7,  4, 100 }, 0, { 0, 0 }, { 130, 130, 130, 255 } } },
-    { { {  -7,  4, 100 }, 0, { 0, 0 }, { 130, 130, 130, 255 } } },
-    { { { -15,  4,  92 }, 0, { 0, 0 }, { 255, 255, 255, 255 } } },
-    { { { -15,  4,   8 }, 0, { 0, 0 }, { 255, 255, 255, 255 } } },
-    // INNER HOLE FRONT -> Dark Shadow (Z values pulled in to thicken the ends)
-    { { {  -7,  4,  15 }, 0, { 0, 0 }, {  40,  40,  40, 255 } } }, 
-    { { {   7,  4,  15 }, 0, { 0, 0 }, {  40,  40,  40, 255 } } },
-    { { {   7,  4,  85 }, 0, { 0, 0 }, {  40,  40,  40, 255 } } },
-    { { {  -7,  4,  85 }, 0, { 0, 0 }, {  40,  40,  40, 255 } } },
+    // FRONT FACE (Normals pointing generally UP/OUT)
+    { { {  -7,  4,   0 }, 0, { 0, 0 }, {   0,  127, -50, 255 } } },
+    { { {   7,  4,   0 }, 0, { 0, 0 }, {   0,  127, -50, 255 } } },
+    { { {  15,  4,   8 }, 0, { 0, 0 }, {  89,   89,   0, 255 } } },
+    { { {  15,  4,  92 }, 0, { 0, 0 }, {  89,   89,   0, 255 } } },
+    { { {   7,  4, 100 }, 0, { 0, 0 }, {   0,  127,  50, 255 } } },
+    { { {  -7,  4, 100 }, 0, { 0, 0 }, {   0,  127,  50, 255 } } },
+    { { { -15,  4,  92 }, 0, { 0, 0 }, { -89,   89,   0, 255 } } },
+    { { { -15,  4,   8 }, 0, { 0, 0 }, { -89,   89,   0, 255 } } },
+    // INNER HOLE FRONT (Normals pointing INWARD and UP)
+    { { {  -7,  4,  15 }, 0, { 0, 0 }, {  89,   89,   0, 255 } } },
+    { { {   7,  4,  15 }, 0, { 0, 0 }, { -89,   89,   0, 255 } } },
+    { { {   7,  4,  85 }, 0, { 0, 0 }, { -89,   89,   0, 255 } } },
+    { { {  -7,  4,  85 }, 0, { 0, 0 }, {  89,   89,   0, 255 } } },
 
-    // BACK FACE -> Ambient Shadow
-    { { {  -7, -4,   0 }, 0, { 0, 0 }, {  60,  60,  60, 255 } } },
-    { { {   7, -4,   0 }, 0, { 0, 0 }, {  60,  60,  60, 255 } } },
-    { { {  15, -4,   8 }, 0, { 0, 0 }, {  90,  90,  90, 255 } } },
-    { { {  15, -4,  92 }, 0, { 0, 0 }, {  90,  90,  90, 255 } } },
-    { { {   7, -4, 100 }, 0, { 0, 0 }, {  60,  60,  60, 255 } } },
-    { { {  -7, -4, 100 }, 0, { 0, 0 }, {  60,  60,  60, 255 } } },
-    { { { -15, -4,  92 }, 0, { 0, 0 }, {  90,  90,  90, 255 } } },
-    { { { -15, -4,   8 }, 0, { 0, 0 }, {  90,  90,  90, 255 } } },
-    // INNER HOLE BACK -> Pitch Black
-    { { {  -7, -4,  15 }, 0, { 0, 0 }, {  20,  20,  20, 255 } } },
-    { { {   7, -4,  15 }, 0, { 0, 0 }, {  20,  20,  20, 255 } } },
-    { { {   7, -4,  85 }, 0, { 0, 0 }, {  20,  20,  20, 255 } } },
-    { { {  -7, -4,  85 }, 0, { 0, 0 }, {  20,  20,  20, 255 } } },
+    // BACK FACE (Normals pointing generally DOWN/OUT)
+    { { {  -7, -4,   0 }, 0, { 0, 0 }, {   0, -127, -50, 255 } } },
+    { { {   7, -4,   0 }, 0, { 0, 0 }, {   0, -127, -50, 255 } } },
+    { { {  15, -4,   8 }, 0, { 0, 0 }, {  89,  -89,   0, 255 } } },
+    { { {  15, -4,  92 }, 0, { 0, 0 }, {  89,  -89,   0, 255 } } },
+    { { {   7, -4, 100 }, 0, { 0, 0 }, {   0, -127,  50, 255 } } },
+    { { {  -7, -4, 100 }, 0, { 0, 0 }, {   0, -127,  50, 255 } } },
+    { { { -15, -4,  92 }, 0, { 0, 0 }, { -89,  -89,   0, 255 } } },
+    { { { -15, -4,   8 }, 0, { 0, 0 }, { -89,  -89,   0, 255 } } },
+    // INNER HOLE BACK (Normals pointing INWARD and DOWN)
+    { { {  -7, -4,  15 }, 0, { 0, 0 }, {  89,  -89,   0, 255 } } },
+    { { {   7, -4,  15 }, 0, { 0, 0 }, { -89,  -89,   0, 255 } } },
+    { { {   7, -4,  85 }, 0, { 0, 0 }, { -89,  -89,   0, 255 } } },
+    { { {  -7, -4,  85 }, 0, { 0, 0 }, {  89,  -89,   0, 255 } } },
 };
 
 static Vec3f D_80865B70 = { 0.0f, 0.0f, 0.0f };
@@ -247,11 +245,11 @@ void ArmsHook_Shoot(ArmsHook* this, PlayState* play) {
             phi_f16 = 0.0f;
         } else {
             if (this->actor.child != NULL) {
-                velocity = player->heldItemAction == PLAYER_IA_HOOKSHOT ? 30.0f : 45.0f;
+                velocity = this->speed * 1.5f;
             } else if (grabbed != NULL) {
-                velocity = 50.0f;
+                velocity = this->speed * 2.5f;
             } else {
-                velocity = this->speed * 5.0f;
+                velocity = this->speed * 3.0f;
             }
             phi_f16 = bodyDistDiff - velocity;
             if (bodyDistDiff <= velocity) {
@@ -391,11 +389,15 @@ void ArmsHook_Draw(Actor* thisx, PlayState* play) {
         // ONLY DRAW THE CHAIN IF WE ARE ACTIVELY SHOOTING OR RETRACTING
         if (this->actionFunc == ArmsHook_Shoot && totalDist > this->speed) {
 
-            // --- SETUP FOR UNTEXTURED 3D GEOMETRY ---
-            gDPSetCombineMode(POLY_OPA_DISP++, G_CC_SHADE, G_CC_SHADE);
-            gDPSetRenderMode(POLY_OPA_DISP++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
+            gSPSetGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_CULL_BACK); 
+            gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 170, 170, 180, 255);
+            gDPSetCombineLERP(POLY_OPA_DISP++,
+                PRIMITIVE, 0, SHADE, 0,
+                PRIMITIVE, 0, SHADE, 0,
+                PRIMITIVE, 0, SHADE, 0,
+                PRIMITIVE, 0, SHADE, 0);
             
-            f32 zStep = 8.0f; 
+            f32 zStep = 6.0f; // Distance between each chain link
             f32 yOffset = -1.5f; // Better centered on the barrel and chain
             f32 startOffsetZ = -3.0f; // Just behind the tip
             int numLinks = (int)(totalDist / zStep) + 1;
@@ -410,11 +412,12 @@ void ArmsHook_Draw(Actor* thisx, PlayState* play) {
                 f32 zOffset = startOffsetZ + (i * zStep);
                 Matrix_Translate(0.0f, yOffset, zOffset, MTXMODE_APPLY);
 
-                if (i % 2 != 0) {
-                    Matrix_RotateZ(1.5708f, MTXMODE_APPLY); 
-                }
+                // 1. The standard 90-degree interlocking rotation
+                f32 interlockAngle = (i % 2 != 0) ? 1.5708f : 0.0f;
+                
+                Matrix_RotateZ(interlockAngle, MTXMODE_APPLY);
 
-                Matrix_Scale(0.10f, 0.06f, 0.10f, MTXMODE_APPLY);
+                Matrix_Scale(0.08f, 0.06f, 0.08f, MTXMODE_APPLY);
 
                 gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
                 
@@ -462,58 +465,12 @@ void ArmsHook_Draw(Actor* thisx, PlayState* play) {
             }
             
             // --- CLEANUP PIPELINE STATE ---
+            gSPClearGeometryMode(POLY_OPA_DISP++, G_LIGHTING); 
             gDPSetCombineMode(POLY_OPA_DISP++, G_CC_MODULATEI_PRIM, G_CC_MODULATEI_PRIM);
-        } // End of conditional chain draw
-
+        } 
         CLOSE_DISPS(play->state.gfxCtx);
     }
 }
-
-// Use this with the custom DL
-// // --- DRAW THE CUSTOM SINGLE-LINK CHAIN ---
-//         f32 uniformScale = 0.015f;
-//         if (CVarGetInteger(CVAR_ENHANCEMENT("EquipmentAlwaysVisible"), 0) &&
-//             CVarGetInteger(CVAR_ENHANCEMENT("ScaleAdultEquipmentAsChild"), 0) && LINK_IS_CHILD) {
-//             uniformScale = 0.012f;
-//         }
-
-//         // Define the exact length of your custom single link model (scaled).
-//         // You will need to tweak this value to match your specific custom model's length
-//         // so that they touch end-to-end perfectly.
-//         f32 linkLength = 10.0f;
-
-//         // Calculate the number of links needed.
-//         // The +1 ensures the chain always fully reaches the hand.
-//         // The slight excess will harmlessly clip inside Link's wrist/gun.
-//         int numLinks = (int)(totalDist / linkLength) + 1;
-
-//         for (int i = 0; i < numLinks; i++) {
-//             Matrix_Push();
-
-//             // Push each link end-to-end down the Z-axis
-//             f32 zOffset = i * linkLength;
-//             Matrix_Translate(0.0f, 0.0f, zOffset, MTXMODE_APPLY);
-
-//             // Rotate every other link 90 degrees (1.5708 radians) for a realistic interlocking chain look
-//             if (i % 2 != 0) {
-//                 Matrix_RotateZ(1.5708f, MTXMODE_APPLY);
-//             }
-
-//             // Apply uniform scale in all directions (no stretching/squashing!)
-//             Matrix_Scale(uniformScale, uniformScale, uniformScale, MTXMODE_APPLY);
-
-//             gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD |
-//             G_MTX_MODELVIEW);
-
-//             // Replace this with your custom display list variable
-//             gSPDisplayList(POLY_OPA_DISP++, gCustomSingleLinkDL);
-
-//             Matrix_Pop();
-//         }
-
-//         CLOSE_DISPS(play->state.gfxCtx);
-//     }
-// }
 
 // void ArmsHook_Draw(Actor* thisx, PlayState* play) {
 //     s32 pad;

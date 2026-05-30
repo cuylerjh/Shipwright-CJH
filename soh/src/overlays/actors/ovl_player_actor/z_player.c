@@ -12426,7 +12426,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
                     func_80832440(play, this);
                     func_80837B9C(this, play);
                 } else if ((this->actor.bgCheckFlags & 1) || (this->stateFlags1 & PLAYER_STATE1_IN_WATER)) {
-                    if (this->swallowed) {
+                    if (this->actor.parent != NULL && this->actor.parent->id == ACTOR_EN_RR) {
                         // Force drowning-style death animation inside Like Like
                         func_80836448(play, this, &gPlayerAnim_link_swimer_swim_down);
                     } else {

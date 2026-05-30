@@ -40,11 +40,15 @@ std::vector<ValueTableElement> valueTable = {
     { "Link X Velocity",    "Player->actor.velocity.x",             "XV:",     TYPE_FLOAT, true,  []() -> void* { return &GET_PLAYER(gPlayState)->actor.velocity.x; },  WHITE },
     { "Link Y Velocity",    "Player->actor.velocity.y",             "YV:",     TYPE_FLOAT, true,  []() -> void* { return &GET_PLAYER(gPlayState)->actor.velocity.y; },  WHITE },
     { "Link Z Velocity",    "Player->actor.velocity.z",             "ZV:",     TYPE_FLOAT, true,  []() -> void* { return &GET_PLAYER(gPlayState)->actor.velocity.z; },  WHITE },
+    { "Link Anim Frame",    "Player->skelAnime.curFrame",           "AFRM:",   TYPE_FLOAT, true,  []() -> void* { return &GET_PLAYER(gPlayState)->skelAnime.curFrame; }, WHITE },
+    { "Link Anim Ptr",      "Player->skelAnime.animation",          "APTR:",   TYPE_U32,   true,  []() -> void* { return &GET_PLAYER(gPlayState)->skelAnime.animation; }, WHITE },
     { "Text ID",            "play->msgCtx.textId",                  "TEXTID:", TYPE_U16,   true,  []() -> void* { return &gPlayState->msgCtx.textId; },                 WHITE },
     { "Analog Stick X",     "play->state.input->cur.stick_x",       "AX:",     TYPE_S8,    true,  []() -> void* { return &gPlayState->state.input->cur.stick_x; },      WHITE },
     { "Analog Stick Y",     "play->state.input->cur.stick_y",       "AY:",     TYPE_S8,    true,  []() -> void* { return &gPlayState->state.input->cur.stick_y; },      WHITE },
     { "getItemID",          "Player->getItemId",                    "ITEM:",   TYPE_S16,   true,  []() -> void* { return &GET_PLAYER(gPlayState)->getItemId; },         WHITE },
     { "getItemEntry",       "Player->getItemEntry",                 "IE:",     TYPE_S16,   true,  []() -> void* { return &GET_PLAYER(gPlayState)->getItemEntry.itemId; }, WHITE },
+    { "Camera Setting",     "play->cameraPtrs[MAIN_CAM]->setting",  "CSET:",   TYPE_S16,   true,  []() -> void* { return &gPlayState->cameraPtrs[MAIN_CAM]->setting; }, WHITE },
+    { "Camera Mode",        "play->cameraPtrs[MAIN_CAM]->mode",     "CMOD:",   TYPE_S16,   true,  []() -> void* { return &gPlayState->cameraPtrs[MAIN_CAM]->mode; },    WHITE },
     /* TODO: Find these (from GZ)
     "XZ Units Traveled (Camera based speed variable)" f32 0x801C9018
     "Movement Angle" x16 0x801DBB1C

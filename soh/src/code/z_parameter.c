@@ -1968,7 +1968,7 @@ u8 Item_Give(PlayState* play, u8 item) {
 
         // Both Giant's Knife and Biggoron Sword have the same Item ID, so this part handles both of them
         if (item == ITEM_SWORD_BGS) {
-            gSaveContext.swordHealth = gSaveContext.swordHealth > 0 || gSaveContext.bgsFlag ? 8 : 0;
+            gSaveContext.swordHealth = 8;
 
             if (ALL_EQUIP_VALUE(EQUIP_TYPE_SWORD) ==
                 ((1 << EQUIP_INV_SWORD_KOKIRI) | (1 << EQUIP_INV_SWORD_MASTER) | (1 << EQUIP_INV_SWORD_BIGGORON) |
@@ -2340,7 +2340,8 @@ u8 Item_Give(PlayState* play, u8 item) {
     } else if (item == ITEM_HEART) {
         osSyncPrintf("回復ハート回復ハート回復ハート\n"); // "Recovery Heart"
         if (play != NULL) {
-            Health_ChangeBy(play, FULL_HEART_HEALTH);
+            //Health_ChangeBy(play, FULL_HEART_HEALTH);
+            gSaveContext.healthAccumulator += FULL_HEART_HEALTH;
         }
         return Return_Item(item, MOD_NONE, item);
     } else if (item == ITEM_MAGIC_SMALL) {

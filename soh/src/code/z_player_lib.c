@@ -1729,6 +1729,10 @@ void Player_DrawGetItem(PlayState* play, Player* this) {
     }
 }
 
+f32 sMeleeWeaponTrailLengths[] = {
+    0.0f, 4000.0f, 1750.0f, 5500.0f, 0.0f, 2500.0f, 
+};
+
 void func_80090A28(Player* this, Vec3f* vecs) {
     D_8012608C.x = D_80126080.x;
 
@@ -1739,6 +1743,14 @@ void func_80090A28(Player* this, Vec3f* vecs) {
 
     D_8012608C.x += 1200.0f;
     D_80126098.x = D_8012608C.x;
+
+    if (this->itemAction != PLAYER_IA_DEKU_STICK) {
+        if (Player_HoldsBrokenKnife(this)) {
+            D_80126080.x = 1000.0f; // Visual length for the broken knife
+        } else {
+            D_80126080.x = sMeleeWeaponTrailLengths[Player_GetMeleeWeaponHeld(this)];
+        }
+    }
 
     Matrix_MultVec3f(&D_80126080, &vecs[0]);
     Matrix_MultVec3f(&D_8012608C, &vecs[1]);
@@ -1865,7 +1877,17 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
                     }
 
                     if (!alreadyTargeted) {
-                        Vec3f center = actor->focus.pos;
+                        Vec3f center;
+
+                        // --- COORDINATE HIJACK ---
+                        if (actor->id == ACTOR_EN_ITEM00 || actor->id == ACTOR_EN_KUSA || actor->id == ACTOR_OBJ_TSUBO) {
+                            center = actor->world.pos;
+                            center.y += 5.0f;
+                        } else {
+                            center = actor->focus.pos;
+                        }
+                        // -------------------------
+
                         f32 radius = actor->colChkInfo.cylRadius;
                         if (radius <= 0.0f) radius = 20.0f; 
                         radius *= 3.0f; // Expand the radius to make locking on more forgiving
@@ -1892,7 +1914,14 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
                                     CollisionPoly* colPoly;
                                     s32 bgId;
                                     Vec3f hitPos;
-                                    if (!BgCheck_AnyLineTest3(&play->colCtx, start, &center, &hitPos, &colPoly, 1, 1, 1, 1, &bgId)) {
+                                    
+                                    // --- RAYCAST LENIENCY ---
+                                    Vec3f rayEnd = center;
+                                    rayEnd.y += 12.0f; // Bump up to glide over floor polygons!
+                                    // ------------------------
+
+                                    // Use rayEnd instead of center!
+                                    if (!BgCheck_AnyLineTest3(&play->colCtx, start, &rayEnd, &hitPos, &colPoly, 1, 1, 1, 1, &bgId)) {
                                         closestDistSq = distToPlayerSq;
                                         closestActor = actor;
                                     }
@@ -1918,47 +1947,58 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
 extern void func_8002BE04(PlayState* play, Vec3f* src, Vec3f* dest, f32* invW);
 
 void Player_DrawBoomerangTargetArrow(PlayState* play, Actor* actor) {
-    Vec3f center = actor->focus.pos;
-    Vec3f screenPos;
+    Vec3f center;
+    Vec3f projPos;
     f32 invW;
 
-    // 1. Project to 2D Screen Space using the native engine function!
-    func_8002BE04(play, &center, &screenPos, &invW);
-
-    // If the target is behind the camera, don't draw
-    if (invW <= 0.0f) {
-        return;
+    // --- COORDINATE HIJACK ---
+    if (actor->id == ACTOR_EN_ITEM00 || actor->id == ACTOR_EN_KUSA || actor->id == ACTOR_OBJ_TSUBO) {
+        center = actor->world.pos;
+        center.y += 5.0f;
+    } else {
+        center = actor->focus.pos;
     }
+    // -------------------------
 
-    // 2. Exact vanilla screen clamping math
-    screenPos.x = (160.0f * (screenPos.x * invW));
-    screenPos.x = CLAMP(screenPos.x, -320.0f, 320.0f);
-    screenPos.y = (120.0f * (screenPos.y * invW));
-    screenPos.y = CLAMP(screenPos.y, -240.0f, 240.0f);
+    // 1. Get the distance from the camera to the target
+    SkinMatrix_Vec3fMtxFMultXYZW(&play->viewProjectionMtxF, &center, &projPos, &invW);
+
+    // If the target is behind the camera, skip drawing entirely!
+    // (Doing this before OPEN_DISPS prevents the scope macro crash)
+    if (invW <= 0.0f) {
+        return; 
+    }
 
     OPEN_DISPS(play->state.gfxCtx);
 
-    OVERLAY_DISP = Gfx_SetupDL(OVERLAY_DISP, 0x39);
+    // Setup OVERLAY_DISP exactly like the Hookshot reticle (0x07)
+    OVERLAY_DISP = Gfx_SetupDL(OVERLAY_DISP, 0x07);
 
-    // 3. Center the matrix on screen
-    Matrix_Translate(screenPos.x, screenPos.y, 0.0f, MTXMODE_NEW);
-    Matrix_Scale(0.15f, 0.15f, 1.0f, MTXMODE_APPLY);
+    // 2. Hookshot scale math: keeps the reticle consistent across distances
+    f32 scale = (invW < 200.0f) ? 0.08f : (invW / 200.0f) * 0.08f;
+    scale *= 0.75f; // Scale down the vanilla triangles to match the UI size
 
-    // 4. Color the brackets Wind Waker yellow
-    gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 0, 255);
+    // 3. Position the matrix in 3D space and billboard to the camera
+    Matrix_Translate(center.x, center.y, center.z, MTXMODE_NEW);
+    Matrix_ReplaceRotation(&play->billboardMtxF);
+    Matrix_Scale(scale, scale, scale, MTXMODE_APPLY);
 
-    // 5. Spin animation (Replacing targetCtx->unk_4B with gameplayFrames)
+    // 4. Vanilla spin animation
     Matrix_RotateZ((play->gameplayFrames & 0x7F) * (M_PI / 64.0f), MTXMODE_APPLY);
 
-    // 6. The exact vanilla 4-triangle draw loop
-    for (int i = 0; i < 4; i++) {
-        Matrix_RotateZ(M_PI / 2.0f, MTXMODE_APPLY);
+    // 5. Color the brackets Wind Waker yellow
+    gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 0, 255);
+
+    // 6. Pulse the spread slightly for a "breathing" effect
+    f32 spread = 90.0f - (Math_SinS(play->gameplayFrames * 0x1500) * 30.0f);
+
+    // 7. The exact vanilla 3-triangle draw loop
+    for (int i = 0; i < 3; i++) {
+        Matrix_RotateZ((2.0f * M_PI / 3.0f), MTXMODE_APPLY);
         Matrix_Push();
+        Matrix_Translate(spread, spread, 0.0f, MTXMODE_APPLY);
         
-        // Push outward (120.0f is the standard "locked" distance)
-        Matrix_Translate(120.0f, 120.0f, 0.0f, MTXMODE_APPLY);
-        
-        gSPMatrix(OVERLAY_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_MODELVIEW | G_MTX_LOAD);
+        gSPMatrix(OVERLAY_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPDisplayList(OVERLAY_DISP++, gZTargetLockOnTriangleDL);
         
         Matrix_Pop();

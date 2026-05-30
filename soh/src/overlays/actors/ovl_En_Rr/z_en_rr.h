@@ -71,7 +71,6 @@ typedef struct EnRr {
     ColliderCylinder cylinder; // Used mainly for scene collision.
     ColliderJntSph bodySph;
     ColliderJntSphElement bodySphItems[4];
-    ColliderQuad mouthQuad;
     s16 frameCount;
     u8 maximumHealth;
     s8 pitchScale;
@@ -79,12 +78,12 @@ typedef struct EnRr {
     s16 reachAngle;
     bool reachUp;        // Returns true if the player is in a certain range above this actor.
     u8 reachState;
-    u8 scoopPlayer;
     bool vacuumCooldown;
     u8 grabState;        // Like reachState, moves through grabStates with unique functionality.
+    s8 grabDirection; // 1 = Head-first (from above), -1 = Feet-first (from below)
     bool storedPlayerIsFacing; // Determines player-to-Like Like facing direction at SetupGrab for use in ThrowPlayer.
     u8 throwStrength;    // Increases throw strength depending on length of grab.
-    bool playerInside;   // Determines if player is fully inside Like Like.
+    bool midpointTrigger;   // Determines if drain types can start draining.
     u8 damageRelease;  // True if damage while grabbing player. Forces throw and then damage function after.
     u8 eatenSword;
     u8 eatenShield;
@@ -157,8 +156,8 @@ typedef struct EnRr {
     Vec3f mouthPartPos;
     Vec3f bodySphPos[4];
     Vec3f bodyPartsPos[LIKE_LIKE_BODYPART_MAX];
-    Vec3f effectPos[8];
-    EnRrStruct bodySegs[8];
+    Vec3f effectPos[5];
+    EnRrStruct bodySegs[5];
     u8 bodySegCount;
 } EnRr; // size = 0x444
 
