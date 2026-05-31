@@ -252,8 +252,7 @@ void EnTite_Idle(EnTite* this, PlayState* play) {
     }
     if (this->vIdleTimer > 0) {
         this->vIdleTimer--;
-    } else if ((this->actor.xzDistToPlayer < 300.0f) && (this->actor.yDistToPlayer <= 80.0f) &&
-               !(player->swallowed)) {
+    } else if ((this->actor.xzDistToPlayer < 300.0f) && (this->actor.yDistToPlayer <= 80.0f) && !(player->swallowed)) {
         EnTite_SetupTurnTowardPlayer(this);
     }
 }
@@ -356,8 +355,7 @@ void EnTite_Attack(EnTite* this, PlayState* play) {
             Math_SmoothStepToS(&this->actor.world.rot.y, this->actor.yawTowardsPlayer, 1, 1000, 0);
             this->actor.shape.rot.y = this->actor.world.rot.y;
             angleToPlayer = this->actor.yawTowardsPlayer - this->actor.shape.rot.y;
-            if ((this->actor.xzDistToPlayer > 300.0f) && (this->actor.yDistToPlayer > 80.0f) ||
-                (player->swallowed)) {
+            if ((this->actor.xzDistToPlayer > 300.0f) && (this->actor.yDistToPlayer > 80.0f) || (player->swallowed)) {
                 EnTite_SetupIdle(this);
             } else if (ABS(angleToPlayer) >= 9000) {
                 EnTite_SetupTurnTowardPlayer(this);
@@ -486,8 +484,7 @@ void EnTite_TurnTowardPlayer(EnTite* this, PlayState* play) {
 
     // Idle if player is far enough away from the tektite, move or attack if almost facing player
     this->actor.shape.rot.y = this->actor.world.rot.y;
-    if ((this->actor.xzDistToPlayer > 300.0f) && (this->actor.yDistToPlayer > 80.0f) ||
-        (player->swallowed)) {
+    if ((this->actor.xzDistToPlayer > 300.0f) && (this->actor.yDistToPlayer > 80.0f) || (player->swallowed)) {
         EnTite_SetupIdle(this);
     } else if (Actor_IsFacingPlayer(&this->actor, 3640)) {
         if ((this->actor.xzDistToPlayer <= 180.0f) && (this->actor.yDistToPlayer <= 80.0f)) {
@@ -571,8 +568,7 @@ void EnTite_MoveTowardPlayer(EnTite* this, PlayState* play) {
         }
 
         // Idle or turn if player is too far away, otherwise keep jumping
-        if (((this->actor.xzDistToPlayer > 300.0f) && (this->actor.yDistToPlayer > 80.0f)) ||
-            (player->swallowed)) {
+        if (((this->actor.xzDistToPlayer > 300.0f) && (this->actor.yDistToPlayer > 80.0f)) || (player->swallowed)) {
             EnTite_SetupIdle(this);
         } else if (((this->actor.xzDistToPlayer <= 180.0f)) && ((this->actor.yDistToPlayer <= 80.0f))) {
             if (this->vQueuedJumps <= 0) {

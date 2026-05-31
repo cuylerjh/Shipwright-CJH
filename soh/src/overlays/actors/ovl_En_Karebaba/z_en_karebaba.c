@@ -240,9 +240,8 @@ void EnKarebaba_Grow(EnKarebaba* this, PlayState* play) {
 
 void EnKarebaba_Idle(EnKarebaba* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
-    
-    if (this->actor.xzDistToPlayer < 200.0f && fabsf(this->actor.yDistToPlayer) < 30.0f &&
-        !(player->swallowed)) {
+
+    if (this->actor.xzDistToPlayer < 200.0f && fabsf(this->actor.yDistToPlayer) < 30.0f && !(player->swallowed)) {
         EnKarebaba_SetupAwaken(this);
     }
 }
@@ -274,8 +273,7 @@ void EnKarebaba_Upright(EnKarebaba* this, PlayState* play) {
     if (this->bodyCollider.base.acFlags & AC_HIT) {
         EnKarebaba_SetupDying(this);
         Enemy_StartFinishingBlow(play, &this->actor);
-    } else if (Math_Vec3f_DistXZ(&this->actor.home.pos, &player->actor.world.pos) > 240.0f ||
-               (player->swallowed)) {
+    } else if (Math_Vec3f_DistXZ(&this->actor.home.pos, &player->actor.world.pos) > 240.0f || (player->swallowed)) {
         EnKarebaba_SetupRetract(this);
     } else if (this->actor.params == 0) {
         EnKarebaba_SetupSpin(this);

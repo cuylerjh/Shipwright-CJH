@@ -687,8 +687,7 @@ void EnTest_WalkAndBlock(EnTest* this, PlayState* play) {
             this->actor.shape.rot.y = this->actor.world.rot.y = this->actor.yawTowardsPlayer;
         }
 
-        if (!Actor_IsFacingPlayer(&this->actor, 0x11C7) ||
-            (player->swallowed)) {
+        if (!Actor_IsFacingPlayer(&this->actor, 0x11C7) || (player->swallowed)) {
             EnTest_SetupIdle(this);
             this->timer = (Rand_ZeroOne() * 10.0f) + 10.0f;
             return;
@@ -1060,8 +1059,7 @@ void EnTest_JumpBack(EnTest* this, PlayState* play) {
     if (SkelAnime_Update(&this->skelAnime)) {
         if (!EnTest_ReactToProjectile(play, this)) {
             if (this->actor.xzDistToPlayer <= 100.0f) {
-                if (Actor_IsFacingPlayer(&this->actor, 0x1555) &&
-                    !(player->swallowed)) {
+                if (Actor_IsFacingPlayer(&this->actor, 0x1555) && !(player->swallowed)) {
                     EnTest_SetupSlashDown(this);
                 } else {
                     EnTest_SetupIdle(this);

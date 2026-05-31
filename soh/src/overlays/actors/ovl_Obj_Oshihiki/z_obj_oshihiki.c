@@ -561,8 +561,8 @@ void ObjOshihiki_Push(ObjOshihiki* this, PlayState* play) {
     s32 stopFlag;
     s32 strengthBoost = CVarGetInteger(CVAR_ENHANCEMENT("StrengthBoost"), 0) ? Player_GetStrength() : 0;
 
-    this->pushSpeed = this->pushSpeed + (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.25) +
-                      strengthBoost * 0.25 + 0.5f;
+    this->pushSpeed =
+        this->pushSpeed + (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.25) + strengthBoost * 0.25 + 0.5f;
     this->stateFlags |= PUSHBLOCK_PUSH;
     this->pushSpeed = CLAMP_MAX(this->pushSpeed, 2.0f + (CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 0.5) +
                                                      strengthBoost * 0.5);
@@ -591,8 +591,7 @@ void ObjOshihiki_Push(ObjOshihiki* this, PlayState* play) {
         this->dyna.unk_150 = 0.0f;
         this->pushDist = 0.0f;
         this->pushSpeed = 0.0f;
-        this->timer = 10 - ((CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 3) / 2) -
-                      (strengthBoost * 3) / 2;
+        this->timer = 10 - ((CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 3) / 2) - (strengthBoost * 3) / 2;
         if (this->floorBgIds[this->highestFloor] == BGCHECK_SCENE) {
             ObjOshihiki_SetupOnScene(this, play);
         } else {

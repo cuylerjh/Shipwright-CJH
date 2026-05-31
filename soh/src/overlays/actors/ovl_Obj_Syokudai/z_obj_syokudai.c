@@ -70,15 +70,15 @@ static ColliderCylinderInit sCylInitFlame = {
     { 15, 45, 45, { 0, 0, 0 } },
 };
 
-static ColliderJntSphElementInit sFlameElementsInit[1] = { 
+static ColliderJntSphElementInit sFlameElementsInit[1] = {
     {
         {
-        ELEMTYPE_UNK2,
-        { 0x00000000, 0x00, 0x00 },
-        { 0x00020820, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_ON,
-        OCELEM_NONE,
+            ELEMTYPE_UNK2,
+            { 0x00000000, 0x00, 0x00 },
+            { 0x00020820, 0x00, 0x00 },
+            TOUCH_NONE,
+            BUMP_ON,
+            OCELEM_NONE,
         },
         { 1, { { 0, 0, 0 }, 22 }, 100 },
     },
@@ -139,8 +139,8 @@ void ObjSyokudai_Init(Actor* thisx, PlayState* play) {
     Matrix_MultVec3f(&localLightCenter, &worldLightCenter);
 
     // Set the light info using the calculated world coordinates
-    Lights_PointGlowSetInfo(&this->lightInfo, worldLightCenter.x, worldLightCenter.y,
-                            worldLightCenter.z, 255, 255, 180, -1);
+    Lights_PointGlowSetInfo(&this->lightInfo, worldLightCenter.x, worldLightCenter.y, worldLightCenter.z, 255, 255, 180,
+                            -1);
     this->lightNode = LightContext_InsertLight(play, &play->lightCtx, &this->lightInfo);
 
     if ((this->actor.params & 0x400) || ((torchType != 2) && Flags_GetSwitch(play, this->actor.params & 0x3F))) {
@@ -220,7 +220,7 @@ void ObjSyokudai_Update(Actor* thisx, PlayState* play2) {
             dmgFlags = this->colliderFlame.info.acHitInfo->toucher.dmgFlags;
             if (dmgFlags & 0x20820) {
                 interactionType = 1;
-           } 
+            }
         } else if (this->colliderFlameSph.base.acFlags & AC_HIT) {
             dmgFlags = this->colliderFlameSph.elements[0].info.acHitInfo->toucher.dmgFlags;
             if (dmgFlags & 0x20820) {

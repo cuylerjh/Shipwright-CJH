@@ -57,34 +57,34 @@ static Color_RGB8 sUnusedColors[] = {
 
 static Vtx sCustom3DChainLinkVtx[24] = {
     // FRONT FACE (Normals pointing generally UP/OUT)
-    { { {  -7,  4,   0 }, 0, { 0, 0 }, {   0,  127, -50, 255 } } },
-    { { {   7,  4,   0 }, 0, { 0, 0 }, {   0,  127, -50, 255 } } },
-    { { {  15,  4,   8 }, 0, { 0, 0 }, {  89,   89,   0, 255 } } },
-    { { {  15,  4,  92 }, 0, { 0, 0 }, {  89,   89,   0, 255 } } },
-    { { {   7,  4, 100 }, 0, { 0, 0 }, {   0,  127,  50, 255 } } },
-    { { {  -7,  4, 100 }, 0, { 0, 0 }, {   0,  127,  50, 255 } } },
-    { { { -15,  4,  92 }, 0, { 0, 0 }, { -89,   89,   0, 255 } } },
-    { { { -15,  4,   8 }, 0, { 0, 0 }, { -89,   89,   0, 255 } } },
+    { { { -7, 4, 0 }, 0, { 0, 0 }, { 0, 127, -50, 255 } } },
+    { { { 7, 4, 0 }, 0, { 0, 0 }, { 0, 127, -50, 255 } } },
+    { { { 15, 4, 8 }, 0, { 0, 0 }, { 89, 89, 0, 255 } } },
+    { { { 15, 4, 92 }, 0, { 0, 0 }, { 89, 89, 0, 255 } } },
+    { { { 7, 4, 100 }, 0, { 0, 0 }, { 0, 127, 50, 255 } } },
+    { { { -7, 4, 100 }, 0, { 0, 0 }, { 0, 127, 50, 255 } } },
+    { { { -15, 4, 92 }, 0, { 0, 0 }, { -89, 89, 0, 255 } } },
+    { { { -15, 4, 8 }, 0, { 0, 0 }, { -89, 89, 0, 255 } } },
     // INNER HOLE FRONT (Normals pointing INWARD and UP)
-    { { {  -7,  4,  15 }, 0, { 0, 0 }, {  89,   89,   0, 255 } } },
-    { { {   7,  4,  15 }, 0, { 0, 0 }, { -89,   89,   0, 255 } } },
-    { { {   7,  4,  85 }, 0, { 0, 0 }, { -89,   89,   0, 255 } } },
-    { { {  -7,  4,  85 }, 0, { 0, 0 }, {  89,   89,   0, 255 } } },
+    { { { -7, 4, 15 }, 0, { 0, 0 }, { 89, 89, 0, 255 } } },
+    { { { 7, 4, 15 }, 0, { 0, 0 }, { -89, 89, 0, 255 } } },
+    { { { 7, 4, 85 }, 0, { 0, 0 }, { -89, 89, 0, 255 } } },
+    { { { -7, 4, 85 }, 0, { 0, 0 }, { 89, 89, 0, 255 } } },
 
     // BACK FACE (Normals pointing generally DOWN/OUT)
-    { { {  -7, -4,   0 }, 0, { 0, 0 }, {   0, -127, -50, 255 } } },
-    { { {   7, -4,   0 }, 0, { 0, 0 }, {   0, -127, -50, 255 } } },
-    { { {  15, -4,   8 }, 0, { 0, 0 }, {  89,  -89,   0, 255 } } },
-    { { {  15, -4,  92 }, 0, { 0, 0 }, {  89,  -89,   0, 255 } } },
-    { { {   7, -4, 100 }, 0, { 0, 0 }, {   0, -127,  50, 255 } } },
-    { { {  -7, -4, 100 }, 0, { 0, 0 }, {   0, -127,  50, 255 } } },
-    { { { -15, -4,  92 }, 0, { 0, 0 }, { -89,  -89,   0, 255 } } },
-    { { { -15, -4,   8 }, 0, { 0, 0 }, { -89,  -89,   0, 255 } } },
+    { { { -7, -4, 0 }, 0, { 0, 0 }, { 0, -127, -50, 255 } } },
+    { { { 7, -4, 0 }, 0, { 0, 0 }, { 0, -127, -50, 255 } } },
+    { { { 15, -4, 8 }, 0, { 0, 0 }, { 89, -89, 0, 255 } } },
+    { { { 15, -4, 92 }, 0, { 0, 0 }, { 89, -89, 0, 255 } } },
+    { { { 7, -4, 100 }, 0, { 0, 0 }, { 0, -127, 50, 255 } } },
+    { { { -7, -4, 100 }, 0, { 0, 0 }, { 0, -127, 50, 255 } } },
+    { { { -15, -4, 92 }, 0, { 0, 0 }, { -89, -89, 0, 255 } } },
+    { { { -15, -4, 8 }, 0, { 0, 0 }, { -89, -89, 0, 255 } } },
     // INNER HOLE BACK (Normals pointing INWARD and DOWN)
-    { { {  -7, -4,  15 }, 0, { 0, 0 }, {  89,  -89,   0, 255 } } },
-    { { {   7, -4,  15 }, 0, { 0, 0 }, { -89,  -89,   0, 255 } } },
-    { { {   7, -4,  85 }, 0, { 0, 0 }, { -89,  -89,   0, 255 } } },
-    { { {  -7, -4,  85 }, 0, { 0, 0 }, {  89,  -89,   0, 255 } } },
+    { { { -7, -4, 15 }, 0, { 0, 0 }, { 89, -89, 0, 255 } } },
+    { { { 7, -4, 15 }, 0, { 0, 0 }, { -89, -89, 0, 255 } } },
+    { { { 7, -4, 85 }, 0, { 0, 0 }, { -89, -89, 0, 255 } } },
+    { { { -7, -4, 85 }, 0, { 0, 0 }, { 89, -89, 0, 255 } } },
 };
 
 static Vec3f D_80865B70 = { 0.0f, 0.0f, 0.0f };
@@ -306,8 +306,8 @@ void ArmsHook_Shoot(ArmsHook* this, PlayState* play) {
             sp5C = COLPOLY_GET_NORMAL(poly->normal.x);
             sp58 = COLPOLY_GET_NORMAL(poly->normal.z);
             Math_Vec3f_Copy(&this->actor.world.pos, &sp78);
-            //this->actor.world.pos.x += 10.0f * sp5C;
-            //this->actor.world.pos.z += 10.0f * sp58;
+            // this->actor.world.pos.x += 10.0f * sp5C;
+            // this->actor.world.pos.z += 10.0f * sp58;
             this->timer = 0;
             if (SurfaceType_IsHookshotSurface(&play->colCtx, poly, bgId)) {
                 if (bgId != BGCHECK_SCENE) {
@@ -389,85 +389,83 @@ void ArmsHook_Draw(Actor* thisx, PlayState* play) {
         // ONLY DRAW THE CHAIN IF WE ARE ACTIVELY SHOOTING OR RETRACTING
         if (this->actionFunc == ArmsHook_Shoot && totalDist > this->speed) {
 
-            gSPSetGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_CULL_BACK); 
+            gSPSetGeometryMode(POLY_OPA_DISP++, G_LIGHTING | G_CULL_BACK);
             gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 170, 170, 180, 255);
-            gDPSetCombineLERP(POLY_OPA_DISP++,
-                PRIMITIVE, 0, SHADE, 0,
-                PRIMITIVE, 0, SHADE, 0,
-                PRIMITIVE, 0, SHADE, 0,
-                PRIMITIVE, 0, SHADE, 0);
-            
-            f32 zStep = 6.0f; // Distance between each chain link
-            f32 yOffset = -1.5f; // Better centered on the barrel and chain
+            gDPSetCombineLERP(POLY_OPA_DISP++, PRIMITIVE, 0, SHADE, 0, PRIMITIVE, 0, SHADE, 0, PRIMITIVE, 0, SHADE, 0,
+                              PRIMITIVE, 0, SHADE, 0);
+
+            f32 zStep = 6.0f;         // Distance between each chain link
+            f32 yOffset = -1.5f;      // Better centered on the barrel and chain
             f32 startOffsetZ = -3.0f; // Just behind the tip
             int numLinks = (int)(totalDist / zStep) + 1;
 
             if (numLinks > 150) {
                 numLinks = 150; // Crash prevention
             }
-            
+
             for (int i = 0; i < numLinks; i++) {
                 Matrix_Push();
-                
+
                 f32 zOffset = startOffsetZ + (i * zStep);
                 Matrix_Translate(0.0f, yOffset, zOffset, MTXMODE_APPLY);
 
                 // 1. The standard 90-degree interlocking rotation
                 f32 interlockAngle = (i % 2 != 0) ? 1.5708f : 0.0f;
-                
+
                 Matrix_RotateZ(interlockAngle, MTXMODE_APPLY);
 
                 Matrix_Scale(0.08f, 0.06f, 0.08f, MTXMODE_APPLY);
 
-                gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-                
+                gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx),
+                          G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+
                 // --- DRAW THE 3D CHAIN LINK DYNAMICALLY ---
                 // Load all 24 vertices into the RSP cache
                 gSPVertex(POLY_OPA_DISP++, sCustom3DChainLinkVtx, 24, 0);
-                
+
                 // Front Face
-                gSP2Triangles(POLY_OPA_DISP++,  0,  1,  9, 0,  0,  9,  8, 0);
-                gSP1Triangle(POLY_OPA_DISP++,   1,  2,  9, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  2,  3, 10, 0,  2, 10,  9, 0);
-                gSP1Triangle(POLY_OPA_DISP++,   3,  4, 10, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  4,  5, 11, 0,  4, 11, 10, 0);
-                gSP1Triangle(POLY_OPA_DISP++,   5,  6, 11, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  6,  7,  8, 0,  6,  8, 11, 0);
-                gSP1Triangle(POLY_OPA_DISP++,   7,  0,  8, 0);
-                
+                gSP2Triangles(POLY_OPA_DISP++, 0, 1, 9, 0, 0, 9, 8, 0);
+                gSP1Triangle(POLY_OPA_DISP++, 1, 2, 9, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 2, 3, 10, 0, 2, 10, 9, 0);
+                gSP1Triangle(POLY_OPA_DISP++, 3, 4, 10, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 4, 5, 11, 0, 4, 11, 10, 0);
+                gSP1Triangle(POLY_OPA_DISP++, 5, 6, 11, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 6, 7, 8, 0, 6, 8, 11, 0);
+                gSP1Triangle(POLY_OPA_DISP++, 7, 0, 8, 0);
+
                 // Back Face
                 gSP2Triangles(POLY_OPA_DISP++, 12, 21, 13, 0, 12, 20, 21, 0);
-                gSP1Triangle(POLY_OPA_DISP++,  13, 21, 14, 0);
+                gSP1Triangle(POLY_OPA_DISP++, 13, 21, 14, 0);
                 gSP2Triangles(POLY_OPA_DISP++, 14, 22, 15, 0, 14, 21, 22, 0);
-                gSP1Triangle(POLY_OPA_DISP++,  15, 22, 16, 0);
+                gSP1Triangle(POLY_OPA_DISP++, 15, 22, 16, 0);
                 gSP2Triangles(POLY_OPA_DISP++, 16, 23, 17, 0, 16, 22, 23, 0);
-                gSP1Triangle(POLY_OPA_DISP++,  17, 23, 18, 0);
+                gSP1Triangle(POLY_OPA_DISP++, 17, 23, 18, 0);
                 gSP2Triangles(POLY_OPA_DISP++, 18, 20, 19, 0, 18, 23, 20, 0);
-                gSP1Triangle(POLY_OPA_DISP++,  19, 20, 12, 0);
-                
+                gSP1Triangle(POLY_OPA_DISP++, 19, 20, 12, 0);
+
                 // Outer Walls
-                gSP2Triangles(POLY_OPA_DISP++,  1,  0, 12, 0,  1, 12, 13, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  2,  1, 13, 0,  2, 13, 14, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  3,  2, 14, 0,  3, 14, 15, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  4,  3, 15, 0,  4, 15, 16, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  5,  4, 16, 0,  5, 16, 17, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  6,  5, 17, 0,  6, 17, 18, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  7,  6, 18, 0,  7, 18, 19, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  0,  7, 19, 0,  0, 19, 12, 0);
-                
+                gSP2Triangles(POLY_OPA_DISP++, 1, 0, 12, 0, 1, 12, 13, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 2, 1, 13, 0, 2, 13, 14, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 3, 2, 14, 0, 3, 14, 15, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 4, 3, 15, 0, 4, 15, 16, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 5, 4, 16, 0, 5, 16, 17, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 6, 5, 17, 0, 6, 17, 18, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 7, 6, 18, 0, 7, 18, 19, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 0, 7, 19, 0, 0, 19, 12, 0);
+
                 // Inner Walls
-                gSP2Triangles(POLY_OPA_DISP++,  8,  9, 21, 0,  8, 21, 20, 0);
-                gSP2Triangles(POLY_OPA_DISP++,  9, 10, 22, 0,  9, 22, 21, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 8, 9, 21, 0, 8, 21, 20, 0);
+                gSP2Triangles(POLY_OPA_DISP++, 9, 10, 22, 0, 9, 22, 21, 0);
                 gSP2Triangles(POLY_OPA_DISP++, 10, 11, 23, 0, 10, 23, 22, 0);
-                gSP2Triangles(POLY_OPA_DISP++, 11,  8, 20, 0, 11, 20, 23, 0);
-                
+                gSP2Triangles(POLY_OPA_DISP++, 11, 8, 20, 0, 11, 20, 23, 0);
+
                 Matrix_Pop();
             }
-            
+
             // --- CLEANUP PIPELINE STATE ---
-            gSPClearGeometryMode(POLY_OPA_DISP++, G_LIGHTING); 
+            gSPClearGeometryMode(POLY_OPA_DISP++, G_LIGHTING);
             gDPSetCombineMode(POLY_OPA_DISP++, G_CC_MODULATEI_PRIM, G_CC_MODULATEI_PRIM);
-        } 
+        }
         CLOSE_DISPS(play->state.gfxCtx);
     }
 }

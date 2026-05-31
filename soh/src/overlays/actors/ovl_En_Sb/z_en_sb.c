@@ -213,8 +213,7 @@ void EnSb_WaitClosed(EnSb* this, PlayState* play) {
     // always face toward link
     Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0xA, 0x7D0, 0x0);
 
-    if ((this->actor.xzDistToPlayer <= 160.0f) && (this->actor.xzDistToPlayer > 40.0f) &&
-        !(player->swallowed)) {
+    if ((this->actor.xzDistToPlayer <= 160.0f) && (this->actor.xzDistToPlayer > 40.0f) && !(player->swallowed)) {
         EnSb_SetupOpen(this);
     }
 }
@@ -228,8 +227,7 @@ void EnSb_Open(EnSb* this, PlayState* play) {
         EnSb_SetupWaitOpen(this);
     } else {
         Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0xA, 0x7D0, 0x0);
-        if ((this->actor.xzDistToPlayer > 160.0f) || (this->actor.xzDistToPlayer <= 40.0f) ||
-            (player->swallowed)) {
+        if ((this->actor.xzDistToPlayer > 160.0f) || (this->actor.xzDistToPlayer <= 40.0f) || (player->swallowed)) {
             EnSb_SetupWaitClosed(this);
         }
     }

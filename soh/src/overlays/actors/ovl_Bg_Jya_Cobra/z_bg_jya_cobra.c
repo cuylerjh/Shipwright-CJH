@@ -480,8 +480,7 @@ void func_808969F8(BgJyaCobra* this, PlayState* play) {
     this->unk_174.z = player->actor.world.pos.z - this->dyna.actor.world.pos.z;
     this->unk_170 = 0;
     this->unk_172 = true;
-    this->unk_16E = CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 20 +
-                    strengthBoost * 20;
+    this->unk_16E = CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) * 20 + strengthBoost * 20;
 }
 
 void func_80896ABC(BgJyaCobra* this, PlayState* play) {

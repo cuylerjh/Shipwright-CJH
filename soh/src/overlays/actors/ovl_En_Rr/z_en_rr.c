@@ -12,7 +12,7 @@
 #include "soh/Enhancements/custom-message/CustomMessageTypes.h"
 
 #define TEXT_STOLEN_DYNAMIC 0x305F
-#define TEXT_KNIFE_BROKE    0x3060
+#define TEXT_KNIFE_BROKE 0x3060
 extern void EnRr_SetDynamicStealMessage(const char* itemName);
 extern void EnRr_SetKnifeBrokeMessage(void);
 
@@ -309,7 +309,7 @@ void EnRr_SetDefaultMotionParams(EnRr* this, f32 rate) {
 
 void EnRr_CalculateReachAngle(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
-    
+
     // 1. Gather raw distances
     s16 playerH = player->cylinder.dim.height;
     s16 playerR = player->cylinder.dim.radius;
@@ -319,7 +319,7 @@ void EnRr_CalculateReachAngle(EnRr* this, PlayState* play) {
 
     // XZ Distance (Clamped so it doesn't bend backward)
     f32 distXZ = CLAMP_MIN(this->actor.xzDistToPlayer - playerR, 1.0f);
-    
+
     f32 yBias = CLAMP((this->actor.yDistToPlayer + baseHeightOffset) / (f32)playerH, -1.0f, 1.0f);
     f32 targetFrac = 0.85f - (yBias * 0.3f);
     f32 targetY = this->actor.yDistToPlayer + velocityFactor + (playerH * targetFrac) + baseHeightOffset;
@@ -335,7 +335,7 @@ void EnRr_CalculateReachAngle(EnRr* this, PlayState* play) {
     f32 totalBendRad = chordAngleRad * 2.0f;
     f32 totalBendZelda = (totalBendRad / (f32)M_PI) * 32768.0f;
 
-    f32 maxTotalBend = 43520.0f; 
+    f32 maxTotalBend = 43520.0f;
     totalBendZelda = CLAMP(totalBendZelda, 0.0f, maxTotalBend);
 
     this->reachAngle = totalBendZelda / this->bodySegCount;
@@ -363,12 +363,12 @@ void EnRr_CalculateReachAngle(EnRr* this, PlayState* play) {
     // THE FIX: Calculate the required offset by subtracting the resting spine length!
     f32 restingLength = BASE_SEG_HEIGHT * this->bodySegCount;
     f32 neededOffset = (localTotalLength * 0.9f) - restingLength;
-    
+
     f32 calculatedReachHeight = neededOffset / bodySegSum;
 
     f32 maxNegativeOffset = 50.0f;
-    f32 maxPositiveOffset = 3500.0f / bodySegSum; 
-    
+    f32 maxPositiveOffset = 3500.0f / bodySegSum;
+
     // Allow the target to go negative!
     this->reachHeight = CLAMP(calculatedReachHeight, maxNegativeOffset, maxPositiveOffset);
 }
@@ -414,14 +414,14 @@ void EnRr_SetupReach(EnRr* this, PlayState* play) {
     }
 
     f32 maxNegativeOffset = -(BASE_SEG_HEIGHT - 150.0f) / this->bodySegCount;
-    f32 maxPositiveOffset = 4500.0f / bodySegSum; 
-    
+    f32 maxPositiveOffset = 4500.0f / bodySegSum;
+
     f32 stretchRatio = (this->reachHeight - maxNegativeOffset) / (maxPositiveOffset - maxNegativeOffset);
     stretchRatio = CLAMP(stretchRatio, 0.0f, 1.0f);
     for (i = 1; i <= this->bodySegCount; i++) {
         bodySegment = &this->bodySegs[i];
         bodySegment->heightTarget = !this->reachUp ? this->reachHeight * i : this->reachHeight;
-        bodySegment->scaleTarget = !this->reachUp ? F32_LERPIMP(0.95f, 0.6f, stretchRatio) : 0.6f;        
+        bodySegment->scaleTarget = !this->reachUp ? F32_LERPIMP(0.95f, 0.6f, stretchRatio) : 0.6f;
         bodySegment->rotTargetX = this->reachAngle;
         bodySegment->rotTargetZ = 0;
     }
@@ -430,7 +430,7 @@ void EnRr_SetupReach(EnRr* this, PlayState* play) {
     this->innerMouthScaleTarget = 1.5f;
 
     f32 totalSpineStretch = this->reachHeight * bodySegSum;
-    
+
     // Base of 6 frames (reaction time), plus 1 extra frame for every ~750 units of local stretch.
     this->transitionRate = 6.0f + (totalSpineStretch / 750.0f);
     this->transitionRate = CLAMP(this->transitionRate, 8.0f, 26.0f);
@@ -889,8 +889,7 @@ s32 EnRr_CollisionCheck(EnRr* this, PlayState* play) {
         this->bodySph.base.acFlags &= ~AC_HIT;
 
         Actor_SetDropFlag(&this->actor, &this->cylinder.info, 1);
-        if ((this->actionFunc == EnRr_GrabPlayer) &&
-            Actor_ApplyDamage(&this->actor)) {
+        if ((this->actionFunc == EnRr_GrabPlayer) && Actor_ApplyDamage(&this->actor)) {
             // Took damage but survived
             if (this->damageRelease == 0) {
                 this->damageRelease = this->actor.colChkInfo.damage;
@@ -1028,7 +1027,7 @@ void EnRr_ReachDetect(EnRr* this, PlayState* play) {
     f32 deltaY = this->actor.yDistToPlayer;
     f32 scaleX = this->actor.scale.x;
     f32 scaleY = this->actor.scale.y;
-    
+
     // ==========================================
     // 1. DYNAMIC ARC MATH (The Predictor)
     // ==========================================
@@ -1067,8 +1066,8 @@ void EnRr_ReachDetect(EnRr* this, PlayState* play) {
     bool isVertical = (distXZ < scaleX * 2250.0f + playerR) && (targetY > scaleY * 12000.0f);
 
     // Set the max physical limits (10% grace margin added via 1.1f!)
-    f32 maxNormalReach = (11000.0f * scaleY) * 1.1f; 
-    f32 maxUpwardReach = (16500.0f * scaleY) * 1.1f; 
+    f32 maxNormalReach = (11000.0f * scaleY) * 1.1f;
+    f32 maxUpwardReach = (16500.0f * scaleY) * 1.1f;
 
     // THE FIX: Raise the raycast points to chest/neck level so it doesn't drag on the floor!
     Vec3f playerChest = player->actor.world.pos;
@@ -1076,20 +1075,20 @@ void EnRr_ReachDetect(EnRr* this, PlayState* play) {
 
     Vec3f mouthPos = this->bodySphPos[3];
     // Nudge the Like-Like's ray origin away from the floor/ceiling to prevent self-clipping
-    mouthPos.y += TYPE_INVERT(this) ? -15.0f : 15.0f; 
+    mouthPos.y += TYPE_INVERT(this) ? -15.0f : 15.0f;
 
     Vec3f hitPos;
     CollisionPoly* poly;
     s32 bgId;
-    
-    // Returns TRUE if an obstacle (wall/floor/ceiling) intercepts the line.
-    bool isLineOfSightBlocked = BgCheck_EntityLineTest1(&play->colCtx, &playerChest, &mouthPos, &hitPos,
-                                                        &poly, true, true, true, true, &bgId);
 
-    // The Ultimate Predictor: 
+    // Returns TRUE if an obstacle (wall/floor/ceiling) intercepts the line.
+    bool isLineOfSightBlocked =
+        BgCheck_EntityLineTest1(&play->colCtx, &playerChest, &mouthPos, &hitPos, &poly, true, true, true, true, &bgId);
+
+    // The Ultimate Predictor:
     // It must have a valid angle, a clear line of sight, AND be within physical stretching limits!
-    bool mathematicallyReachable = isAngleValid && !isLineOfSightBlocked && 
-        (requiredTotalLength <= (isVertical ? maxUpwardReach : maxNormalReach));
+    bool mathematicallyReachable = isAngleValid && !isLineOfSightBlocked &&
+                                   (requiredTotalLength <= (isVertical ? maxUpwardReach : maxNormalReach));
 
     // ==========================================
     // 3. THE DETECTION LOGIC
@@ -1099,7 +1098,8 @@ void EnRr_ReachDetect(EnRr* this, PlayState* play) {
             if (mathematicallyReachable && isVertical) {
                 this->reachUp = true;
                 EnRr_SetupReach(this, play);
-            } else if (mathematicallyReachable && targetY > -(scaleY * 3500.0f + playerH) && Actor_IsFacingPlayer(&this->actor, 0x5000)) {
+            } else if (mathematicallyReachable && targetY > -(scaleY * 3500.0f + playerH) &&
+                       Actor_IsFacingPlayer(&this->actor, 0x5000)) {
                 this->reachUp = false;
                 EnRr_SetupReach(this, play);
             } else if ((TYPE_STATIONARY(this)) && (this->actor.yDistToWater > this->heightRef) && (deltaY < 400.0f) &&
@@ -1112,7 +1112,8 @@ void EnRr_ReachDetect(EnRr* this, PlayState* play) {
             if (mathematicallyReachable && isVertical) {
                 this->reachUp = true;
                 EnRr_SetupReach(this, play);
-            } else if (mathematicallyReachable && targetY > -(scaleY * 5500.0f + playerH) && Actor_IsFacingPlayer(&this->actor, 0x5000)) {
+            } else if (mathematicallyReachable && targetY > -(scaleY * 5500.0f + playerH) &&
+                       Actor_IsFacingPlayer(&this->actor, 0x5000)) {
                 this->reachUp = false;
                 EnRr_SetupReach(this, play);
             } else if ((TYPE_STATIONARY(this)) && (this->actor.yDistToWater > this->heightRef) &&
@@ -1148,7 +1149,7 @@ void EnRr_Approach(EnRr* this, PlayState* play) {
             EnRr_ReachDetect(this, play);
         }
 
-        if (!TYPE_STATIONARY(this)) { 
+        if (!TYPE_STATIONARY(this)) {
             this->segPhaseVelTarget = this->retreat ? 3276 : SEG_PHASE_VEL_DEFAULT;
             this->wobbleSizeTarget = WOBBLE_SIZE_DEFAULT;
             this->pulseSizeTarget = PULSE_SIZE_DEFAULT;
@@ -1181,11 +1182,11 @@ void EnRr_Reach(EnRr* this, PlayState* play) {
         f32 invScaleY = 1.0f / this->actor.scale.y;
         Math_SmoothStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 4, (s16)(12.0f * invScaleY),
                            (s16)(2.0f * invScaleY));
-        //EnRr_CalculateReachAngle(this, play);
+        // EnRr_CalculateReachAngle(this, play);
 
-        //for (s16 i = 1; i <= this->bodySegCount; i++) {
-        //    this->bodySegs[i].heightTarget = this->reachHeight * i;
-        //}
+        // for (s16 i = 1; i <= this->bodySegCount; i++) {
+        //     this->bodySegs[i].heightTarget = this->reachHeight * i;
+        // }
     }
     this->actor.world.rot.y = this->actor.shape.rot.y;
 
@@ -1288,7 +1289,7 @@ void EnRr_UnderwaterVacuum(EnRr* this, PlayState* play) {
 
 void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
-    
+
     player->actor.velocity.y = 0.0f;
 
     // ==========================================
@@ -1302,7 +1303,8 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     f32 stretchRatio = CLAMP(stretchDist / maxStretch, 0.0f, 1.0f);
 
     baseDropSpeed *= (1.0f - (stretchRatio * 0.75f));
-    if (this->vacuumCooldown) baseDropSpeed *= 1.25f;
+    if (this->vacuumCooldown)
+        baseDropSpeed *= 1.25f;
 
     this->swallowOffset -= baseDropSpeed * (1.0f + (swallowWave * 0.8f));
 
@@ -1317,16 +1319,17 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     f32 halfHeight = player->cylinder.dim.height * 0.5f;
 
     Vec3f track[5];
-    track[0] = this->actor.world.pos; 
-    track[0].y += halfHeight; 
+    track[0] = this->actor.world.pos;
+    track[0].y += halfHeight;
     track[1] = this->bodySphPos[0];
     track[2] = this->bodySphPos[1];
     track[3] = this->bodySphPos[2];
-    track[4] = this->bodySphPos[3]; 
+    track[4] = this->bodySphPos[3];
 
     f32 exactSeg = trackOffset * 4.0f;
     int segIdx = (int)exactSeg;
-    if (segIdx >= 4) segIdx = 3; 
+    if (segIdx >= 4)
+        segIdx = 3;
     f32 localT = exactSeg - (f32)segIdx;
 
     Vec3f trackPos;
@@ -1338,13 +1341,13 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     // 3. THE PURE STOMACH MATH (Stable Anchor)
     // ==========================================
     f32 squishPulse = (Math_CosS(this->segMovePhase) + 1.0f) * 0.5f;
-    f32 bobAmplitude = this->actor.scale.y * 300.0f; 
-    f32 invertMod = TYPE_INVERT(this) ? -1.0f : 1.0f; 
+    f32 bobAmplitude = this->actor.scale.y * 300.0f;
+    f32 invertMod = TYPE_INVERT(this) ? -1.0f : 1.0f;
 
-    f32 floorPadding = 5.0f; 
+    f32 floorPadding = 5.0f;
 
     Vec3f purePos;
-    purePos.x = this->actor.world.pos.x; 
+    purePos.x = this->actor.world.pos.x;
     purePos.z = this->actor.world.pos.z;
     purePos.y = this->actor.world.pos.y + ((floorPadding + (squishPulse * bobAmplitude)) * invertMod);
 
@@ -1367,12 +1370,12 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     for (s16 i = 1; i < this->bodySegCount; i++) {
         rotXSum += this->bodySegs[i].rot.x;
     }
-    
+
     s32 targetRotX = this->storedPlayerIsFacing ? -rotXSum : rotXSum;
-    
+
     // Exact same alignment as feet-first, just inverted for the head
     if (this->grabDirection == 1) {
-        targetRotX += 0x8000; 
+        targetRotX += 0x8000;
     }
 
     s16 targetRotY = this->storedPlayerIsFacing ? this->actor.world.rot.y - 0x8000 : this->actor.world.rot.y;
@@ -1390,11 +1393,11 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     f32 targetYOffset = 0.0f;
 
     if (this->grabDirection == 1) {
-        f32 headPadding = 25.0f; 
+        f32 headPadding = 25.0f;
         f32 fullHeight = player->cylinder.dim.height + headPadding;
-        
+
         // Positive offset
-        targetYOffset = (fullHeight / player->actor.scale.y); 
+        targetYOffset = (fullHeight / player->actor.scale.y);
     }
 
     f32 offsetMultiplier = 0.0f;
@@ -1403,15 +1406,15 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     if (this->swallowOffset > 1.0f) {
         f32 retractProgress = (1.2f - this->swallowOffset) / 0.25f;
         retractProgress = CLAMP(retractProgress, 0.0f, 1.0f);
-        
+
         // Starts at 0% offset (zero frame-1 popping!), LERPs to 75% as the mouth closes
         offsetMultiplier = F32_LERPIMP(0.0f, 0.75f, retractProgress);
-    } 
+    }
     // STAGE 2: Down the Throat (swallowOffset drops from 1.0 to 0.25)
     else {
         f32 swallowProgress = (1.0f - this->swallowOffset) / 0.75f;
         swallowProgress = CLAMP(swallowProgress, 0.0f, 1.0f);
-        
+
         // Picks up exactly where Stage 1 left off (75%) and finishes at 100%
         offsetMultiplier = F32_LERPIMP(0.75f, 1.0f, swallowProgress);
     }
@@ -1428,10 +1431,10 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
         player->actor.world.pos.y = targetPos.y;
         player->actor.world.pos.z = targetPos.z;
     } else {
-        f32 smoothingFraction = F32_LERPIMP(0.04f, 1.0f, rigidT);    
+        f32 smoothingFraction = F32_LERPIMP(0.04f, 1.0f, rigidT);
         f32 snapRateXZ = F32_LERPIMP(this->actor.scale.y * 650.0f, 1000.0f, rigidT);
         f32 snapRateY = F32_LERPIMP(this->actor.scale.y * 3000.0f, 1000.0f, rigidT);
-        
+
         Math_SmoothStepToF(&player->actor.world.pos.x, targetPos.x, smoothingFraction, snapRateXZ, 0.1f);
         Math_SmoothStepToF(&player->actor.world.pos.y, targetPos.y, smoothingFraction, snapRateY, 0.1f);
         Math_SmoothStepToF(&player->actor.world.pos.z, targetPos.z, smoothingFraction, snapRateXZ, 0.1f);
@@ -1441,10 +1444,10 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     // 8. SCALE SQUISH
     // ==========================================
     if (this->actor.scale.y <= 0.015f && (LINK_IS_ADULT)) {
-        f32 scaleTarget = 0.0085f; 
-        
+        f32 scaleTarget = 0.0085f;
+
         f32 scaleRate = (0.01f - scaleTarget) / (this->transitionRate * 2.0f);
-        
+
         Math_StepToF(&player->actor.scale.x, scaleTarget, scaleRate);
         Math_StepToF(&player->actor.scale.y, scaleTarget, scaleRate);
         Math_StepToF(&player->actor.scale.z, scaleTarget, scaleRate);
@@ -1453,8 +1456,8 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     // ==========================================
     // 9. THE SAUSAGE CASING (Angled Feet)
     // ==========================================
-    s16 targetWaistBend = (s16)(rotXSum * 0.6f); 
-    
+    s16 targetWaistBend = (s16)(rotXSum * 0.6f);
+
     // Invert the bend if he's grabbed head-first so his back still follows the curve!
     if (this->grabDirection == 1) {
         targetWaistBend = -targetWaistBend;
@@ -1464,16 +1467,17 @@ void EnRr_GrabPlayerPositionHandler(EnRr* this, PlayState* play) {
     f32 bendProgress = (1.2f - this->swallowOffset) / 0.25f;
     bendProgress = CLAMP(bendProgress, 0.0f, 1.0f);
 
-    // Apply the bend to the waist joint! 
+    // Apply the bend to the waist joint!
     player->skelAnime.jointTable[PLAYER_LIMB_WAIST].x += (s16)(targetWaistBend * bendProgress);
 
-    f32 squeezeT = (1.0f - this->swallowOffset) / 0.25f; 
+    f32 squeezeT = (1.0f - this->swallowOffset) / 0.25f;
     squeezeT = CLAMP(squeezeT, 0.0f, 1.0f);
 
     if (squeezeT > 0.0f) {
         // Straighten the upper legs completely
         u8 straightLimbs[] = {
-            PLAYER_LIMB_L_THIGH, PLAYER_LIMB_R_THIGH,
+            PLAYER_LIMB_L_THIGH,
+            PLAYER_LIMB_R_THIGH,
         };
 
         for (int i = 0; i < ARRAY_COUNT(straightLimbs); i++) {
@@ -1535,15 +1539,15 @@ void EnRr_GrabEjectHandler(EnRr* this, PlayState* play) {
     f32 distXZ = Math_Vec3f_DistXZ(&this->bodySphPos[3], &player->actor.world.pos);
     f32 distY = fabsf((this->bodySphPos[3].y + this->swallowOffset) - player->actor.world.pos.y);
     Vec3f chestPos = player->actor.world.pos;
-    chestPos.y += player->cylinder.dim.height / 2; 
+    chestPos.y += player->cylinder.dim.height / 2;
     Vec3f hitPos;
     CollisionPoly* poly;
     s32 bgId;
 
     // If player is either out of range for too long, they're ejected.
     if ((distXZ > this->bodyRadiusRef) || (distY > this->heightRef) ||
-        (BgCheck_EntityLineTest1(&play->colCtx, &chestPos, &this->bodySphPos[3], &hitPos, &poly, true,
-                                 true, true, true, &bgId))) {
+        (BgCheck_EntityLineTest1(&play->colCtx, &chestPos, &this->bodySphPos[3], &hitPos, &poly, true, true, true, true,
+                                 &bgId))) {
         this->grabEject++;
         if (this->grabEject > 10) {
             EnRr_SetupThrowPlayer(this, play);
@@ -1761,7 +1765,7 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
             } else if (!this->retreat && (!TYPE_DRAIN(this))) {
                 // Item-stealing types slowly close mouth to indicate how close they are to stealing.
                 this->segPhaseVelTarget = 4096 - phaseVelMod; // Caps at 3072
-                this->wobbleSizeTarget = 768.0f + wobbleMod; // Caps at 1280
+                this->wobbleSizeTarget = 768.0f + wobbleMod;  // Caps at 1280
                 f32 trackProgress = (1.0f - this->swallowOffset) / (1.0f - 0.26f);
                 trackProgress = CLAMP(trackProgress, 0.0f, 1.0f);
                 mouthSegment->scaleTarget = 0.85f - (0.15f * trackProgress) - (pulseMod * 3.0f);
@@ -1831,92 +1835,92 @@ void EnRr_GrabPlayer(EnRr* this, PlayState* play) {
                 this->slimeCounter += 10;
                 this->grabState = 3;
             }
-    break;
-    case 2:
-        pulseMod = 0.04f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-        f32 mouthSegMod = 0.35f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-        this->pulseSizeTarget = PULSE_SIZE_DEFAULT + pulseMod;
-        mouthSegment->scaleTarget = 0.75f - mouthSegMod;
-        this->innerMouthScaleTarget = 0.0f + mouthSegMod * 2.0f;
+            break;
+        case 2:
+            pulseMod = 0.04f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+            f32 mouthSegMod = 0.35f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+            this->pulseSizeTarget = PULSE_SIZE_DEFAULT + pulseMod;
+            mouthSegment->scaleTarget = 0.75f - mouthSegMod;
+            this->innerMouthScaleTarget = 0.0f + mouthSegMod * 2.0f;
 
-        if (this->phaseCycleCount == 0 || this->struggleCounter > BREAKFREE_TARGET >> 1) {
-            if (this->eatenShield == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) != EQUIP_VALUE_SHIELD_NONE) {
-                this->eatenShield = CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD);
-                this->heldItem = EQUIP_TYPE_SHIELD;
-                EnRr_AddStolenShield(this->eatenShield);
-                this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_SHIELD);
-            } else if (this->eatenSword == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) != EQUIP_VALUE_SWORD_MASTER &&
-                       CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) != EQUIP_VALUE_SWORD_NONE) {
-                this->eatenSword = CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD);
-                this->heldItem = EQUIP_TYPE_SWORD;
-                if (this->heldItem != 0 && this->eatenSword == EQUIP_VALUE_SWORD_BIGGORON &&
-                    (!gSaveContext.bgsFlag && (gSaveContext.swordHealth > 0))) {
-                    gSaveContext.swordHealth = 0;
-                    this->msgEaten = 6;
-                } else {
-                    EnRr_AddStolenSword(this->eatenSword);
-                    this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_SWORD);
+            if (this->phaseCycleCount == 0 || this->struggleCounter > BREAKFREE_TARGET >> 1) {
+                if (this->eatenShield == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) != EQUIP_VALUE_SHIELD_NONE) {
+                    this->eatenShield = CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD);
+                    this->heldItem = EQUIP_TYPE_SHIELD;
+                    EnRr_AddStolenShield(this->eatenShield);
+                    this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_SHIELD);
+                } else if (this->eatenSword == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) != EQUIP_VALUE_SWORD_MASTER &&
+                           CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) != EQUIP_VALUE_SWORD_NONE) {
+                    this->eatenSword = CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD);
+                    this->heldItem = EQUIP_TYPE_SWORD;
+                    if (this->heldItem != 0 && this->eatenSword == EQUIP_VALUE_SWORD_BIGGORON &&
+                        (!gSaveContext.bgsFlag && (gSaveContext.swordHealth > 0))) {
+                        gSaveContext.swordHealth = 0;
+                        this->msgEaten = 6;
+                    } else {
+                        EnRr_AddStolenSword(this->eatenSword);
+                        this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_SWORD);
+                    }
+                } else if (this->eatenTunic == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_KOKIRI &&
+                           CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_NONE) {
+                    this->eatenTunic = CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC);
+                    this->heldItem = EQUIP_TYPE_TUNIC;
+                    this->msgEaten = this->heldItem = Inventory_DeleteEquipment(play, EQUIP_TYPE_TUNIC);
+                } else if (this->eatenBoots == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS) != EQUIP_VALUE_BOOTS_KOKIRI) {
+                    this->eatenBoots = CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS);
+                    this->heldItem = EQUIP_TYPE_BOOTS;
+                    this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_BOOTS);
+                } else if (this->eatenBottle == 0 && EnRr_FindStealableBottle(&bottleSlot, &bottleId)) {
+                    this->eatenBottle = gSaveContext.inventory.items[bottleSlot];
+                    this->msgEaten = this->heldItem = 4;
+                    EnRr_AddStolenBottle(this->eatenBottle);
+                    Inventory_DeleteItem(bottleId, bottleSlot);
+                } else if (this->eatenItem == 0 && EnRr_FindStealableItem(&itemSlot, &itemId)) {
+                    this->eatenItem = gSaveContext.inventory.items[itemSlot];
+                    EnRr_AddStolenItem(this->eatenItem);
+                    this->msgEaten = this->heldItem = 5;
+                    Inventory_DeleteItem(itemId, itemSlot);
                 }
-            } else if (this->eatenTunic == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_KOKIRI &&
-                       CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC) != EQUIP_VALUE_TUNIC_NONE) {
-                this->eatenTunic = CUR_EQUIP_VALUE(EQUIP_TYPE_TUNIC);
-                this->heldItem = EQUIP_TYPE_TUNIC;
-                this->msgEaten = this->heldItem = Inventory_DeleteEquipment(play, EQUIP_TYPE_TUNIC);
-            } else if (this->eatenBoots == 0 && CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS) != EQUIP_VALUE_BOOTS_KOKIRI) {
-                this->eatenBoots = CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS);
-                this->heldItem = EQUIP_TYPE_BOOTS;
-                this->msgEaten = Inventory_DeleteEquipment(play, EQUIP_TYPE_BOOTS);
-            } else if (this->eatenBottle == 0 && EnRr_FindStealableBottle(&bottleSlot, &bottleId)) {
-                this->eatenBottle = gSaveContext.inventory.items[bottleSlot];
-                this->msgEaten = this->heldItem = 4;
-                EnRr_AddStolenBottle(this->eatenBottle);
-                Inventory_DeleteItem(bottleId, bottleSlot);
-            } else if (this->eatenItem == 0 && EnRr_FindStealableItem(&itemSlot, &itemId)) {
-                this->eatenItem = gSaveContext.inventory.items[itemSlot];
-                EnRr_AddStolenItem(this->eatenItem);
-                this->msgEaten = this->heldItem = 5;
-                Inventory_DeleteItem(itemId, itemSlot);
+
+                if (this->msgEaten != -1) {
+                    play->damagePlayer(play, -8);
+                    this->retreat = true;
+                    Audio_StopSfxById(NA_SE_EN_BIRI_BUBLE);
+                    Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_DRINK, this->pitchScale);
+                    Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_WATER_BUBBLE, this->pitchScale);
+                }
+
+                this->phaseCycleTimer = 0;
+                this->phaseCycleCount = 32;
+                this->struggleCounter >>= 1;
+                this->segPhaseVelRate = 64;
+                this->segWobbleXRate = 0.05f;
+                this->segWobbleZRate = 0.015f;
+                this->wobbleSizeRate = 64.0f;
+                this->segScaleModYTarget = SCALE_MOD_Y_DEFAULT;
+                mouthSegment->scaleTarget = 0.85f;
+                this->innerMouthScaleTarget = 0.75f;
+                this->scaleRate2 = ABS(mouthSegment->scaleTarget - mouthSegment->scale) / (this->transitionRate * 0.5f);
+                this->grabState = 3;
             }
+            break;
+        case 3:
+            phaseVelMod = 1920.0f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+            wobbleMod = 1920.0f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+            pulseMod = 0.04f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+            f32 wobbleDiffMod = 0.75f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
+            this->segPhaseVelTarget = 2978 - phaseVelMod;
+            this->wobbleSizeTarget = 256.0f + wobbleMod;
+            mouthSegment->scaleTarget = 0.85f - pulseMod * 4.375f;
+            this->innerMouthScaleTarget = 0.75f - pulseMod * 4.375f;
+            this->pulseSizeTarget = PULSE_SIZE_DEFAULT + pulseMod;
+            this->segWobbleXTarget = WOBBLE_DIFF_X_DEFAULT - wobbleDiffMod;
+            this->segWobbleZTarget = WOBBLE_DIFF_Z_DEFAULT + wobbleDiffMod * 0.625f;
 
-            if (this->msgEaten != -1) {
-                play->damagePlayer(play, -8);
-                this->retreat = true;
-                Audio_StopSfxById(NA_SE_EN_BIRI_BUBLE);
-                Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EN_LIKE_DRINK, this->pitchScale);
-                Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_EV_WATER_BUBBLE, this->pitchScale);
+            if (this->phaseCycleCount == 0) {
+                EnRr_SetupThrowPlayer(this, play); // Failsafe, won't decrement in this state.
             }
-
-            this->phaseCycleTimer = 0;
-            this->phaseCycleCount = 32;
-            this->struggleCounter >>= 1;
-            this->segPhaseVelRate = 64;
-            this->segWobbleXRate = 0.05f;
-            this->segWobbleZRate = 0.015f;
-            this->wobbleSizeRate = 64.0f;
-            this->segScaleModYTarget = SCALE_MOD_Y_DEFAULT;
-            mouthSegment->scaleTarget = 0.85f;
-            this->innerMouthScaleTarget = 0.75f;
-            this->scaleRate2 = ABS(mouthSegment->scaleTarget - mouthSegment->scale) / (this->transitionRate * 0.5f);
-            this->grabState = 3;
-        }
-        break;
-    case 3:
-        phaseVelMod = 1920.0f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-        wobbleMod = 1920.0f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-        pulseMod = 0.04f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-        f32 wobbleDiffMod = 0.75f * ((f32)this->struggleCounter / BREAKFREE_TARGET);
-        this->segPhaseVelTarget = 2978 - phaseVelMod;
-        this->wobbleSizeTarget = 256.0f + wobbleMod;
-        mouthSegment->scaleTarget = 0.85f - pulseMod * 4.375f;
-        this->innerMouthScaleTarget = 0.75f - pulseMod * 4.375f;
-        this->pulseSizeTarget = PULSE_SIZE_DEFAULT + pulseMod;
-        this->segWobbleXTarget = WOBBLE_DIFF_X_DEFAULT - wobbleDiffMod;
-        this->segWobbleZTarget = WOBBLE_DIFF_Z_DEFAULT + wobbleDiffMod * 0.625f;
-
-        if (this->phaseCycleCount == 0) {
-            EnRr_SetupThrowPlayer(this, play); // Failsafe, won't decrement in this state.
-        }
-        break;
+            break;
     }
 
     if (this->struggleCounter > BREAKFREE_TARGET || !(player->stateFlags2 & PLAYER_STATE2_GRABBED_BY_ENEMY)) {
@@ -1950,20 +1954,21 @@ void EnRr_ThrowPlayer(EnRr* this, PlayState* play) {
     // ==========================================
     Vec3f track[5];
     track[0] = this->actor.world.pos;
-    track[0].y += halfHeight; 
+    track[0].y += halfHeight;
     track[1] = this->bodySphPos[0];
     track[2] = this->bodySphPos[1];
     track[3] = this->bodySphPos[2];
     track[4] = this->bodySphPos[3];
 
     f32 t = CLAMP(ejectProgress, 0.0f, 1.0f);
-    
+
     f32 endTrackDepth = (this->grabDirection == 1) ? 1.15f : 0.75f;
     f32 trackDepth = F32_LERPIMP(this->swallowOffset, endTrackDepth, t);
     f32 exactSeg = trackDepth * 4.0f;
-    
+
     int segIdx = (int)exactSeg;
-    if (segIdx >= 4) segIdx = 3;
+    if (segIdx >= 4)
+        segIdx = 3;
     f32 localT = exactSeg - (f32)segIdx;
 
     Vec3f pA = track[segIdx];
@@ -2003,10 +2008,10 @@ void EnRr_ThrowPlayer(EnRr* this, PlayState* play) {
     // 3. THE VISUAL UN-PACK (Reverse LERP)
     // ==========================================
     f32 targetYOffset = 0.0f;
-    
+
     if (this->grabDirection == 1) {
-        f32 headPadding = 25.0f; 
-        targetYOffset = (player->cylinder.dim.height + headPadding) / player->actor.scale.y; 
+        f32 headPadding = 25.0f;
+        targetYOffset = (player->cylinder.dim.height + headPadding) / player->actor.scale.y;
     }
 
     // 't' smoothly goes from 0.0 (Stomach) to 1.0 (Mouth ejection).
@@ -2025,14 +2030,16 @@ void EnRr_ThrowPlayer(EnRr* this, PlayState* play) {
         Math_StepToF(&player->actor.scale.z, playerScaleTarget, playerScaleTarget / (this->transitionRate * 0.5f));
     }
 
-    f32 squeezeT = (1.0f - this->swallowOffset) / 0.25f; 
+    f32 squeezeT = (1.0f - this->swallowOffset) / 0.25f;
     squeezeT = CLAMP(squeezeT, 0.0f, 1.0f);
 
     if (squeezeT > 0.0f) {
         // Straighten the upper legs completely
         u8 straightLimbs[] = {
-            PLAYER_LIMB_L_THIGH, PLAYER_LIMB_R_THIGH,
-            PLAYER_LIMB_L_SHIN, PLAYER_LIMB_R_SHIN,
+            PLAYER_LIMB_L_THIGH,
+            PLAYER_LIMB_R_THIGH,
+            PLAYER_LIMB_L_SHIN,
+            PLAYER_LIMB_R_SHIN,
         };
 
         for (int i = 0; i < ARRAY_COUNT(straightLimbs); i++) {
@@ -2048,9 +2055,9 @@ void EnRr_ThrowPlayer(EnRr* this, PlayState* play) {
     // ==========================================
     if (mouthSegment->height == mouthSegment->heightTarget) {
         this->reachState = 0;
-        
+
         EnRr_SetupReleasePlayer(this, play);
-        
+
         if (this->damageRelease == 0) {
             EnRr_SetupNeutral(this, play);
         } else {
@@ -2430,7 +2437,7 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
         // If the Like-Like has forward momentum, ratchet the base!
         if (this->actor.speedXZ > 0.5f) {
             // A twist of roughly +/- 15 degrees in time with the locomotion pulse
-            //this->bodySegs[1].rotTargetY = (s16)(Math_SinS(this->segMovePhase) * 2500.0f);
+            // this->bodySegs[1].rotTargetY = (s16)(Math_SinS(this->segMovePhase) * 2500.0f);
         } else {
             this->bodySegs[1].rotTargetY = 0;
         }
@@ -2442,7 +2449,7 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
 
     // Whenever the geometry crosses a physical peak/valley, decrement the cycle
     if (phaseCrossed) {
-        DECR(this->phaseCycleCount); 
+        DECR(this->phaseCycleCount);
     }
 
     f32 range = (TYPE_INVERT(this) ? 500.0f : 350.0f) + this->actor.scale.y * 5000.0f;
@@ -2478,14 +2485,14 @@ void EnRr_Update(Actor* thisx, PlayState* play) {
         // Calculates exactly how many frames are in the current full-cycle wave.
         f32 fullCycleFrames = 65536.0f / (f32)MAX(this->segPhaseVel, 1);
         f32 startSpeed = this->actionFunc == EnRr_Retreat ? 3.0f : 2.5f;
-        
+
         // Speed divided by Frames guarantees it drops to 0.0f perfectly in time for the next burst!
         friction = startSpeed / fullCycleFrames;
     } else {
         // Standard drag for Grabbing and Reaching
-        friction = 0.15f; 
+        friction = 0.15f;
     }
-    
+
     Math_StepToF(&this->actor.speedXZ, 0.0f, friction);
 
     Actor_MoveXZGravity(&this->actor);
@@ -2580,8 +2587,8 @@ void EnRr_DrawBottomCap(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadi
 
     int vtxPerRing = 24;
     int numRings = 4; // 4 Concentric rings to create the curve!
-    int numVertices = (numRings * (vtxPerRing + 1)) + 1; 
-    
+    int numVertices = (numRings * (vtxPerRing + 1)) + 1;
+
     Vtx* capVtx = Graph_Alloc(play->state.gfxCtx, numVertices * sizeof(Vtx));
 
     // ==========================================
@@ -2605,8 +2612,8 @@ void EnRr_DrawBottomCap(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadi
     for (int r = 1; r <= numRings; r++) {
         float ringProgress = (float)r / numRings;
         int offset = 1 + ((r - 1) * (vtxPerRing + 1));
-        
-        // The "Inward Cone" curve. 
+
+        // The "Inward Cone" curve.
         // Cubing it makes the tip sharp and the edges flat!
         float curveEase = powf(1.0f - ringProgress, 3.0f);
         float ringY = tipY * curveEase;
@@ -2614,23 +2621,24 @@ void EnRr_DrawBottomCap(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadi
         for (int v = 0; v <= vtxPerRing; v++) {
             float angle = ((float)v / vtxPerRing) * (2.0f * (float)M_PI);
 
-            float maxToeExtension = 1000.0f; 
-            float toeFatness = 0.325f;        
+            float maxToeExtension = 1000.0f;
+            float toeFatness = 0.325f;
             float wiggleDistance = 1.0f;
 
             float speedRatio = this->actor.speedXZ / 2.5f;
-            if (speedRatio > 1.0f) speedRatio = 1.0f;
+            if (speedRatio > 1.0f)
+                speedRatio = 1.0f;
 
             float phaseRad = (this->segMovePhase * (2.0f * (float)M_PI)) / 65536.0f;
             float rippleOffset = sinf(phaseRad) * (wiggleDistance * speedRatio);
-            
+
             float rawFeetWave = cosf((6.0f * angle) + rippleOffset);
-            
+
             float toePulse = (rawFeetWave + 1.0f) * 0.5f;
             float toeShape = powf(toePulse, toeFatness);
             float toeOffset = (toeShape - 0.75f) * maxToeExtension;
-            float targetRadius = baseRadius + toeOffset; 
-            
+            float targetRadius = baseRadius + toeOffset;
+
             float currentRadius = targetRadius * ringProgress;
 
             float x = cosf(angle) * currentRadius;
@@ -2639,9 +2647,9 @@ void EnRr_DrawBottomCap(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadi
             float repProgress = (angle / (2.0f * (float)M_PI)) * 6.0f;
             float waveUV = fabsf(fmodf(repProgress, 1.0f) - 0.5f) * 2.0f;
             float sCoord = 256.0f + (waveUV * 256.0f);
-            
+
             // V-Coord spreads from 0 to 256 radially
-            float tCoord = 256.0f * ringProgress; 
+            float tCoord = 256.0f * ringProgress;
 
             int vtxIdx = offset + v;
             capVtx[vtxIdx].n.ob[0] = (s16)x;
@@ -2667,11 +2675,15 @@ void EnRr_DrawBottomCap(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadi
     gDPSetRenderMode(POLY_OPA_DISP++, G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2);
     gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, 255);
     gDPSetEnvColor(POLY_OPA_DISP++, 0, 0, 0, 160);
-    gDPSetCombineLERP(POLY_OPA_DISP++, TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 0, 0, 0, 1, COMBINED, 0, SHADE, 0, 0, 0, 0, COMBINED);
-    gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern1Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0, G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, G_TX_NOLOD, G_TX_NOLOD);
-    gDPLoadMultiBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, 0x0100, 1, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0, G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, 0, 0);
+    gDPSetCombineLERP(POLY_OPA_DISP++, TEXEL0, TEXEL1, ENV_ALPHA, TEXEL1, 0, 0, 0, 1, COMBINED, 0, SHADE, 0, 0, 0, 0,
+                      COMBINED);
+    gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern1Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
+                        G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, G_TX_NOLOD, G_TX_NOLOD);
+    gDPLoadMultiBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, 0x0100, 1, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
+                      G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, 0, 0);
 
-    gSPDisplayList(POLY_OPA_DISP++, Gfx_TwoTexScroll(play->state.gfxCtx, 0, 0, 0, 16, 16, 1, 0, (-scrollFactor) & 0x7F, 16, 16));
+    gSPDisplayList(POLY_OPA_DISP++,
+                   Gfx_TwoTexScroll(play->state.gfxCtx, 0, 0, 0, 16, 16, 1, 0, (-scrollFactor) & 0x7F, 16, 16));
 
     // ==========================================
     // MULTI-RING DRAW LOOP
@@ -2692,7 +2704,7 @@ void EnRr_DrawBottomCap(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadi
     for (int r = 1; r < numRings; r++) {
         int offsetA = 1 + ((r - 1) * (vtxPerRing + 1));
         int offsetB = 1 + (r * (vtxPerRing + 1));
-        
+
         for (int chunk = 0; chunk < 2; chunk++) {
             int startVtx = chunk * 12;
             gSPVertex(POLY_OPA_DISP++, &capVtx[offsetA + startVtx], 13, 0);
@@ -2709,7 +2721,7 @@ void EnRr_DrawBottomCap(EnRr* this, PlayState* play, Mtx* segMtx, float baseRadi
 void EnRr_DrawBody(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRings, float baseRadius, u32 scrollFactor) {
     OPEN_DISPS(play->state.gfxCtx);
 
-int vtx24 = 24;
+    int vtx24 = 24;
     int vtx48 = 48;
     Vtx* bodyVtx24 = Graph_Alloc(play->state.gfxCtx, (numVisualRings - 1) * (vtx24 + 1) * sizeof(Vtx));
     Vtx* bodyVtx48 = Graph_Alloc(play->state.gfxCtx, (vtx48 + 1) * sizeof(Vtx));
@@ -2742,27 +2754,27 @@ int vtx24 = 24;
             float yOffset = 0.0f;
             if (seg >= finalSegmentStart) {
                 float lipProgress = (float)(seg - finalSegmentStart) / ringsPerGap;
-                
-                // THE FIX 2: Smoothstep lip ease! 
+
+                // THE FIX 2: Smoothstep lip ease!
                 // Curves seamlessly into the mouth recess without a sharp corner.
-                float lipEase = lipProgress * lipProgress * (3.0f - 2.0f * lipProgress); 
-                
+                float lipEase = lipProgress * lipProgress * (3.0f - 2.0f * lipProgress);
+
                 float heightMod = (wave + 1.0f) * 0.5f;
                 yOffset = lipEase * heightMod * 250.0f;
             }
 
             // THE STUMPY FEET
             int feetHeightRings = 4;
-            float maxToeExtension = 1000.0f; 
-            float toeFatness = 0.325f;        
-            float wiggleDistance = 1.0f;    
+            float maxToeExtension = 1000.0f;
+            float toeFatness = 0.325f;
+            float wiggleDistance = 1.0f;
             float speedRatio = CLAMP_MAX(this->actor.speedXZ / 2.5f, 1.0f);
             float phaseRad = (this->segMovePhase * (2.0f * (float)M_PI)) / 65536.0f;
             float rippleOffset = sinf(phaseRad) * (wiggleDistance * speedRatio);
 
             if (seg <= feetHeightRings) {
                 float feetProgress = 1.0f - ((float)seg / feetHeightRings);
-                float feetEase = feetProgress * feetProgress * feetProgress; 
+                float feetEase = feetProgress * feetProgress * feetProgress;
                 float rawFeetWave = cosf((6.0f * angle) + rippleOffset);
                 float toePulse = (rawFeetWave + 1.0f) * 0.5f;
                 float toeOffset = (powf(toePulse, toeFatness) - 0.75f) * maxToeExtension;
@@ -2779,10 +2791,10 @@ int vtx24 = 24;
             bodyVtx24[vtxIdx].n.ob[2] = (s16)z;
             bodyVtx24[vtxIdx].n.flag = 0;
             bodyVtx24[vtxIdx].n.tc[0] = (s16)(((float)v / vtx24) * 6144.0f + 512.0f);
-            
+
             // THE FIX 3: Reverted to your perfectly working UVs!
-            bodyVtx24[vtxIdx].n.tc[1] = (s16)-(progress * 2048.0f); 
-            
+            bodyVtx24[vtxIdx].n.tc[1] = (s16) - (progress * 2048.0f);
+
             bodyVtx24[vtxIdx].n.n[0] = (s8)((x / fullLen) * 127.0f);
             bodyVtx24[vtxIdx].n.n[1] = (s8)((normalY / fullLen) * 127.0f);
             bodyVtx24[vtxIdx].n.n[2] = (s8)((z / fullLen) * 127.0f);
@@ -2890,7 +2902,7 @@ int vtx24 = 24;
             int b_curr = v;
             int b_next = v + 1;
             int t_curr = 7 + (v * 2);
-            int t_mid  = 7 + (v * 2) + 1;
+            int t_mid = 7 + (v * 2) + 1;
             int t_next = 7 + (v * 2) + 2;
 
             gSP1Triangle(POLY_OPA_DISP++, b_curr, t_curr, t_mid, 0);
@@ -2927,29 +2939,29 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, int numVisua
         // ==========================================
         float rawWave = cosf(6.0f * angle);
         float waveSign = (rawWave > 0.0f) ? 1.0f : -1.0f;
-        
+
         // This exact equation forces the mouth cap to zip perfectly to the body!
-        float bodyWave = waveSign * powf(fabsf(rawWave), 1.5f); 
+        float bodyWave = waveSign * powf(fabsf(rawWave), 1.5f);
         float heightMod = (bodyWave + 1.0f) * 0.5f;
-        
-        float waveDeriv = -sinf(6.0f * angle); 
-        float normalPop = 80.0f; 
+
+        float waveDeriv = -sinf(6.0f * angle);
+        float normalPop = 80.0f;
 
         // ==========================================
-        // RING 2: OUTER LIPS 
+        // RING 2: OUTER LIPS
         // ==========================================
         float r_min_out = baseRadius * 0.5f;
         float r_max_out = baseRadius * 0.75f;
         float radius_out = 0.5f * (r_min_out + r_max_out) + 0.5f * (r_max_out - r_min_out) * bodyWave;
-        
+
         float yOffset_out = heightMod * 250.0f;
 
         float nx_out = (dirX * 100.0f) - (dirZ * waveDeriv * normalPop);
-        float ny_out = 40.0f; 
+        float ny_out = 40.0f;
         float nz_out = (dirZ * 100.0f) + (dirX * waveDeriv * normalPop);
-        float invLen_out = 127.0f / sqrtf(nx_out*nx_out + ny_out*ny_out + nz_out*nz_out);
+        float invLen_out = 127.0f / sqrtf(nx_out * nx_out + ny_out * ny_out + nz_out * nz_out);
 
-        int outIdx = v + 98; 
+        int outIdx = v + 98;
         mouthCapVtx[outIdx].n.ob[0] = (s16)(dirX * radius_out);
         mouthCapVtx[outIdx].n.ob[1] = (s16)yOffset_out;
         mouthCapVtx[outIdx].n.ob[2] = (s16)(dirZ * radius_out);
@@ -2962,22 +2974,22 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, int numVisua
         mouthCapVtx[outIdx].n.a = 255;
 
         // ==========================================
-        // RING 1: MID LIPS 
+        // RING 1: MID LIPS
         // ==========================================
-        float midT = 0.6f; 
-        float curveEase = midT * midT; 
+        float midT = 0.6f;
+        float curveEase = midT * midT;
         float curveRadius = throatRadius + ((radius_out - throatRadius) * curveEase);
         float curveY = throatY + ((yOffset_out - throatY) * midT);
-        
-        float wrinkleDepth = 150.0f; 
-        
+
+        float wrinkleDepth = 150.0f;
+
         float r_mid = curveRadius - (heightMod * wrinkleDepth);
         float yOffset_mid = curveY + (heightMod * 100.0f);
 
         float nx_mid = (dirX * -45.0f) - (dirZ * waveDeriv * normalPop);
         float ny_mid = 90.0f;
         float nz_mid = (dirZ * -45.0f) + (dirX * waveDeriv * normalPop);
-        float invLen_mid = 127.0f / sqrtf(nx_mid*nx_mid + ny_mid*ny_mid + nz_mid*nz_mid);
+        float invLen_mid = 127.0f / sqrtf(nx_mid * nx_mid + ny_mid * ny_mid + nz_mid * nz_mid);
 
         int midIdx = v + 49;
         mouthCapVtx[midIdx].n.ob[0] = (s16)(dirX * r_mid);
@@ -2995,7 +3007,7 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, int numVisua
         // RING 0: THROAT OPENING
         // ==========================================
         float activeThroatRadius = throatRadius - (heightMod * 15.0f);
-        
+
         float x_in = dirX * activeThroatRadius;
         float z_in = dirZ * activeThroatRadius;
 
@@ -3006,7 +3018,7 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, int numVisua
         mouthCapVtx[centerIdx].n.flag = 0;
         mouthCapVtx[centerIdx].n.tc[0] = (s16)sCoord;
         mouthCapVtx[centerIdx].n.tc[1] = 1024;
-        
+
         mouthCapVtx[centerIdx].n.n[0] = 0;
         mouthCapVtx[centerIdx].n.n[1] = -127;
         mouthCapVtx[centerIdx].n.n[2] = 0;
@@ -3034,7 +3046,7 @@ void EnRr_DrawMouthRecess(EnRr* this, PlayState* play, Mtx* segMtx, int numVisua
                       G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 4, 4, 0, 0);
 
     gSPDisplayList(POLY_OPA_DISP++,
-                   Gfx_TwoTexScroll(play->state.gfxCtx, 0, 0, 0, 16, 16, 1, 0, (scrollFactor) & 0x7F, 16, 16));
+                   Gfx_TwoTexScroll(play->state.gfxCtx, 0, 0, 0, 16, 16, 1, 0, (scrollFactor)&0x7F, 16, 16));
 
     // ==========================================
     // DRAW LOOPS
@@ -3089,7 +3101,7 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
     int vtx24 = 24;
     int vtx48 = 48;
     int numStomRings = 8;
-    
+
     // Allocate 24-vtx array for Lower Stomach (7 rings) + Center Floor (1 ring)
     Vtx* stomVtx24 = Graph_Alloc(play->state.gfxCtx, ((numStomRings - 1) + 1) * (vtx24 + 1) * sizeof(Vtx));
     // Allocate 48-vtx array for the Top Throat Ring (1 ring)
@@ -3111,11 +3123,11 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
         float baseStomRadius = throatRadius + ((baseRestingRadius - throatRadius) * bellCurve);
 
         float domeT = CLAMP(progress / 0.3f, 0.0f, 1.0f);
-        float domeRadiusMod = sinf(domeT * (float)M_PI * 0.5f); 
+        float domeRadiusMod = sinf(domeT * (float)M_PI * 0.5f);
         float stomRadius = baseStomRadius * domeRadiusMod;
-        
+
         // Build the normal stomach tube using the true baseline
-        float tubeY = 150.0f - (progress * (150.0f - trueThroatY)); 
+        float tubeY = 150.0f - (progress * (150.0f - trueThroatY));
         float tipY = 225.0f;
         float yOffset = tubeY + ((tipY - tubeY) * (1.0f - domeRadiusMod));
 
@@ -3152,8 +3164,8 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
             float bodyWave = waveSign * powf(fabsf(rawWave), 1.5f);
             float heightMod = (bodyWave + 1.0f) * 0.5f;
 
-            float wrinkleBlend = powf(progress, 4.0f); 
-            localRadius -= (heightMod * 15.0f * wrinkleBlend); 
+            float wrinkleBlend = powf(progress, 4.0f);
+            localRadius -= (heightMod * 15.0f * wrinkleBlend);
 
             stomVtx24[vtxIdx].v.ob[0] = (s16)(cosf(angle) * localRadius);
             stomVtx24[vtxIdx].v.ob[1] = (s16)yOffset;
@@ -3162,7 +3174,7 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
             stomVtx24[vtxIdx].v.tc[0] = (s16)(((float)v / vtx24) * 1024.0f);
             stomVtx24[vtxIdx].v.tc[1] = (s16)(seg * 256.0f);
 
-            u8 depthColor = 50 + (u8)((1.0f - progress) * 100.0f); 
+            u8 depthColor = 50 + (u8)((1.0f - progress) * 100.0f);
             stomVtx24[vtxIdx].v.cn[0] = depthColor;
             stomVtx24[vtxIdx].v.cn[1] = depthColor;
             stomVtx24[vtxIdx].v.cn[2] = depthColor;
@@ -3176,18 +3188,18 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
     {
         int seg = numStomRings - 1;
         float progress = 1.0f;
-        float yOffset = throatY; 
-        
+        float yOffset = throatY;
+
         for (int v = 0; v <= vtx48; v++) {
             float angle = ((float)v / vtx48) * (2.0f * (float)M_PI);
-            
+
             float rawWave = cosf(6.0f * angle);
             float waveSign = (rawWave > 0.0f) ? 1.0f : -1.0f;
             float bodyWave = waveSign * powf(fabsf(rawWave), 1.5f);
             float heightMod = (bodyWave + 1.0f) * 0.5f;
 
             // Failsafe lock to exactly throatRadius!
-            float localRadius = throatRadius - (heightMod * 15.0f); 
+            float localRadius = throatRadius - (heightMod * 15.0f);
 
             stomVtx48[v].v.ob[0] = (s16)(cosf(angle) * localRadius);
             stomVtx48[v].v.ob[1] = (s16)yOffset;
@@ -3218,7 +3230,7 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
         stomVtx24[vtxIdx].v.tc[0] = (s16)(((float)v / vtx24) * 1024.0f);
         stomVtx24[vtxIdx].v.tc[1] = -256;
 
-        stomVtx24[vtxIdx].v.cn[0] = 255; 
+        stomVtx24[vtxIdx].v.cn[0] = 255;
         stomVtx24[vtxIdx].v.cn[1] = 255;
         stomVtx24[vtxIdx].v.cn[2] = 255;
         stomVtx24[vtxIdx].v.cn[3] = 255;
@@ -3226,7 +3238,7 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
 
     // Calculate the dynamic pulse once per frame!
     float pulse = (Math_SinS(this->segMovePhase) + 1.0f) * 0.5f;
-    
+
     // Convert to a base color of Deep Blood Red, pulsing up to Bright Pink/Orange
     u8 r = 100 + (u8)(pulse * 155); // 100 to 255
     u8 g = 10 + (u8)(pulse * 50);   // 10 to 60
@@ -3238,9 +3250,9 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
 
     gDPSetCycleType(POLY_OPA_DISP++, G_CYC_1CYCLE);
     gDPSetRenderMode(POLY_OPA_DISP++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
-    
+
     gDPSetCombineMode(POLY_OPA_DISP++, G_CC_MODULATEIDECALA_PRIM, G_CC_MODULATEIDECALA_PRIM);
-    
+
     gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, r, g, b, 255);
 
     gDPLoadTextureBlock(POLY_OPA_DISP++, gLikeLikeBodyPattern2Tex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 16, 16, 0,
@@ -3262,7 +3274,7 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
 
             gSPMatrix(POLY_OPA_DISP++, &segMtx[mtxIdxA], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
             gSPVertex(POLY_OPA_DISP++, &stomVtx24[vtxOffsetA], 13, 0);
-            
+
             gSPMatrix(POLY_OPA_DISP++, &segMtx[mtxIdxB], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
             gSPVertex(POLY_OPA_DISP++, &stomVtx24[vtxOffsetB], 13, 13);
 
@@ -3281,8 +3293,8 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
     int offsetA = segA * 25;
 
     for (int chunk = 0; chunk < 4; chunk++) {
-        int startVtx24 = chunk * 6;  
-        int startVtx48 = chunk * 12; 
+        int startVtx24 = chunk * 6;
+        int startVtx48 = chunk * 12;
 
         gSPMatrix(POLY_OPA_DISP++, &segMtx[mtxIdxA], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPVertex(POLY_OPA_DISP++, &stomVtx24[offsetA + startVtx24], 7, 0); // Bottom 24-vtx
@@ -3294,7 +3306,7 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
             int b_curr = v;
             int b_next = v + 1;
             int t_curr = 7 + (v * 2);
-            int t_mid  = 7 + (v * 2) + 1;
+            int t_mid = 7 + (v * 2) + 1;
             int t_next = 7 + (v * 2) + 2;
 
             gSP1Triangle(POLY_OPA_DISP++, b_curr, t_curr, t_mid, 0);
@@ -3306,7 +3318,7 @@ void EnRr_DrawStomach(EnRr* this, PlayState* play, Mtx* segMtx, int numVisualRin
     // DRAW 3: The Center Floor Fan (24-vtx)
     // ==========================================
     gSPMatrix(POLY_OPA_DISP++, &segMtx[0], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-    
+
     for (int chunk = 0; chunk < 2; chunk++) {
         int startVtx = chunk * 12;
         int centerStart = centerOffset + startVtx;
@@ -3361,11 +3373,11 @@ void EnRr_Draw(Actor* thisx, PlayState* play) {
 
     for (int i = 1; i <= this->bodySegCount; i++) {
         absRotX_ctrl[i] = absRotX_ctrl[i - 1] + this->bodySegs[i].rot.x;
-        absRotY_ctrl[i] = absRotY_ctrl[i - 1] + this->bodySegs[i].rot.y; 
+        absRotY_ctrl[i] = absRotY_ctrl[i - 1] + this->bodySegs[i].rot.y;
         absRotZ_ctrl[i] = absRotZ_ctrl[i - 1] + this->bodySegs[i].rot.z;
         scale_ctrl[i] = this->bodySegs[i].scale * (1.0f + this->bodySegs[i].scaleMod);
 
-        float baseSegHeight = i == this->bodySegCount ? BASE_SEG_HEIGHT * 1.5f : BASE_SEG_HEIGHT; 
+        float baseSegHeight = i == this->bodySegCount ? BASE_SEG_HEIGHT * 1.5f : BASE_SEG_HEIGHT;
         float localHeight = this->bodySegs[i].height + baseSegHeight * (1.0f + this->bodySegs[i].ySquishMod);
         absHeight_ctrl[i] = absHeight_ctrl[i - 1] + localHeight;
     }
@@ -3377,7 +3389,7 @@ void EnRr_Draw(Actor* thisx, PlayState* play) {
     Matrix_Pop();
 
     float prevRotX = 0.0f;
-    float prevRotY = 0.0f;  
+    float prevRotY = 0.0f;
     float prevRotZ = 0.0f;
     float prevHeight = 0.0f;
 
@@ -3400,7 +3412,7 @@ void EnRr_Draw(Actor* thisx, PlayState* play) {
         float heightT = localT * localT * (3.0f - 2.0f * localT);
 
         float targetAbsRotX = F32_LERPIMP(absRotX_ctrl[segIdx], absRotX_ctrl[segIdx + 1], smoothT);
-        float targetAbsRotY = F32_LERPIMP(absRotY_ctrl[segIdx], absRotY_ctrl[segIdx + 1], smoothT); 
+        float targetAbsRotY = F32_LERPIMP(absRotY_ctrl[segIdx], absRotY_ctrl[segIdx + 1], smoothT);
         float targetAbsRotZ = F32_LERPIMP(absRotZ_ctrl[segIdx], absRotZ_ctrl[segIdx + 1], smoothT);
 
         float targetAbsHeight = F32_LERPIMP(absHeight_ctrl[segIdx], absHeight_ctrl[segIdx + 1], heightT);
@@ -3408,7 +3420,7 @@ void EnRr_Draw(Actor* thisx, PlayState* play) {
         float interpScale = F32_LERPIMP(scale_ctrl[segIdx], scale_ctrl[segIdx + 1], smoothT);
 
         float deltaRotX = targetAbsRotX - prevRotX;
-        float deltaRotY = targetAbsRotY - prevRotY; 
+        float deltaRotY = targetAbsRotY - prevRotY;
         float deltaRotZ = targetAbsRotZ - prevRotZ;
 
         float prevLocalT = (float)(i - 1) / ringsPerGap - (float)segIdx;

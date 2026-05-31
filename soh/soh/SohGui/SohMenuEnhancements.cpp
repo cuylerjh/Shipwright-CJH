@@ -340,7 +340,8 @@ void SohMenu::AddMenuEnhancements() {
         .Options(CheckboxOptions().Tooltip("Allow Link to put items away without having to wait around."));
     AddWidget(path, "Peaceful Sword Draw", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("PeacefulDraw"))
-        .Options(CheckboxOptions().Tooltip("Allow Link to draw his sword without swinging it if no enemies are nearby."));
+        .Options(
+            CheckboxOptions().Tooltip("Allow Link to draw his sword without swinging it if no enemies are nearby."));
     AddWidget(path, "Faster First Person Transition", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("FasterFirstPerson"))
         .Options(CheckboxOptions().Tooltip("Allow Link to aim much sooner after entering First-Person."));
@@ -614,8 +615,7 @@ void SohMenu::AddMenuEnhancements() {
     AddWidget(path, "Refined Dropped Items", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("RefinedDrops"))
         .RaceDisable(false)
-        .Options(CheckboxOptions().Tooltip(
-            "Adds a snappier bounce and sound effects to dropped items."));
+        .Options(CheckboxOptions().Tooltip("Adds a snappier bounce and sound effects to dropped items."));
     AddWidget(path, "Animated Link in Pause Menu", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("PauseMenuAnimatedLink"))
         .RaceDisable(false)
@@ -990,7 +990,7 @@ void SohMenu::AddMenuEnhancements() {
     AddWidget(path, "Rebottle Blue Fire", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("RebottleBlueFire"))
         .Options(CheckboxOptions().Tooltip("Blue Fire dropped from bottle can be bottled."));
-    
+
     AddWidget(path, "Equipment", WIDGET_SEPARATOR_TEXT);
     AddWidget(path, "Strength Block Push/Climb Speed", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("StrengthBoost"))

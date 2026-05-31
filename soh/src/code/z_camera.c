@@ -17,7 +17,7 @@ s32 Camera_UpdateWater(Camera* camera);
 #define RELOAD_PARAMS \
     (camera->animState == 0 || camera->animState == 0xA || camera->animState == 0x14 || R_RELOAD_CAM_PARAMS)
 
-#define PCT(x) ((x) * 0.01f)
+#define PCT(x) ((x)*0.01f)
 #define NEXTSETTING ((values++)->val)
 #define NEXTPCT PCT(NEXTSETTING)
 
@@ -1458,9 +1458,9 @@ s32 Camera_Free(Camera* camera, f32 minDist, f32 maxDist, f32 targetFov, s16 tar
     // --- WAKE-UP SYNC ---
     static u32 sLastFreeCamFrame = 0;
     static s16 sLastCamMode = -1;
-    static f32 sStickMomentumX = 0.0f; 
-    static f32 sStickMomentumY = 0.0f; 
-    static f32 sSmoothedBaseDist = 0.0f; 
+    static f32 sStickMomentumX = 0.0f;
+    static f32 sStickMomentumY = 0.0f;
+    static f32 sSmoothedBaseDist = 0.0f;
     static s16 sSmoothedTargetPitch = 0;
     u32 currentFrame = camera->play->state.frames;
 
@@ -1475,13 +1475,13 @@ s32 Camera_Free(Camera* camera, f32 minDist, f32 maxDist, f32 targetFov, s16 tar
 
         sStickMomentumX = 0.0f;
         sStickMomentumY = 0.0f;
-        sSmoothedBaseDist = (minDist + maxDist) * 0.5f; 
+        sSmoothedBaseDist = (minDist + maxDist) * 0.5f;
 
         if (targetPitch != FREECAM_PITCH_NONE) {
             sSmoothedTargetPitch = targetPitch;
         } else {
             // Safe fallback
-            sSmoothedTargetPitch = spA8.pitch; 
+            sSmoothedTargetPitch = spA8.pitch;
         }
 
         // Only play the sound if it's a true "wake up" from being fully disabled
@@ -1499,9 +1499,10 @@ s32 Camera_Free(Camera* camera, f32 minDist, f32 maxDist, f32 targetFov, s16 tar
 
     // 1. Establish Link as the baseline focal point
     atTarget.x = camera->player->actor.world.pos.x;
-    atTarget.y = camera->player->actor.world.pos.y + (camera->player->rideActor != NULL
-                                                          ? Player_GetHeight(camera->player) / 2
-                                                          : Player_GetHeight(camera->player)) / 1.2f;
+    atTarget.y =
+        camera->player->actor.world.pos.y +
+        (camera->player->rideActor != NULL ? Player_GetHeight(camera->player) / 2 : Player_GetHeight(camera->player)) /
+            1.2f;
     atTarget.z = camera->player->actor.world.pos.z;
 
     // 2. If locked on, shift the focal point toward the target
@@ -1510,7 +1511,7 @@ s32 Camera_Free(Camera* camera, f32 minDist, f32 maxDist, f32 targetFov, s16 tar
         // We MUST update the target's position manually because our early-out bypassed the vanilla update
         Actor_GetFocus(&camera->targetPosRot, camera->target);
 
-        // How strongly the camera pulls toward the target. 
+        // How strongly the camera pulls toward the target.
         f32 focusWeight = 0.2f;
 
         atTarget.x += (camera->targetPosRot.pos.x - atTarget.x) * focusWeight;
@@ -1542,7 +1543,7 @@ s32 Camera_Free(Camera* camera, f32 minDist, f32 maxDist, f32 targetFov, s16 tar
     }
 
     f32 pitchRangeDeg = (f32)CVarGetInteger(CVAR_SETTING("FreeLook.PitchRange"), 45);
-    f32 baseSensRatio = pitchRangeDeg / 45.0f; 
+    f32 baseSensRatio = pitchRangeDeg / 45.0f;
     f32 strengthMod;
     if (pitchRangeDeg <= 45.0f) {
         // Map ranges 5 -> 45 to a strength modifier of 1.5 -> 1.0
@@ -1553,7 +1554,7 @@ s32 Camera_Free(Camera* camera, f32 minDist, f32 maxDist, f32 targetFov, s16 tar
         f32 t = (pitchRangeDeg - 45.0f) / 35.0f; // Normalize to 0.0 - 1.0
         strengthMod = 1.0f - (0.175f * t);
     }
-    
+
     f32 dynamicSensY = baseSensRatio * strengthMod;
 
     newCamX *= (CVarGetFloat(CVAR_SETTING("FreeLook.CameraSensitivity.X"), 1.0f));
@@ -1569,18 +1570,20 @@ s32 Camera_Free(Camera* camera, f32 minDist, f32 maxDist, f32 targetFov, s16 tar
 
     s16 pitchRangeSetting = DEGF_TO_BINANG((f32)(CVarGetInteger(CVAR_SETTING("FreeLook.PitchRange"), 45)));
     s16 pitchLimit = behavior == FREECAM_BEHAVIOR_LINEAR ? pitchRangeSetting : CLAMP_MIN(0x3333, pitchRangeSetting);
-    
+
     s16 minPitch = sSmoothedTargetPitch - pitchLimit;
     s16 maxPitch = sSmoothedTargetPitch + pitchLimit;
 
     // Safety Cap
-    if (minPitch < -0x3C8C) minPitch = -0x3C8C;
-    if (maxPitch >  0x3C8C) maxPitch =  0x3C8C;
+    if (minPitch < -0x3C8C)
+        minPitch = -0x3C8C;
+    if (maxPitch > 0x3C8C)
+        maxPitch = 0x3C8C;
 
     camera->play->camY = CLAMP(camera->play->camY, minPitch, maxPitch);
 
     // 2. Base Distance LERP
-    f32 targetBaseDist = (minDist + maxDist) * 0.5f; 
+    f32 targetBaseDist = (minDist + maxDist) * 0.5f;
     sSmoothedBaseDist = Camera_LERPCeilF(targetBaseDist, sSmoothedBaseDist, 0.05f, 0.5f);
 
     f32 minZoom = sSmoothedBaseDist * (CVarGetFloat(CVAR_SETTING("FreeLook.MinZoom"), 0.5f));
@@ -1592,21 +1595,25 @@ s32 Camera_Free(Camera* camera, f32 minDist, f32 maxDist, f32 targetFov, s16 tar
 
     // 4. Update the zoom math to use pitchOffset instead of currentPitch
     if (behavior == FREECAM_BEHAVIOR_ORBITAL) {
-        distTarget = sSmoothedBaseDist; 
+        distTarget = sSmoothedBaseDist;
     } else if (behavior == FREECAM_BEHAVIOR_LINEAR) {
         f32 t = (pitchOffset + pitchLimit) / (f32)(pitchLimit * 2.0f);
-        if (t < 0.0f) t = 0.0f;
-        if (t > 1.0f) t = 1.0f;
+        if (t < 0.0f)
+            t = 0.0f;
+        if (t > 1.0f)
+            t = 1.0f;
         distTarget = minZoom + ((maxZoom - minZoom) * t);
     } else {
         if (pitchOffset <= 0.0f) {
             f32 t = pitchOffset / (f32)(-pitchLimit);
-            if (t > 1.0f) t = 1.0f;
-            distTarget = sSmoothedBaseDist - ((sSmoothedBaseDist - minZoom) * t); 
+            if (t > 1.0f)
+                t = 1.0f;
+            distTarget = sSmoothedBaseDist - ((sSmoothedBaseDist - minZoom) * t);
         } else {
             f32 t = pitchOffset / (f32)(pitchLimit);
-            if (t > 1.0f) t = 1.0f;
-            distTarget = sSmoothedBaseDist + ((maxZoom - sSmoothedBaseDist) * t); 
+            if (t > 1.0f)
+                t = 1.0f;
+            distTarget = sSmoothedBaseDist + ((maxZoom - sSmoothedBaseDist) * t);
         }
     }
 
@@ -1689,7 +1696,8 @@ s32 Camera_Normal1(Camera* camera) {
     OLib_Vec3fDiffToVecSphGeo(&atEyeNextGeo, at, eyeNext);
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, norm1->distMin, norm1->distMax, norm1->fovTarget, norm1->pitchTarget, FREECAM_BEHAVIOR_LINEAR, false);
+        return Camera_Free(camera, norm1->distMin, norm1->distMax, norm1->fovTarget, norm1->pitchTarget,
+                           FREECAM_BEHAVIOR_LINEAR, false);
     }
 
     switch (camera->animState) {
@@ -1935,7 +1943,8 @@ s32 Camera_Normal2(Camera* camera) {
     sCameraInterfaceFlags = norm2->interfaceFlags;
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, norm2->unk_04, norm2->unk_08, norm2->unk_14, norm2->unk_1C, FREECAM_BEHAVIOR_LINEAR, false);
+        return Camera_Free(camera, norm2->unk_04, norm2->unk_08, norm2->unk_14, norm2->unk_1C, FREECAM_BEHAVIOR_LINEAR,
+                           false);
     }
 
     switch (camera->animState) {
@@ -2102,7 +2111,8 @@ s32 Camera_Normal3(Camera* camera) {
     sCameraInterfaceFlags = norm3->interfaceFlags;
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, norm3->distMin, norm3->distMax, norm3->fovTarget, norm3->pitchTarget, FREECAM_BEHAVIOR_LINEAR, false);
+        return Camera_Free(camera, norm3->distMin, norm3->distMax, norm3->fovTarget, norm3->pitchTarget,
+                           FREECAM_BEHAVIOR_LINEAR, false);
     }
 
     switch (camera->animState) {
@@ -2258,7 +2268,8 @@ s32 Camera_Parallel1(Camera* camera) {
     OLib_Vec3fDiffToVecSphGeo(&atToEyeNextDir, at, eyeNext);
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, para1->distTarget, para1->distTarget, para1->fovTarget, para1->pitchTarget, FREECAM_BEHAVIOR_LINEAR, false);
+        return Camera_Free(camera, para1->distTarget, para1->distTarget, para1->fovTarget, para1->pitchTarget,
+                           FREECAM_BEHAVIOR_LINEAR, false);
     }
 
     switch (camera->animState) {
@@ -2472,7 +2483,8 @@ s32 Camera_Jump1(Camera* camera) {
     sCameraInterfaceFlags = jump1->interfaceFlags;
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, jump1->distMin, jump1->distMax, camera->fov, FREECAM_PITCH_NONE, FREECAM_BEHAVIOR_LINEAR, false);
+        return Camera_Free(camera, jump1->distMin, jump1->distMax, camera->fov, FREECAM_PITCH_NONE,
+                           FREECAM_BEHAVIOR_LINEAR, false);
     }
 
     if (camera->animState == 0 || camera->animState == 0xA || camera->animState == 0x14) {
@@ -2626,7 +2638,8 @@ s32 Camera_Jump2(Camera* camera) {
     OLib_Vec3fDiffToVecSphGeo(&atToEyeNextDir, at, eyeNext);
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, jump2->minDist, jump2->maxDist, jump2->fovTarget, FREECAM_PITCH_NONE, FREECAM_BEHAVIOR_ORBITAL, false);
+        return Camera_Free(camera, jump2->minDist, jump2->maxDist, jump2->fovTarget, FREECAM_PITCH_NONE,
+                           FREECAM_BEHAVIOR_ORBITAL, false);
     }
 
     if (camera->animState == 0 || camera->animState == 0xA || camera->animState == 0x14) {
@@ -2832,7 +2845,8 @@ s32 Camera_Jump3(Camera* camera) {
     sCameraInterfaceFlags = jump3->interfaceFlags;
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, jump3->distMin, jump3->distMax, jump3->fovTarget, jump3->pitchTarget, FREECAM_BEHAVIOR_LINEAR, false);
+        return Camera_Free(camera, jump3->distMin, jump3->distMax, jump3->fovTarget, jump3->pitchTarget,
+                           FREECAM_BEHAVIOR_LINEAR, false);
     }
 
     switch (camera->animState) {
@@ -3028,7 +3042,8 @@ s32 Camera_Battle1(Camera* camera) {
     fov = batt1->fov;
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, batt1->distance, batt1->distance, batt1->fov, FREECAM_PITCH_NONE, FREECAM_BEHAVIOR_LINEAR, true);
+        return Camera_Free(camera, batt1->distance, batt1->distance, batt1->fov, FREECAM_PITCH_NONE,
+                           FREECAM_BEHAVIOR_LINEAR, true);
     }
 
     if (camera->player->stateFlags1 & PLAYER_STATE1_CHARGING_SPIN_ATTACK) {
@@ -3375,7 +3390,8 @@ s32 Camera_KeepOn1(Camera* camera) {
     sCameraInterfaceFlags = keep1->interfaceFlags;
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, keep1->unk_04, keep1->unk_08, keep1->unk_20, FREECAM_PITCH_NONE, FREECAM_BEHAVIOR_LINEAR, true);
+        return Camera_Free(camera, keep1->unk_04, keep1->unk_08, keep1->unk_20, FREECAM_PITCH_NONE,
+                           FREECAM_BEHAVIOR_LINEAR, true);
     }
 
     if (camera->animState == 0 || camera->animState == 0xA || camera->animState == 0x14) {
@@ -3627,7 +3643,8 @@ s32 Camera_KeepOn3(Camera* camera) {
     sCameraInterfaceFlags = keep3->flags;
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, keep3->minDist, keep3->maxDist, keep3->fovTarget, FREECAM_PITCH_NONE, FREECAM_BEHAVIOR_LINEAR, true);
+        return Camera_Free(camera, keep3->minDist, keep3->maxDist, keep3->fovTarget, FREECAM_PITCH_NONE,
+                           FREECAM_BEHAVIOR_LINEAR, true);
     }
 
     if (camera->animState == 0 || camera->animState == 0xA || camera->animState == 0x14) {
@@ -3914,7 +3931,8 @@ s32 Camera_KeepOn4(Camera* camera) {
     sp9C = 0;
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, keep4->unk_04, keep4->unk_04, keep4->unk_18, keep4->unk_1C, FREECAM_BEHAVIOR_LINEAR, true);
+        return Camera_Free(camera, keep4->unk_04, keep4->unk_04, keep4->unk_18, keep4->unk_1C, FREECAM_BEHAVIOR_LINEAR,
+                           true);
     }
 
     switch (camera->animState) {
@@ -4814,7 +4832,8 @@ s32 Camera_Unique1(Camera* camera) {
     sCameraInterfaceFlags = uniq1->interfaceFlags;
 
     if (camera->play->manualCamera) {
-        return Camera_Free(camera, uniq1->distMin, uniq1->distMax, uniq1->fovTarget, uniq1->pitchTarget, FREECAM_BEHAVIOR_LINEAR, false);
+        return Camera_Free(camera, uniq1->distMin, uniq1->distMax, uniq1->fovTarget, uniq1->pitchTarget,
+                           FREECAM_BEHAVIOR_LINEAR, false);
     }
 
     if (camera->animState == 0) {
@@ -7716,7 +7735,7 @@ Vec3s Camera_Update(Camera* camera) {
 
     static s16 sLastModeForReset = -1;
     if (camera->mode != sLastModeForReset) {
-        // Any time the mode changes (Pressing Z, talking, releasing Z), turn off Free Cam 
+        // Any time the mode changes (Pressing Z, talking, releasing Z), turn off Free Cam
         // so the vanilla camera can execute its initial snap and alignment.
         camera->play->manualCamera = false;
         sLastModeForReset = camera->mode;

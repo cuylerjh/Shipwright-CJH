@@ -150,7 +150,8 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
         if (currentTarget == NULL || currentTarget->update == NULL) {
             this->currentTargetIndex++;
         } else {
-            if (currentTarget->id == ACTOR_EN_ITEM00 || currentTarget->id == ACTOR_EN_KUSA || currentTarget->id == ACTOR_OBJ_TSUBO) {
+            if (currentTarget->id == ACTOR_EN_ITEM00 || currentTarget->id == ACTOR_EN_KUSA ||
+                currentTarget->id == ACTOR_OBJ_TSUBO) {
                 targetPos = currentTarget->world.pos;
                 targetPos.y += 5.0f;
             } else {
@@ -158,7 +159,7 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
             }
 
             f32 failsafeDist = (currentTarget->id == ACTOR_EN_ITEM00) ? 20.0f : 5.0f;
-            
+
             // --- NEW: GRAB ARRAY CHECK ---
             // Check if our current target has already been sucked into our bag!
             u8 justGrabbedTarget = 0;
@@ -171,14 +172,14 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
 
             if (justGrabbedTarget || Math_Vec3f_DistXYZ(&this->actor.world.pos, &targetPos) <= failsafeDist) {
                 this->currentTargetIndex++;
-                
+
                 if (this->currentTargetIndex >= this->targetCount) {
                     this->returnTimer = 0;
                 } else {
                     Actor* nextTarget = this->targetActors[this->currentTargetIndex];
                     if (nextTarget != NULL && nextTarget->update != NULL) {
                         f32 distToNext = Math_Vec3f_DistXYZ(&this->actor.world.pos, &nextTarget->focus.pos);
-                        this->returnTimer = (u8)(distToNext / this->speed) + 15; 
+                        this->returnTimer = (u8)(distToNext / this->speed) + 15;
                     } else {
                         this->returnTimer = 30;
                     }
@@ -190,21 +191,23 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
     }
 
     if (this->moveTo == NULL) {
-        DECR(this->returnTimer); 
+        DECR(this->returnTimer);
     }
 
-    if (this->returnTimer == 0 || player->boomerangQuickRecall || (this->targetCount > 0 && this->currentTargetIndex >= this->targetCount)) {
+    if (this->returnTimer == 0 || player->boomerangQuickRecall ||
+        (this->targetCount > 0 && this->currentTargetIndex >= this->targetCount)) {
         this->moveTo = &player->actor;
         this->returnTimer = 0;
     }
 
     // --- 2. STEER TOWARD DESTINATION ---
     if (this->moveTo != NULL || (this->currentTargetIndex < this->targetCount && currentTarget != NULL)) {
-        
+
         if (this->moveTo != NULL) {
-            targetPos = this->moveTo->focus.pos; 
+            targetPos = this->moveTo->focus.pos;
         } else {
-            if (currentTarget->id == ACTOR_EN_ITEM00 || currentTarget->id == ACTOR_EN_KUSA || currentTarget->id == ACTOR_OBJ_TSUBO) {
+            if (currentTarget->id == ACTOR_EN_ITEM00 || currentTarget->id == ACTOR_EN_KUSA ||
+                currentTarget->id == ACTOR_OBJ_TSUBO) {
                 targetPos = currentTarget->world.pos;
                 targetPos.y += 5.0f;
             } else {
@@ -222,14 +225,14 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
         if (distXYZScale < 0.12f) {
             distXYZScale = 0.12f;
         }
-        
+
         s32 turnStepYaw = (s32)(ABS(yawDiff) * distXYZScale * 1.15f);
         s32 turnStepPitch = (s32)(ABS(pitchDiff) * distXYZScale * 1.15f);
 
         Math_ScaledStepToS(&this->actor.world.rot.y, yawTarget, (s16)CLAMP(turnStepYaw, 0, 32767));
         Math_ScaledStepToS(&this->actor.world.rot.x, pitchTarget, (s16)CLAMP(turnStepPitch, 0, 32767));
     }
-    
+
     Actor_SetProjectileSpeed(&this->actor, this->speed);
     Actor_MoveXZGravity(&this->actor);
     func_8002F974(&this->actor, NA_SE_IT_BOOMERANG_FLY - SFX_FLAG);
@@ -239,7 +242,7 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
     if (collided) {
         Actor* hitActor = this->collider.base.at;
         if ((hitActor->id == ACTOR_EN_ITEM00) || (hitActor->id == ACTOR_EN_SI)) {
-            
+
             // --- NEW: ARRAY GRABBING ---
             // If we have room in the bag, check if we've already grabbed this exact item
             if (this->grabCount < 5) {
@@ -250,12 +253,12 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
                         break;
                     }
                 }
-                
+
                 // If it's a new item, add it to the bag!
                 if (!alreadyGrabbed) {
                     this->grabbedActors[this->grabCount] = hitActor;
                     this->grabCount++;
-                    
+
                     if (hitActor->id == ACTOR_EN_SI) {
                         hitActor->flags |= ACTOR_FLAG_HOOKSHOT_ATTACHED;
                     }
@@ -272,7 +275,7 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
         this->currentTargetIndex = this->targetCount;
 
         if (distFromLink <= this->speed || player->boomerangQuickRecall) {
-            
+
             // --- NEW: REWARD LINK ---
             // Loop through our entire grab bag and hand every item to Link simultaneously!
             for (int i = 0; i < this->grabCount; i++) {
@@ -289,7 +292,7 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
                 }
             }
             // ------------------------
-            
+
             player->stateFlags1 &= ~PLAYER_STATE1_BOOMERANG_THROWN;
             player->boomerangQuickRecall = false;
             this->actor.draw = NULL;
@@ -298,28 +301,28 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
         }
     } else {
         s32 atHit = !!(this->collider.base.atFlags & AT_HIT);
-        s32 bouncedOffHard = !!(this->collider.base.atFlags & AT_BOUNCED); 
+        s32 bouncedOffHard = !!(this->collider.base.atFlags & AT_BOUNCED);
         s32 hitWall = 0;
 
         if (atHit) {
             if (bouncedOffHard) {
-                hitWall = true; 
+                hitWall = true;
             } else {
                 Actor* hitActor = this->collider.base.at;
-                
+
                 for (int i = this->currentTargetIndex; i < this->targetCount; i++) {
                     if (this->targetActors[i] == hitActor) {
-                        
+
                         if (i == this->currentTargetIndex) {
                             this->currentTargetIndex++;
-                            
+
                             if (this->currentTargetIndex >= this->targetCount) {
                                 this->returnTimer = 0;
                             } else {
                                 Actor* nextTarget = this->targetActors[this->currentTargetIndex];
                                 if (nextTarget != NULL && nextTarget->update != NULL) {
                                     f32 distToNext = Math_Vec3f_DistXYZ(&this->actor.world.pos, &nextTarget->focus.pos);
-                                    this->returnTimer = (u8)(distToNext / this->speed) + 15; 
+                                    this->returnTimer = (u8)(distToNext / this->speed) + 15;
                                 } else {
                                     this->returnTimer = 30;
                                 }
@@ -327,15 +330,15 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
                         } else {
                             this->targetActors[i] = NULL;
                         }
-                        break; 
+                        break;
                     }
                 }
             }
-        } 
-        
+        }
+
         if (!hitWall && !atHit) {
             hitWall = BgCheck_EntityLineTest1(&play->colCtx, &this->actor.prevPos, &this->actor.world.pos, &hitPoint,
-                                               &this->actor.wallPoly, true, true, true, true, &hitDynaID);
+                                              &this->actor.wallPoly, true, true, true, true, &hitDynaID);
 
             if (hitWall) {
                 if (func_8002F9EC(play, &this->actor, this->actor.wallPoly, hitDynaID, &hitPoint) != 0 ||
@@ -351,14 +354,14 @@ void EnBoom_Fly(EnBoom* this, PlayState* play) {
         if (hitWall) {
             this->actor.world.rot.x = -this->actor.world.rot.x;
             this->actor.world.rot.y += 0x8000;
-            this->currentTargetIndex = this->targetCount; 
+            this->currentTargetIndex = this->targetCount;
             this->moveTo = &player->actor;
             this->returnTimer = 0;
         }
     }
 
     // --- NEW: MULTI-DRAG ---
-    // Update the physical position of EVERY item in the bag so they all trail 
+    // Update the physical position of EVERY item in the bag so they all trail
     // behind the boomerang as it flies back to Link!
     for (int i = 0; i < this->grabCount; i++) {
         target = this->grabbedActors[i];

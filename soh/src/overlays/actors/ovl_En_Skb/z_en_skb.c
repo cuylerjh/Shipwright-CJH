@@ -207,10 +207,10 @@ void func_80AFCD60(EnSkb* this, PlayState* play) {
 }
 
 void func_80AFCDF8(EnSkb* this) {
-        Animation_PlayOnceSetSpeed(&this->skelAnime, &gStalchildUncurlingAnim, 1.0f);
-        this->unk_280 = 0;
-        this->actor.flags &= ~ACTOR_FLAG_ATTENTION_ENABLED;
-        EnSkb_SetupAction(this, func_80AFCE5C);
+    Animation_PlayOnceSetSpeed(&this->skelAnime, &gStalchildUncurlingAnim, 1.0f);
+    this->unk_280 = 0;
+    this->actor.flags &= ~ACTOR_FLAG_ATTENTION_ENABLED;
+    EnSkb_SetupAction(this, func_80AFCE5C);
 }
 
 void func_80AFCE5C(EnSkb* this, PlayState* play) {

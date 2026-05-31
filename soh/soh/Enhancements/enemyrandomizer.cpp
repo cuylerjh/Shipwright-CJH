@@ -371,7 +371,8 @@ extern "C" uint8_t GetRandomizedEnemy(PlayState* play, int16_t* actorId, f32* po
         raycastResult = BgCheck_AnyRaycastFloor1(&play->colCtx, &poly, &pos);
 
         // Exclude both corridor rooms so enemies correctly spawn in reachable space.
-        excludeRooms = play->sceneNum == SCENE_FOREST_TEMPLE && (play->roomCtx.curRoom.num == 19 || play->roomCtx.curRoom.num == 20);
+        excludeRooms = play->sceneNum == SCENE_FOREST_TEMPLE &&
+                       (play->roomCtx.curRoom.num == 19 || play->roomCtx.curRoom.num == 20);
 
         // If ground is found below actor, move actor to that height.
         if (raycastResult > BGCHECK_Y_MIN && !excludeRooms) {
@@ -519,7 +520,7 @@ bool IsEnemyFoundToRandomize(int16_t sceneNum, int8_t roomNum, int16_t actorId, 
                 // grate to open.
                 case ACTOR_EN_SB:
                 case ACTOR_EN_NY:
-                    //return (!(!isMQ && sceneNum == SCENE_WATER_TEMPLE && roomNum == 2));
+                    // return (!(!isMQ && sceneNum == SCENE_WATER_TEMPLE && roomNum == 2));
                     return 1;
                 case ACTOR_EN_SKJ:
                     return !(sceneNum == SCENE_LOST_WOODS && LINK_IS_CHILD);

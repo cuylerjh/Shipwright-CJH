@@ -458,8 +458,7 @@ void EnFloormas_BigDecideAction(EnFloormas* this, PlayState* play) {
             EnFloormas_SetupTurn(this);
             // within 280 units of link and within 45 degrees rotation of him
         } else if (this->actor.xzDistToPlayer < 280.0f && this->actor.yDistToPlayer < 125.0f &&
-                   Actor_IsFacingPlayer(&this->actor, 0x2000) &&
-                   !(player->swallowed)) {
+                   Actor_IsFacingPlayer(&this->actor, 0x2000) && !(player->swallowed)) {
             EnFloormas_SetupHover(this, play);
         } else {
             EnFloormas_SetupStand(this);
@@ -504,8 +503,7 @@ void EnFloormas_BigWalk(EnFloormas* this, PlayState* play) {
         this->actionTarget = this->actor.wallYaw;
         EnFloormas_SetupTurn(this);
     } else if ((this->actor.xzDistToPlayer < 400.0f) && (this->actor.yDistToPlayer < 200.0f) &&
-               !Actor_IsFacingPlayer(&this->actor, 0x4000) &&
-               !(player->swallowed)) {
+               !Actor_IsFacingPlayer(&this->actor, 0x4000) && !(player->swallowed)) {
         // set target rotation to link.
         this->actionTarget = this->actor.yawTowardsPlayer;
         EnFloormas_SetupTurn(this);
@@ -532,8 +530,7 @@ void EnFloormas_Run(EnFloormas* this, PlayState* play) {
     Math_ApproachS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 3, 0x71C);
 
     if ((this->actor.xzDistToPlayer < 280.0f) && (this->actor.yDistToPlayer < 125.0f) &&
-        Actor_IsFacingPlayer(&this->actor, 0x2000) && !(this->actor.bgCheckFlags & 8) &&
-        !(player->swallowed)) {
+        Actor_IsFacingPlayer(&this->actor, 0x2000) && !(this->actor.bgCheckFlags & 8) && !(player->swallowed)) {
         EnFloormas_SetupHover(this, play);
     } else if (this->actor.xzDistToPlayer > 400.0f) {
         EnFloormas_SetupBigWalk(this);

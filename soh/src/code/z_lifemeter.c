@@ -411,12 +411,12 @@ void HealthMeter_Draw(PlayState* play) {
     }
 
     if (sVisualHealth > gSaveContext.health) {
-        sVisualHealth -= 4; 
+        sVisualHealth -= 4;
 
         if (sVisualHealth < gSaveContext.health) {
             sVisualHealth = gSaveContext.health;
         }
-        
+
         if (sVisualHealth > gSaveContext.healthCapacity) {
             sVisualHealth = gSaveContext.health;
         }
@@ -526,7 +526,7 @@ void HealthMeter_Draw(PlayState* play) {
                         // force it to 3/4 so the player knows they aren't at 100% max health.
                         heartBgImg = gHeartThreeQuarterTex;
                     } else {
-                        heartBgImg = gHeartFullTex; 
+                        heartBgImg = gHeartFullTex;
                     }
                 } else {
                     heartBgImg = sHeartTextures[curHeartFraction];

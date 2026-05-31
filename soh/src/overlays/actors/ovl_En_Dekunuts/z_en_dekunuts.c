@@ -295,8 +295,7 @@ void EnDekunuts_Stand(EnDekunuts* this, PlayState* play) {
         Math_ApproachS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 2, 0xE38);
     }
     if (this->animFlagAndTimer == 0x1000) {
-        if ((this->actor.xzDistToPlayer > 480.0f) || (this->actor.xzDistToPlayer < 120.0f) ||
-            (player->swallowed)) {
+        if ((this->actor.xzDistToPlayer > 480.0f) || (this->actor.xzDistToPlayer < 120.0f) || (player->swallowed)) {
             EnDekunuts_SetupBurrow(this);
         } else {
             EnDekunuts_SetupThrowNut(this);

@@ -207,7 +207,8 @@ void EnDh_Wait(EnDh* this, PlayState* play) {
     if ((s32)this->skelAnime.curFrame == 5) {
         func_800F5ACC(NA_BGM_MINI_BOSS);
     }
-    if (Actor_GetCollidedExplosive(play, &this->collider1.base) || (this->actor.xyzDistToPlayerSq < SQ(150.0f) && play->actorCtx.unk_02 != 0)) {
+    if (Actor_GetCollidedExplosive(play, &this->collider1.base) ||
+        (this->actor.xyzDistToPlayerSq < SQ(150.0f) && play->actorCtx.unk_02 != 0)) {
         this->actor.params = ENDH_START_ATTACK_BOMB;
     }
     if ((this->actor.params >= ENDH_START_ATTACK_GRAB) || (this->actor.params <= ENDH_HANDS_KILLED_4)) {

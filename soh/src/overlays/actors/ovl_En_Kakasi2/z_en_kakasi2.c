@@ -147,7 +147,7 @@ void func_80A90264(EnKakasi2* this, PlayState* play) {
                (fabsf(player->actor.world.pos.y - this->actor.world.pos.y) < this->maxSpawnDistance.y) &&
                (Flags_GetEventChkInf(EVENTCHKINF_PLAYED_SONG_FOR_SCARECROW_AS_ADULT))) {
 
-        this->unk_194 = 0; 
+        this->unk_194 = 0;
         if (play->msgCtx.ocarinaMode == OCARINA_MODE_0B) {
             if (this->switchFlag >= 0) {
                 Flags_SetSwitch(play, this->switchFlag);

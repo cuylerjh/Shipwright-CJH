@@ -1284,8 +1284,7 @@ void EnMb_ClubWaitPlayerNear(EnMb* this, PlayState* play) {
         // the Moblin is very far away from the player in vertical rooms (like the first room in Deku Tree).
         s8 enemyRando = CVarGetInteger(CVAR_ENHANCEMENT("RandomizedEnemies"), 0);
         if (!enemyRando || (enemyRando && this->actor.yDistToPlayer <= 100.0f && this->actor.yDistToPlayer >= -100.0f &&
-                            !(player->stateFlags2 & PLAYER_STATE2_GRABBING_DYNAPOLY) &&
-                            !(player->swallowed))) {
+                            !(player->stateFlags2 & PLAYER_STATE2_GRABBING_DYNAPOLY) && !(player->swallowed))) {
             EnMb_SetupClubAttack(this);
         }
     }

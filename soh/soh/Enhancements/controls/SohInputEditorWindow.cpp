@@ -1414,8 +1414,7 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
         }
     }
     if (CVarGetInteger(CVAR_SETTING("FirstPersonCameraSensitivity.Enabled"), 0)) {
-        CVarSliderFloat("Aiming/First-Person Horizontal Sensitivity: ",
-                        CVAR_SETTING("FirstPersonCameraSensitivity.X"),
+        CVarSliderFloat("Aiming/First-Person Horizontal Sensitivity: ", CVAR_SETTING("FirstPersonCameraSensitivity.X"),
                         FloatSliderOptions()
                             .Color(THEME_COLOR)
                             .IsPercentage()
@@ -1423,8 +1422,7 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
                             .Max(5.0f)
                             .DefaultValue(1.0f)
                             .ShowButtons(true));
-        CVarSliderFloat("Aiming/First-Person Vertical Sensitivity: ",
-                        CVAR_SETTING("FirstPersonCameraSensitivity.Y"),
+        CVarSliderFloat("Aiming/First-Person Vertical Sensitivity: ", CVAR_SETTING("FirstPersonCameraSensitivity.Y"),
                         FloatSliderOptions()
                             .Color(THEME_COLOR)
                             .IsPercentage()
@@ -1478,12 +1476,7 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
                         .DefaultValue(0.5f)
                         .ShowButtons(true));
     CVarSliderInt("Camera Pitch Range (Degrees): ", CVAR_SETTING("FreeLook.PitchRange"),
-                    IntSliderOptions()
-                        .Color(THEME_COLOR)
-                        .Min(5)
-                        .Max(80)
-                        .DefaultValue(45)
-                        .ShowButtons(true));
+                  IntSliderOptions().Color(THEME_COLOR).Min(5).Max(80).DefaultValue(45).ShowButtons(true));
     Ship::GuiWindow::EndGroupPanel(0);
 }
 

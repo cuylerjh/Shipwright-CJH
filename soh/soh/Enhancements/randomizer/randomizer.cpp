@@ -5812,24 +5812,18 @@ extern "C" void EnRr_SetDynamicStealMessage(const char* itemName) {
     CustomMessageManager::Instance->AddCustomMessageTable("LikeLikeMessages");
 
     CustomMessageManager::Instance->CreateMessage(
-        "LikeLikeMessages", 0x305F, 
-        CustomMessage(
-            "Your \x05\x41" + nameStr + "\x05\x40 " + verb + " stolen!\x02",
-            "Dein \x05\x41" + nameStr + "\x05\x40 wurde gestohlen!\x02",
-            "Votre \x05\x41" + nameStr + "\x05\x40 a été volé!\x02"
-        )
-    );
+        "LikeLikeMessages", 0x305F,
+        CustomMessage("Your \x05\x41" + nameStr + "\x05\x40 " + verb + " stolen!\x02",
+                      "Dein \x05\x41" + nameStr + "\x05\x40 wurde gestohlen!\x02",
+                      "Votre \x05\x41" + nameStr + "\x05\x40 a été volé!\x02"));
 }
 
 extern "C" void EnRr_SetKnifeBrokeMessage() {
     CustomMessageManager::Instance->AddCustomMessageTable("LikeLikeMessages");
 
     CustomMessageManager::Instance->CreateMessage(
-        "LikeLikeMessages", 0x3060, 
-        CustomMessage(
-            "Your \x05\x41Giant's Knife\x05\x40 broke!\x02",
-            "Dein \x05\x41Messer\x05\x40 ist zerbrochen!\x02",
-            "Votre \x05\x41Lame des Géants\x05\x40 s'est brisée!\x02"
-        )
-    );
+        "LikeLikeMessages", 0x3060,
+        CustomMessage("Your \x05\x41Giant's Knife\x05\x40 broke!\x02",
+                      "Dein \x05\x41Messer\x05\x40 ist zerbrochen!\x02",
+                      "Votre \x05\x41Lame des Géants\x05\x40 s'est brisée!\x02"));
 }

@@ -314,8 +314,7 @@ void EnBa_SwingAtPlayer(EnBa* this, PlayState* play) {
         CollisionCheck_SetAT(play, &play->colChkCtx, &this->collider.base);
         return;
     }
-    if ((this->actor.xzDistToPlayer > 175.0f) || (player->stateFlags1 & PLAYER_STATE1_DAMAGED) ||
-        (player->swallowed)) {
+    if ((this->actor.xzDistToPlayer > 175.0f) || (player->stateFlags1 & PLAYER_STATE1_DAMAGED) || (player->swallowed)) {
         EnBa_SetupIdle(this);
     } else {
         EnBa_SetupSwingAtPlayer(this);

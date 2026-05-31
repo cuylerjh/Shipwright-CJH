@@ -108,7 +108,8 @@ void DoorAna_WaitClosed(DoorAna* this, PlayState* play) {
         }
     } else {
         // bombing/hammering open a grotto
-        if (this->collider.base.acFlags & AC_HIT || (this->actor.xyzDistToPlayerSq < SQ(150.0f) && play->actorCtx.unk_02 != 0)) {
+        if (this->collider.base.acFlags & AC_HIT ||
+            (this->actor.xyzDistToPlayerSq < SQ(150.0f) && play->actorCtx.unk_02 != 0)) {
             openGrotto = true;
             Collider_DestroyCylinder(play, &this->collider);
         } else {

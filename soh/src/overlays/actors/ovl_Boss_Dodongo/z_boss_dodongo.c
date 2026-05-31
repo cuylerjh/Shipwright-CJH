@@ -784,7 +784,7 @@ void BossDodongo_Explode(BossDodongo* this, PlayState* play) {
                          Animation_GetLastFrame(&object_kingdodongo_Anim_004E0C), ANIMMODE_ONCE, -5.0f);
         this->actionFunc = BossDodongo_LayDown;
         Audio_PlayActorSound2(&this->actor, NA_SE_IT_BOMB_EXPLOSION);
-        Audio_PlayActorSound2(&this->actor, NA_SE_EN_DODO_K_DAMAGE); 
+        Audio_PlayActorSound2(&this->actor, NA_SE_EN_DODO_K_DAMAGE);
         func_80033E88(&this->actor, play, 4, 10);
         this->health -= 2;
 
@@ -864,7 +864,8 @@ void BossDodongo_BlowFire(BossDodongo* this, PlayState* play) {
         Audio_PlayActorSound2(&this->actor, NA_SE_EN_DODO_K_CRY);
     }
 
-    if (this->skelAnime.curFrame < 17.0f && player->actor.parent != NULL && player->actor.parent->id == ACTOR_BOSS_DODONGO) {
+    if (this->skelAnime.curFrame < 17.0f && player->actor.parent != NULL &&
+        player->actor.parent->id == ACTOR_BOSS_DODONGO) {
         player->actor.speedXZ = 0.0f;
         player->actor.velocity.y = 0.0f;
 

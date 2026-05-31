@@ -136,7 +136,7 @@ void BgHidanDalm_Wait(BgHidanDalm* this, PlayState* play) {
         if ((this->collider.elements[0].info.bumperFlags & BUMP_HIT) ||
             (this->collider.elements[1].info.bumperFlags & BUMP_HIT)) {
             this->dyna.actor.world.rot.y -= 0x4000;
-        } else { 
+        } else {
             this->dyna.actor.world.rot.y += 0x4000;
         }
         this->dyna.actor.world.pos.x += 32.5f * Math_SinS(this->dyna.actor.world.rot.y);

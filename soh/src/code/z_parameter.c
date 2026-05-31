@@ -2340,7 +2340,7 @@ u8 Item_Give(PlayState* play, u8 item) {
     } else if (item == ITEM_HEART) {
         osSyncPrintf("回復ハート回復ハート回復ハート\n"); // "Recovery Heart"
         if (play != NULL) {
-            //Health_ChangeBy(play, FULL_HEART_HEALTH);
+            // Health_ChangeBy(play, FULL_HEART_HEALTH);
             gSaveContext.healthAccumulator += FULL_HEART_HEALTH;
         }
         return Return_Item(item, MOD_NONE, item);

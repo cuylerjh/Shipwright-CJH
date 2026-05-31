@@ -538,7 +538,7 @@ void EnItem00_Init(Actor* thisx, PlayState* play) {
         case ITEM00_HOOKSHOT:
         case ITEM00_LONGSHOT:
             EnItem00_SetObjectDependency(this, play, OBJECT_GI_HOOKSHOT);
-            Actor_SetScale(&this->actor, 0.5f); 
+            Actor_SetScale(&this->actor, 0.5f);
             this->scale = 0.5f;
             yOffset = 0.0f;
             shadowScale = 0.6f;
@@ -576,7 +576,7 @@ void EnItem00_Init(Actor* thisx, PlayState* play) {
         case ITEM00_BOTTLE_MILK:
         case ITEM00_BOTTLE_FISH:
         case ITEM00_BOTTLE_BUGS:
-        case ITEM00_BOTTLE_POE:        
+        case ITEM00_BOTTLE_POE:
             EnItem00_SetObjectDependency(this, play, OBJECT_GI_BOTTLE);
             Actor_SetScale(&this->actor, 0.5f);
             this->scale = 0.5f;
@@ -637,7 +637,7 @@ void EnItem00_Init(Actor* thisx, PlayState* play) {
             Item_Give(play, ITEM_HEART);
             break;
         case ITEM00_FLEXIBLE:
-            //Health_ChangeBy(play, 0x70);
+            // Health_ChangeBy(play, 0x70);
             gSaveContext.healthAccumulator = 0x70;
             break;
         case ITEM00_BOMBS_A:
@@ -796,24 +796,24 @@ void func_8001E304(EnItem00* this, PlayState* play) {
         case ITEM00_BOMBS_B:
         case ITEM00_BOMBS_SPECIAL:
         case ITEM00_BOMBCHU:
-            itemBounceSfxId = NA_SE_EV_BOMB_BOUND; 
+            itemBounceSfxId = NA_SE_EV_BOMB_BOUND;
             break;
         case ITEM00_RUPEE_GREEN:
         case ITEM00_RUPEE_BLUE:
         case ITEM00_RUPEE_RED:
         case ITEM00_RUPEE_ORANGE:
         case ITEM00_RUPEE_PURPLE:
-            itemBounceSfxId = NA_SE_SY_RUPY_COUNT; 
+            itemBounceSfxId = NA_SE_SY_RUPY_COUNT;
             break;
         case ITEM00_STICK:
         case ITEM00_ARROWS_SMALL:
         case ITEM00_ARROWS_MEDIUM:
         case ITEM00_ARROWS_LARGE:
-            itemBounceSfxId = NA_SE_EV_WOOD_HIT; 
+            itemBounceSfxId = NA_SE_EV_WOOD_HIT;
             break;
         default:
             // A generic, soft thud for everything else (seeds, magic, nuts, etc.)
-            itemBounceSfxId = NA_SE_EV_BOMB_BOUND; 
+            itemBounceSfxId = NA_SE_EV_BOMB_BOUND;
             break;
     }
 
@@ -999,12 +999,12 @@ void EnItem00_Update(Actor* thisx, PlayState* play) {
     Collider_UpdateCylinder(&this->actor, &this->collider);
     CollisionCheck_SetAC(play, &play->colChkCtx, &this->collider.base);
 
-    if ((this->actor.params == ITEM00_SHIELD_DEKU) ||
-        (this->actor.params == ITEM00_SHIELD_HYLIAN) || (this->actor.params == ITEM00_SHIELD_MIRROR) ||
-        (this->actor.params == ITEM00_TUNIC_KOKIRI) || (this->actor.params == ITEM00_TUNIC_ZORA) ||
-        (this->actor.params == ITEM00_TUNIC_GORON) || (this->actor.params == ITEM00_HOOKSHOT) ||
-        (this->actor.params == ITEM00_LONGSHOT) || (this->actor.params == ITEM00_BOOMERANG) ||
-        (this->actor.params == ITEM00_LENS) || (this->actor.params == ITEM00_BOTTLE)) {
+    if ((this->actor.params == ITEM00_SHIELD_DEKU) || (this->actor.params == ITEM00_SHIELD_HYLIAN) ||
+        (this->actor.params == ITEM00_SHIELD_MIRROR) || (this->actor.params == ITEM00_TUNIC_KOKIRI) ||
+        (this->actor.params == ITEM00_TUNIC_ZORA) || (this->actor.params == ITEM00_TUNIC_GORON) ||
+        (this->actor.params == ITEM00_HOOKSHOT) || (this->actor.params == ITEM00_LONGSHOT) ||
+        (this->actor.params == ITEM00_BOOMERANG) || (this->actor.params == ITEM00_LENS) ||
+        (this->actor.params == ITEM00_BOTTLE)) {
         this->actor.shape.yOffset = Math_CosS(this->actor.shape.rot.x) * 37.0f;
         this->actor.shape.yOffset = ABS(this->actor.shape.yOffset);
     }
@@ -1054,7 +1054,7 @@ void EnItem00_Update(Actor* thisx, PlayState* play) {
             Item_Give(play, ITEM_HEART);
             break;
         case ITEM00_FLEXIBLE:
-            //Health_ChangeBy(play, 0x70);
+            // Health_ChangeBy(play, 0x70);
             gSaveContext.healthAccumulator += 0x70;
             break;
         case ITEM00_BOMBS_A:
@@ -1106,7 +1106,7 @@ void EnItem00_Update(Actor* thisx, PlayState* play) {
         case ITEM00_SHIELD_HYLIAN:
             getItemId = GI_SHIELD_HYLIAN;
             break;
-        case ITEM00_SHIELD_MIRROR: 
+        case ITEM00_SHIELD_MIRROR:
             getItemId = GI_SHIELD_MIRROR;
             break;
         case ITEM00_TUNIC_KOKIRI:
@@ -1137,7 +1137,7 @@ void EnItem00_Update(Actor* thisx, PlayState* play) {
             getItemId = GI_BOTTLE;
             break;
         case ITEM00_BOTTLE_RED_POTION:
-            getItemId = GI_POTION_RED; 
+            getItemId = GI_POTION_RED;
             break;
         case ITEM00_BOMBS_SPECIAL:
             break;

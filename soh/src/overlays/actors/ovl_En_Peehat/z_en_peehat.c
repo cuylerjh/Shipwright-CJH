@@ -334,8 +334,7 @@ void EnPeehat_Ground_StateGround(EnPeehat* this, PlayState* play) {
     if (IS_DAY || CVarGetInteger(CVAR_ENHANCEMENT("RandomizedEnemies"), 0)) {
         this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED;
         if (this->riseDelayTimer == 0) {
-            if (this->actor.xzDistToPlayer < this->xzDistToRise &&
-                !(player->swallowed)) {
+            if (this->actor.xzDistToPlayer < this->xzDistToRise && !(player->swallowed)) {
                 EnPeehat_Ground_SetStateRise(this);
             }
         } else {
@@ -372,8 +371,7 @@ void EnPeehat_Flying_StateGrounded(EnPeehat* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
 
     if (IS_DAY) {
-        if (this->actor.xzDistToPlayer < this->xzDistToRise &&
-            !(player->swallowed)) {
+        if (this->actor.xzDistToPlayer < this->xzDistToRise && !(player->swallowed)) {
             EnPeehat_Flying_SetStateRise(this);
         }
     } else {

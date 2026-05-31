@@ -349,8 +349,7 @@ void func_80A7492C(EnIk* this, PlayState* play) {
     s16 yawDiff = this->actor.yawTowardsPlayer - this->actor.shape.rot.y;
 
     if ((ABS(yawDiff) <= phi_a0) && (this->actor.xzDistToPlayer < 100.0f) &&
-        (ABS(this->actor.yDistToPlayer) < 150.0f) &&
-        !(player->swallowed)) {
+        (ABS(this->actor.yDistToPlayer) < 150.0f) && !(player->swallowed)) {
         if ((play->gameplayFrames & 1)) {
             func_80A74E2C(this);
         } else {
@@ -410,8 +409,7 @@ void func_80A74BA4(EnIk* this, PlayState* play) {
     }
     this->actor.shape.rot.y = this->actor.world.rot.y;
     yawDiff = this->actor.yawTowardsPlayer - this->actor.shape.rot.y;
-    if ((ABS(yawDiff) <= temp_t0) && (this->actor.xzDistToPlayer < 100.0f) &&
-        !(player->swallowed)) {
+    if ((ABS(yawDiff) <= temp_t0) && (this->actor.xzDistToPlayer < 100.0f) && !(player->swallowed)) {
         if (ABS(this->actor.yDistToPlayer) < 150.0f) {
             if ((play->gameplayFrames & 1)) {
                 func_80A74E2C(this);

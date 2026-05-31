@@ -103,8 +103,8 @@ u8 sActionModelGroups[] = {
     PLAYER_MODELGROUP_DEFAULT,          // PLAYER_IA_MASK_GERUDO
     PLAYER_MODELGROUP_DEFAULT,          // PLAYER_IA_MASK_TRUTH
     PLAYER_MODELGROUP_DEFAULT,          // PLAYER_IA_LENS_OF_TRUTH
-    //PLAYER_MODELGROUP_BGS_AND_SHIELD,
-    //PLAYER_MODELGROUP_HAMMER_AND_SHIELD,
+    // PLAYER_MODELGROUP_BGS_AND_SHIELD,
+    // PLAYER_MODELGROUP_HAMMER_AND_SHIELD,
 };
 
 TextTriggerEntry sTextTriggers[] = {
@@ -551,8 +551,6 @@ s32 Player_ActionToModelGroup(Player* this, s32 actionParam) {
     }
 }
 
-
-
 void Player_SetModelsForHoldingShield(Player* this) {
     if ((this->stateFlags1 & PLAYER_STATE1_SHIELDING) &&
         ((this->itemAction < 0) || (this->itemAction == this->heldItemAction))) {
@@ -617,7 +615,7 @@ void Player_SetModels(Player* this, s32 modelGroup) {
     // --- GOLD GAUNTLETS OVERRIDE: Shield on Arm ---
     if (Player_GetStrength() == PLAYER_STR_GOLD_G) {
         if (modelGroup == PLAYER_MODELGROUP_BGS || modelGroup == PLAYER_MODELGROUP_HAMMER) {
-            this->rightHandType = PLAYER_MODELTYPE_RH_SHIELD; 
+            this->rightHandType = PLAYER_MODELTYPE_RH_SHIELD;
         }
     }
     // ----------------------------------------------
@@ -648,7 +646,7 @@ void Player_SetModels(Player* this, s32 modelGroup) {
     if (Player_GetStrength() == PLAYER_STR_GOLD_G) {
         if (modelGroup == PLAYER_MODELGROUP_BGS || modelGroup == PLAYER_MODELGROUP_HAMMER) {
             // Use SHEATH_17 (Shield removed from back, Sheath on back)
-            this->sheathType = PLAYER_MODELTYPE_SHEATH_17; 
+            this->sheathType = PLAYER_MODELTYPE_SHEATH_17;
         }
     }
     // ----------------------------------------------
@@ -914,7 +912,8 @@ s32 Player_GetMeleeWeaponHeld(Player* this) {
 }
 
 s32 Player_HoldsTwoHandedWeapon(Player* this) {
-    if ((this->heldItemAction >= PLAYER_IA_SWORD_BIGGORON) && (this->heldItemAction <= PLAYER_IA_HAMMER) && (Player_GetStrength() != PLAYER_STR_GOLD_G)) {
+    if ((this->heldItemAction >= PLAYER_IA_SWORD_BIGGORON) && (this->heldItemAction <= PLAYER_IA_HAMMER) &&
+        (Player_GetStrength() != PLAYER_STR_GOLD_G)) {
         return 1;
     } else {
         return 0;
@@ -1296,13 +1295,13 @@ s32 Player_OverrideLimbDrawGameplayCommon(PlayState* play, s32 limbIndex, Gfx** 
                                           void* thisx) {
     Player* this = (Player*)thisx;
 
-// --- WIND WAKER STALE POINTER FLUSH ---
+    // --- WIND WAKER STALE POINTER FLUSH ---
     // If we are at the root limb (so this only runs once per frame)...
     if (limbIndex == PLAYER_LIMB_ROOT) {
         // ONLY flush when the item is completely unequipped!
         // This prevents the array from being wiped during the throw animation.
         if (this->heldItemAction != PLAYER_IA_BOOMERANG) {
-            this->boomTargetCount = 0; 
+            this->boomTargetCount = 0;
         }
     }
     // --------------------------------------
@@ -1589,13 +1588,13 @@ u8 func_80090480(PlayState* play, ColliderQuad* collider, WeaponInfo* weaponInfo
 void Player_UpdateShieldCollider(PlayState* play, Player* this, ColliderQuad* collider, Vec3f* quadSrc) {
     static u8 shieldColTypes[PLAYER_SHIELD_MAX] = {
         COLTYPE_METAL,
-        COLTYPE_WOOD, 
+        COLTYPE_WOOD,
         COLTYPE_METAL,
         COLTYPE_METAL,
     };
 
     if (CVarGetInteger(CVAR_ENHANCEMENT("MetalDekuShield"), 0) && this->currentShield == PLAYER_SHIELD_DEKU) {
-         shieldColTypes[PLAYER_SHIELD_DEKU] = COLTYPE_METAL;
+        shieldColTypes[PLAYER_SHIELD_DEKU] = COLTYPE_METAL;
     }
 
     if (this->stateFlags1 & PLAYER_STATE1_SHIELDING) {
@@ -1730,7 +1729,7 @@ void Player_DrawGetItem(PlayState* play, Player* this) {
 }
 
 f32 sMeleeWeaponTrailLengths[] = {
-    0.0f, 4000.0f, 1750.0f, 5500.0f, 0.0f, 2500.0f, 
+    0.0f, 4000.0f, 1750.0f, 5500.0f, 0.0f, 2500.0f,
 };
 
 void func_80090A28(Player* this, Vec3f* vecs) {
@@ -1766,53 +1765,59 @@ Actor* Player_FindHookableActorAlongLine(PlayState* play, Vec3f* start, Vec3f* e
     lineVec.x = end->x - start->x;
     lineVec.y = end->y - start->y;
     lineVec.z = end->z - start->z;
-    
+
     f32 lineLenSq = SQ(lineVec.x) + SQ(lineVec.y) + SQ(lineVec.z);
     f32 lineLen = sqrtf(lineLenSq);
-    
-    if (lineLen == 0.0f) return NULL;
+
+    if (lineLen == 0.0f)
+        return NULL;
 
     Vec3f lineDir = { lineVec.x / lineLen, lineVec.y / lineLen, lineVec.z / lineLen };
 
     // Loop through all actor categories
     for (int i = 0; i < ACTORCAT_MAX; i++) {
         Actor* actor = play->actorCtx.actorLists[i].head;
-        
+
         while (actor != NULL) {
             // Check if the actor is active and has the hookable flags
-            if ((actor->update != NULL) && 
+            if ((actor->update != NULL) &&
                 (actor->flags & (ACTOR_FLAG_HOOKSHOT_PULLS_ACTOR | ACTOR_FLAG_HOOKSHOT_PULLS_PLAYER))) {
-                
+
                 // Use the actor's focus position (center mass) and collision radius
                 Vec3f center = actor->focus.pos;
                 f32 radius = actor->colChkInfo.cylRadius;
-                if (radius <= 0.0f) radius = 20.0f; // Fallback radius
+                if (radius <= 0.0f)
+                    radius = 20.0f; // Fallback radius
 
                 // Project the actor's position onto our raycast line
                 Vec3f startToActor;
                 startToActor.x = center.x - start->x;
                 startToActor.y = center.y - start->y;
                 startToActor.z = center.z - start->z;
-                
+
                 f32 t = (startToActor.x * lineDir.x) + (startToActor.y * lineDir.y) + (startToActor.z * lineDir.z);
-                
+
                 // Clamp 't' to the start and end of the raycast segment
-                if (t < 0.0f) t = 0.0f;
-                if (t > lineLen) t = lineLen;
-                
+                if (t < 0.0f)
+                    t = 0.0f;
+                if (t > lineLen)
+                    t = lineLen;
+
                 // Find the closest point on the line to the actor
                 Vec3f closestPoint;
                 closestPoint.x = start->x + (lineDir.x * t);
                 closestPoint.y = start->y + (lineDir.y * t);
                 closestPoint.z = start->z + (lineDir.z * t);
-                
+
                 // Check if the distance from the line to the actor is within its collision radius
-                f32 distToLineSq = SQ(center.x - closestPoint.x) + SQ(center.y - closestPoint.y) + SQ(center.z - closestPoint.z);
-                
+                f32 distToLineSq =
+                    SQ(center.x - closestPoint.x) + SQ(center.y - closestPoint.y) + SQ(center.z - closestPoint.z);
+
                 if (distToLineSq <= SQ(radius * 1.5f)) { // 1.5f multiplier makes targeting slightly more forgiving
-                    
+
                     // Check if this actor is the closest one we've hit so far
-                    f32 distToPlayerSq = SQ(closestPoint.x - start->x) + SQ(closestPoint.y - start->y) + SQ(closestPoint.z - start->z);
+                    f32 distToPlayerSq =
+                        SQ(closestPoint.x - start->x) + SQ(closestPoint.y - start->y) + SQ(closestPoint.z - start->z);
                     if (distToPlayerSq < closestDistSq) {
                         closestDistSq = distToPlayerSq;
                         closestActor = actor;
@@ -1832,7 +1837,7 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
 
     // Cap the target limit to 5
     if (this->boomTargetCount >= 5) {
-        return; 
+        return;
     }
 
     Vec3f lineVec;
@@ -1842,7 +1847,8 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
 
     f32 lineLenSq = SQ(lineVec.x) + SQ(lineVec.y) + SQ(lineVec.z);
     f32 lineLen = sqrtf(lineLenSq);
-    if (lineLen == 0.0f) return;
+    if (lineLen == 0.0f)
+        return;
 
     Vec3f lineDir = { lineVec.x / lineLen, lineVec.y / lineLen, lineVec.z / lineLen };
 
@@ -1854,19 +1860,17 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
         Actor* actor = play->actorCtx.actorLists[categories[c]].head;
         while (actor != NULL) {
             if (actor->update != NULL) {
-                
+
                 // Allow the actor if it has the Z-Target flag, OR if it matches our specific IDs
-                u8 isTargetable = (actor->flags & ACTOR_FLAG_ATTENTION_ENABLED) || 
-                                  (actor->id == ACTOR_OBJ_TSUBO) || 
-                                  (actor->id == ACTOR_OBJ_KIBAKO) || 
-                                  (actor->id == ACTOR_EN_KUSA) || 
+                u8 isTargetable = (actor->flags & ACTOR_FLAG_ATTENTION_ENABLED) || (actor->id == ACTOR_OBJ_TSUBO) ||
+                                  (actor->id == ACTOR_OBJ_KIBAKO) || (actor->id == ACTOR_EN_KUSA) ||
                                   (actor->id == ACTOR_EN_KANBAN) ||
                                   (actor->id == ACTOR_EN_ITEM00) || // Rupees, Hearts, Ammo
                                   (actor->id == ACTOR_EN_SI) ||     // Skulltula Tokens
                                   (actor->id == ACTOR_OBJ_SWITCH && (actor->params == 3 || actor->params == 4));
 
                 if (isTargetable) {
-                    
+
                     // Ensure we haven't already locked onto this specific actor
                     u8 alreadyTargeted = 0;
                     for (int i = 0; i < this->boomTargetCount; i++) {
@@ -1880,7 +1884,8 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
                         Vec3f center;
 
                         // --- COORDINATE HIJACK ---
-                        if (actor->id == ACTOR_EN_ITEM00 || actor->id == ACTOR_EN_KUSA || actor->id == ACTOR_OBJ_TSUBO) {
+                        if (actor->id == ACTOR_EN_ITEM00 || actor->id == ACTOR_EN_KUSA ||
+                            actor->id == ACTOR_OBJ_TSUBO) {
                             center = actor->world.pos;
                             center.y += 5.0f;
                         } else {
@@ -1889,7 +1894,8 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
                         // -------------------------
 
                         f32 radius = actor->colChkInfo.cylRadius;
-                        if (radius <= 0.0f) radius = 20.0f; 
+                        if (radius <= 0.0f)
+                            radius = 20.0f;
                         radius *= 3.0f; // Expand the radius to make locking on more forgiving
 
                         Vec3f startToActor;
@@ -1897,7 +1903,8 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
                         startToActor.y = center.y - start->y;
                         startToActor.z = center.z - start->z;
 
-                        f32 t = (startToActor.x * lineDir.x) + (startToActor.y * lineDir.y) + (startToActor.z * lineDir.z);
+                        f32 t =
+                            (startToActor.x * lineDir.x) + (startToActor.y * lineDir.y) + (startToActor.z * lineDir.z);
 
                         if (t >= 0.0f && t <= lineLen) {
                             Vec3f closestPoint;
@@ -1905,23 +1912,26 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
                             closestPoint.y = start->y + (lineDir.y * t);
                             closestPoint.z = start->z + (lineDir.z * t);
 
-                            f32 distToLineSq = SQ(center.x - closestPoint.x) + SQ(center.y - closestPoint.y) + SQ(center.z - closestPoint.z);
+                            f32 distToLineSq = SQ(center.x - closestPoint.x) + SQ(center.y - closestPoint.y) +
+                                               SQ(center.z - closestPoint.z);
 
                             if (distToLineSq <= SQ(radius)) {
-                                f32 distToPlayerSq = SQ(closestPoint.x - start->x) + SQ(closestPoint.y - start->y) + SQ(closestPoint.z - start->z);
-                                
+                                f32 distToPlayerSq = SQ(closestPoint.x - start->x) + SQ(closestPoint.y - start->y) +
+                                                     SQ(closestPoint.z - start->z);
+
                                 if (distToPlayerSq < closestDistSq && distToPlayerSq < SQ(800.0f)) {
                                     CollisionPoly* colPoly;
                                     s32 bgId;
                                     Vec3f hitPos;
-                                    
+
                                     // --- RAYCAST LENIENCY ---
                                     Vec3f rayEnd = center;
                                     rayEnd.y += 12.0f; // Bump up to glide over floor polygons!
                                     // ------------------------
 
                                     // Use rayEnd instead of center!
-                                    if (!BgCheck_AnyLineTest3(&play->colCtx, start, &rayEnd, &hitPos, &colPoly, 1, 1, 1, 1, &bgId)) {
+                                    if (!BgCheck_AnyLineTest3(&play->colCtx, start, &rayEnd, &hitPos, &colPoly, 1, 1, 1,
+                                                              1, &bgId)) {
                                         closestDistSq = distToPlayerSq;
                                         closestActor = actor;
                                     }
@@ -1938,9 +1948,9 @@ void Player_ScanBoomerangTargets(PlayState* play, Player* this, Vec3f* start, Ve
     if (closestActor != NULL) {
         this->boomTargets[this->boomTargetCount] = closestActor;
         this->boomTargetCount++;
-        
+
         // Play the Z-Target lock-on sound effect!
-        Audio_PlaySoundTransposed(&this->actor.projectedPos,  NA_SE_SY_ATTENTION_ON, this->boomTargetCount);
+        Audio_PlaySoundTransposed(&this->actor.projectedPos, NA_SE_SY_ATTENTION_ON, this->boomTargetCount);
     }
 }
 
@@ -1966,7 +1976,7 @@ void Player_DrawBoomerangTargetArrow(PlayState* play, Actor* actor) {
     // If the target is behind the camera, skip drawing entirely!
     // (Doing this before OPEN_DISPS prevents the scope macro crash)
     if (invW <= 0.0f) {
-        return; 
+        return;
     }
 
     OPEN_DISPS(play->state.gfxCtx);
@@ -1997,10 +2007,10 @@ void Player_DrawBoomerangTargetArrow(PlayState* play, Actor* actor) {
         Matrix_RotateZ((2.0f * M_PI / 3.0f), MTXMODE_APPLY);
         Matrix_Push();
         Matrix_Translate(spread, spread, 0.0f, MTXMODE_APPLY);
-        
+
         gSPMatrix(OVERLAY_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPDisplayList(OVERLAY_DISP++, gZTargetLockOnTriangleDL);
-        
+
         Matrix_Pop();
     }
 
@@ -2034,10 +2044,10 @@ void Player_DrawHookshotReticle(PlayState* play, Player* this, f32 hookshotRange
 
         // ONLY run the multi-target scanner if we are NOT actively Z-targeting
         if (this->focusActor == NULL) {
-            
+
             // Run the raycast scan
             Player_ScanBoomerangTargets(play, this, &hookshotStart, &hookshotEnd);
-            
+
             // UI VISUALS: Draw the custom yellow arrow over every locked target
             for (int i = 0; i < this->boomTargetCount; i++) {
                 Actor* lockedActor = this->boomTargets[i];
@@ -2054,21 +2064,24 @@ void Player_DrawHookshotReticle(PlayState* play, Player* this, f32 hookshotRange
     // -------------------------------------------
 
     // 1. Run the vanilla background check
-    s32 hitBg = BgCheck_AnyLineTest3(&play->colCtx, &hookshotStart, &hookshotEnd, &firstHit, &colPoly, 1, 1, 1, 1, &bgId);
-    
+    s32 hitBg =
+        BgCheck_AnyLineTest3(&play->colCtx, &hookshotStart, &hookshotEnd, &firstHit, &colPoly, 1, 1, 1, 1, &bgId);
+
     // 2. Run our custom Actor check
     Vec3f actorHitPos;
     Actor* hitActor = Player_FindHookableActorAlongLine(play, &hookshotStart, &hookshotEnd, &actorHitPos);
 
     // 3. Compare distances to see which one we should render on
     u8 renderingOnActor = 0;
-    
+
     if (hitActor != NULL) {
         if (hitBg) {
             // We hit BOTH a wall and an actor. See which is closer to the player.
-            f32 distToBgSq = SQ(firstHit.x - hookshotStart.x) + SQ(firstHit.y - hookshotStart.y) + SQ(firstHit.z - hookshotStart.z);
-            f32 distToActorSq = SQ(actorHitPos.x - hookshotStart.x) + SQ(actorHitPos.y - hookshotStart.y) + SQ(actorHitPos.z - hookshotStart.z);
-            
+            f32 distToBgSq =
+                SQ(firstHit.x - hookshotStart.x) + SQ(firstHit.y - hookshotStart.y) + SQ(firstHit.z - hookshotStart.z);
+            f32 distToActorSq = SQ(actorHitPos.x - hookshotStart.x) + SQ(actorHitPos.y - hookshotStart.y) +
+                                SQ(actorHitPos.z - hookshotStart.z);
+
             if (distToActorSq < distToBgSq) {
                 firstHit = actorHitPos; // Hijack the coordinate!
                 renderingOnActor = 1;
@@ -2098,10 +2111,10 @@ void Player_DrawHookshotReticle(PlayState* play, Player* this, f32 hookshotRange
         gSPTexture(OVERLAY_DISP++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
         gDPLoadTextureBlock(OVERLAY_DISP++, gLinkAdultHookshotReticleTex, G_IM_FMT_I, G_IM_SIZ_8b, 64, 64, 0,
                             G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, 6, 6, G_TX_NOLOD, G_TX_NOLOD);
-        
+
         // --- OVERRIDE COLOR LOGIC FOR ACTORS ---
         if (renderingOnActor || (SurfaceType_IsHookshotSurface(&play->colCtx, colPoly, bgId) &&
-            CVarGetInteger(CVAR_ENHANCEMENT("HookshotableReticle"), false))) {
+                                 CVarGetInteger(CVAR_ENHANCEMENT("HookshotableReticle"), false))) {
             const Color_RGBA8 defaultColor = { .r = 0, .g = 255, .b = 0, .a = 255 };
             const Color_RGBA8 color = CVarGetColor(CVAR_COSMETIC("HookshotReticle.Target.Value"), defaultColor);
             gDPSetPrimColor(OVERLAY_DISP++, 0, 0, color.r, color.g, color.b, color.a);
@@ -2110,7 +2123,7 @@ void Player_DrawHookshotReticle(PlayState* play, Player* this, f32 hookshotRange
             const Color_RGBA8 color = CVarGetColor(CVAR_COSMETIC("HookshotReticle.NonTarget.Value"), defaultColor);
             gDPSetPrimColor(OVERLAY_DISP++, 0, 0, color.r, color.g, color.b, color.a);
         }
-        
+
         gSPVertex(OVERLAY_DISP++, (uintptr_t)gLinkAdultHookshotReticleVtx, 3, 0);
         gSP1Triangle(OVERLAY_DISP++, 0, 1, 2, 0);
 

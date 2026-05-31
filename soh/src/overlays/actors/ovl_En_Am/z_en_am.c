@@ -676,8 +676,7 @@ void EnAm_Statue(EnAm* this, PlayState* play) {
     f32 temp158f = this->dyna.unk_158;
     s16 moveDir = 0;
     s32 strengthBoost = CVarGetInteger(CVAR_ENHANCEMENT("StrengthBoost"), 0) ? Player_GetStrength() : 0;
-    s32 blockSpeed =
-        CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) + strengthBoost;
+    s32 blockSpeed = CVarGetInteger(CVAR_ENHANCEMENT("FasterBlockPush"), 0) + strengthBoost;
 
     if (this->unk_258 == 0) {
         if (this->dyna.unk_150 != 0.0f) {
@@ -815,7 +814,9 @@ void EnAm_UpdateDamage(EnAm* this, PlayState* play) {
             if (this->behavior >= AM_BEHAVIOR_5) {
                 EnAm_SetupRicochet(this, play);
             }
-        } else if ((this->hurtCollider.base.acFlags & AC_HIT) && ((this->behavior >= AM_BEHAVIOR_5) || (this->dyna.actor.colChkInfo.damageEffect == AM_DMGEFF_HAMMER))) {
+        } else if ((this->hurtCollider.base.acFlags & AC_HIT) &&
+                   ((this->behavior >= AM_BEHAVIOR_5) ||
+                    (this->dyna.actor.colChkInfo.damageEffect == AM_DMGEFF_HAMMER))) {
             this->hurtCollider.base.acFlags &= ~AC_HIT;
 
             if (this->dyna.actor.colChkInfo.damageEffect != AM_DMGEFF_MAGIC_FIRE_LIGHT) {
@@ -838,7 +839,8 @@ void EnAm_UpdateDamage(EnAm* this, PlayState* play) {
                         CollisionCheck_SpawnShieldParticlesMetal(play, &sparkPos);
                     }
                 } else if ((this->dyna.actor.colChkInfo.damageEffect == AM_DMGEFF_KILL) ||
-                           (this->behavior == AM_BEHAVIOR_STUNNED) || (this->dyna.actor.colChkInfo.damageEffect == AM_DMGEFF_HAMMER)) {
+                           (this->behavior == AM_BEHAVIOR_STUNNED) ||
+                           (this->dyna.actor.colChkInfo.damageEffect == AM_DMGEFF_HAMMER)) {
                     this->dyna.actor.colChkInfo.health = 0;
 
                     if (this->dyna.actor.colChkInfo.damageEffect == AM_DMGEFF_HAMMER) {

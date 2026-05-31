@@ -1890,7 +1890,7 @@ PosRot* Actor_GetWorldPosShapeRot(PosRot* arg0, Actor* actor) {
 f32 func_8002EFC0(Actor* actor, Player* player, s16 arg2) {
     s16 yawTemp = (s16)(actor->yawTowardsPlayer - 0x8000) - arg2;
     s16 yawTempAbs = ABS(yawTemp);
-    
+
     // SoH: Check if our 360-targeting CVar is active
     bool targetBehindEnabled = CVarGetInteger(CVAR_ENHANCEMENT("TargetBehind"), 0) != 0;
 
@@ -1899,13 +1899,14 @@ f32 func_8002EFC0(Actor* actor, Player* player, s16 arg2) {
         if (actor->flags & ACTOR_FLAG_LOCK_ON_DISABLED) {
             return FLT_MAX;
         }
-        
+
         // Bypass the 90-degree FOV cap if enhancement is enabled
         if (!targetBehindEnabled && yawTempAbs > 0x4000) {
             return FLT_MAX;
         } else {
             // Vanilla math: Naturally prioritizes front over back
-            return actor->xyzDistToPlayerSq - actor->xyzDistToPlayerSq * 0.8f * ((0x4000 - yawTempAbs) * (1.0f / 0x8000));
+            return actor->xyzDistToPlayerSq -
+                   actor->xyzDistToPlayerSq * 0.8f * ((0x4000 - yawTempAbs) * (1.0f / 0x8000));
         }
     }
 

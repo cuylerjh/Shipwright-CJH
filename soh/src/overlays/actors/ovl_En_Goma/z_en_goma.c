@@ -554,8 +554,7 @@ void EnGoma_ChasePlayer(EnGoma* this, PlayState* play) {
     if (this->actor.bgCheckFlags & 1) {
         this->actor.velocity.y = 0.0f;
     }
-    if (this->actor.xzDistToPlayer <= 150.0f && this->actor.yDistToPlayer < 75.0f &&
-        !(player->swallowed)) {
+    if (this->actor.xzDistToPlayer <= 150.0f && this->actor.yDistToPlayer < 75.0f && !(player->swallowed)) {
         EnGoma_SetupPrepareJump(this);
     }
 }
